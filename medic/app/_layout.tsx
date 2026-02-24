@@ -13,7 +13,6 @@ import { registerPushToken } from '@/utils/registerPushToken';
 // Show notifications in foreground with sound
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
