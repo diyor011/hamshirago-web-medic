@@ -51,6 +51,15 @@ export class MedicsController {
     await this.medicsService.updateLocation(medicId, dto);
   }
 
+  // ── Push token ────────────────────────────────────────────────────────────
+
+  @Patch('push-token')
+  @UseGuards(MedicAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async savePushToken(@MedicId() medicId: string, @Body() body: { token: string }) {
+    if (body?.token) await this.medicsService.savePushToken(medicId, body.token);
+  }
+
   // ── Nearby (used by client app) ───────────────────────────────────────────
 
   @Get('nearby')

@@ -7,6 +7,8 @@ import { OrderLocation } from './entities/order-location.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderEventsGateway } from '../realtime/order-events.gateway';
+import { PushNotificationsService } from '../realtime/push-notifications.service';
+import { MedicsService } from '../medics/medics.service';
 
 @Injectable()
 export class OrdersService {
@@ -16,6 +18,8 @@ export class OrdersService {
     @InjectRepository(OrderLocation)
     private locationRepo: Repository<OrderLocation>,
     private orderEventsGateway: OrderEventsGateway,
+    private pushService: PushNotificationsService,
+    private medicsService: MedicsService,
   ) {}
 
   async create(clientId: string, dto: CreateOrderDto): Promise<Order> {
@@ -38,7 +42,26 @@ export class OrdersService {
       phone: dto.location.phone,
     });
     await this.locationRepo.save(location);
-    return this.findOne(saved.id);
+    const fullOrder = await this.findOne(saved.id);
+
+    // WebSocket — for medics with the app open
+    this.orderEventsGateway.emitNewOrder(fullOrder as unknown as Record<string, unknown>);
+
+    // Push notifications — for medics with the app in background/closed
+    this.medicsService.getOnlinePushTokens().then((tokens) => {
+      if (!tokens.length) return;
+      const price = (dto.priceAmount - (dto.discountAmount ?? 0)).toLocaleString('ru-RU');
+      this.pushService.send(tokens, {
+        title: '🚨 Новый заказ!',
+        body: `${dto.serviceTitle} — ${price} UZS`,
+        sound: 'default',
+        data: { orderId: saved.id },
+        channelId: 'new_orders',
+        priority: 'high',
+      });
+    });
+
+    return fullOrder;
   }
 
   async findOne(id: string): Promise<Order> {

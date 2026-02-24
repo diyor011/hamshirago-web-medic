@@ -34,7 +34,12 @@ export class OrderEventsGateway implements OnGatewayConnection, OnGatewayDisconn
       }
       const payload = this.jwtService.verify(token, { secret: this.configService.get('JWT_SECRET') });
       (client as any).userId = payload.sub;
-      this.logger.log(`Client connected: ${client.id} user=${payload.sub}`);
+      (client as any).role = payload.role;
+      // Medics join the feed room to receive new_order broadcasts
+      if (payload.role === 'medic') {
+        client.join('medics_feed');
+      }
+      this.logger.log(`Client connected: ${client.id} user=${payload.sub} role=${payload.role}`);
     } catch {
       client.disconnect();
     }
@@ -67,5 +72,11 @@ export class OrderEventsGateway implements OnGatewayConnection, OnGatewayDisconn
   emitOrderStatus(orderId: string, status: string) {
     this.server.to(`order:${orderId}`).emit('order_status', { orderId, status });
     this.logger.log(`Emitted order_status orderId=${orderId} status=${status}`);
+  }
+
+  /** Broadcast a new order to all online medics */
+  emitNewOrder(order: Record<string, unknown>) {
+    this.server.to('medics_feed').emit('new_order', order);
+    this.logger.log(`Emitted new_order id=${order['id']}`);
   }
 }

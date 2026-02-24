@@ -1,12 +1,26 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { registerPushToken } from '@/utils/registerPushToken';
+
+// Show notifications in foreground with sound
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -51,6 +65,11 @@ function RootLayoutNav() {
       router.replace('/(tabs)');
     }
   }, [token, segments]);
+
+  // Register push token whenever the medic logs in
+  useEffect(() => {
+    if (token) registerPushToken(token);
+  }, [token]);
 
   return (
     <ThemeProvider value={DefaultTheme}>

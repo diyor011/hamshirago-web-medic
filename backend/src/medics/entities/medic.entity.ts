@@ -38,6 +38,10 @@ export class Medic {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   balance: number;
 
+  /** Expo push token for background notifications */
+  @Column({ type: 'varchar', nullable: true, default: null })
+  pushToken: string | null;
+
   /** Last known lat/lng for dispatch */
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   latitude: number | null;

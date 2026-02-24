@@ -18,5 +18,8 @@ export async function apiFetch<T>(
     const msg = body?.message ?? `HTTP ${res.status}`;
     throw new Error(Array.isArray(msg) ? msg.join(', ') : String(msg));
   }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as unknown as T;
+  }
   return res.json() as Promise<T>;
 }

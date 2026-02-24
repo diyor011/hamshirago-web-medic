@@ -1,18 +1,23 @@
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
+import { io, Socket } from 'socket.io-client';
 import { Theme } from '@/constants/Theme';
-import { apiFetch } from '@/constants/api';
+import { API_BASE, apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
 interface OrderLocation {
@@ -33,6 +38,70 @@ interface AvailableOrder {
   created_at: string;
 }
 
+// ─── In-app notification banner ───────────────────────────────────────────────
+
+function NewOrderBanner({
+  order,
+  onAccept,
+  onDismiss,
+}: {
+  order: AvailableOrder;
+  onAccept: () => void;
+  onDismiss: () => void;
+}) {
+  const translateY = useRef(new Animated.Value(-120)).current;
+
+  useEffect(() => {
+    // Slide in
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 10,
+    }).start();
+
+    // Auto-dismiss after 5 seconds
+    const timer = setTimeout(() => {
+      Animated.timing(translateY, {
+        toValue: -120,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(onDismiss);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const finalPrice = order.priceAmount - (order.discountAmount ?? 0);
+
+  return (
+    <Animated.View style={[styles.banner, { transform: [{ translateY }] }]}>
+      <View style={styles.bannerLeft}>
+        <View style={styles.bannerIconWrap}>
+          <FontAwesome name="bell" size={18} color="#fff" />
+        </View>
+        <View style={styles.bannerText}>
+          <Text style={styles.bannerTitle} numberOfLines={1}>{order.serviceTitle}</Text>
+          <Text style={styles.bannerPrice}>{finalPrice.toLocaleString('ru-RU')} UZS</Text>
+        </View>
+      </View>
+      <View style={styles.bannerActions}>
+        <Pressable
+          style={styles.bannerAcceptBtn}
+          onPress={onAccept}
+        >
+          <Text style={styles.bannerAcceptText}>Принять</Text>
+        </Pressable>
+        <Pressable style={styles.bannerCloseBtn} onPress={onDismiss}>
+          <FontAwesome name="times" size={14} color="rgba(255,255,255,0.7)" />
+        </Pressable>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
 export default function AvailableOrdersScreen() {
   const { token, medic } = useAuth();
   const router = useRouter();
@@ -40,6 +109,9 @@ export default function AvailableOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [bannerOrder, setBannerOrder] = useState<AvailableOrder | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -52,10 +124,70 @@ export default function AvailableOrdersScreen() {
     }
   }, [token]);
 
+  // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
     fetchOrders().finally(() => setLoading(false));
   }, [fetchOrders]);
+
+  // ── Refetch when tab comes into focus ───────────────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [fetchOrders]),
+  );
+
+  // ── WebSocket ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!token) return;
+
+    // Request notification permission (for dev build / Android in Expo Go)
+    Notifications.requestPermissionsAsync().catch(() => {});
+
+    const socket = io(API_BASE, {
+      transports: ['websocket'],
+      auth: { token },
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => setWsConnected(true));
+    socket.on('disconnect', () => setWsConnected(false));
+
+    socket.on('new_order', (order: AvailableOrder) => {
+      // Add to list if not already present
+      setOrders((prev) => {
+        if (prev.some((o) => o.id === order.id)) return prev;
+        return [order, ...prev];
+      });
+
+      // 1) Haptic feedback — works in Expo Go on both platforms
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+
+      // 2) Show in-app banner
+      setBannerOrder(order);
+
+      // 3) System notification with sound (works in dev build; partial in Expo Go Android)
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🚨 Новый заказ!',
+          body: `${order.serviceTitle} — ${(order.priceAmount - (order.discountAmount ?? 0)).toLocaleString('ru-RU')} UZS`,
+          sound: 'default',
+          data: { orderId: order.id },
+          ...(Platform.OS === 'android' ? { channelId: 'new_orders' } : {}),
+        },
+        trigger: null,
+      }).catch(() => {}); // silently fail in Expo Go
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -75,6 +207,7 @@ export default function AvailableOrdersScreen() {
         style: 'default',
         onPress: async () => {
           setAccepting(orderId);
+          setBannerOrder(null);
           try {
             await apiFetch(`/orders/${orderId}/accept`, {
               method: 'POST',
@@ -92,6 +225,8 @@ export default function AvailableOrdersScreen() {
     ]);
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -102,6 +237,7 @@ export default function AvailableOrdersScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Offline banner */}
       {!medic?.isOnline && (
         <View style={styles.offlineBanner}>
           <FontAwesome name="power-off" size={14} color="#854d0e" />
@@ -109,6 +245,25 @@ export default function AvailableOrdersScreen() {
             Вы офлайн — новые заказы не поступают. Включите онлайн в Профиле.
           </Text>
         </View>
+      )}
+
+      {/* Live connection status */}
+      {medic?.isOnline && (
+        <View style={[styles.statusBar, wsConnected ? styles.statusBarLive : styles.statusBarWaiting]}>
+          <View style={[styles.statusDot, { backgroundColor: wsConnected ? Theme.success : Theme.warning }]} />
+          <Text style={[styles.statusBarText, { color: wsConnected ? '#065f46' : '#78350f' }]}>
+            {wsConnected ? 'Подключено — ожидаем новых заказов' : 'Подключение...'}
+          </Text>
+        </View>
+      )}
+
+      {/* Animated new order banner */}
+      {bannerOrder && (
+        <NewOrderBanner
+          order={bannerOrder}
+          onAccept={() => handleAccept(bannerOrder.id)}
+          onDismiss={() => setBannerOrder(null)}
+        />
       )}
 
       <FlatList
@@ -136,6 +291,8 @@ export default function AvailableOrdersScreen() {
     </View>
   );
 }
+
+// ─── Order card ───────────────────────────────────────────────────────────────
 
 function AvailableOrderCard({
   order,
@@ -197,9 +354,12 @@ function AvailableOrderCard({
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.background },
+
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -211,6 +371,69 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   offlineText: { flex: 1, fontSize: 13, color: '#854d0e', fontWeight: '500' },
+
+  statusBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+  },
+  statusBarLive: { backgroundColor: '#d1fae520', borderBottomColor: '#6ee7b740' },
+  statusBarWaiting: { backgroundColor: '#fef3c720', borderBottomColor: '#fde68a40' },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusBarText: { fontSize: 12, fontWeight: '600' },
+
+  // ── In-app banner ──────────────────────────────────────────────────────────
+  banner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: '#dc2626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10,
+    gap: 10,
+  },
+  bannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  bannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerText: { flex: 1 },
+  bannerTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  bannerPrice: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 1 },
+  bannerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bannerAcceptBtn: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  bannerAcceptText: { fontSize: 13, fontWeight: '700', color: '#dc2626' },
+  bannerCloseBtn: {
+    padding: 6,
+  },
+
   listContent: { padding: 16, gap: 12 },
   emptyContainer: { flexGrow: 1 },
   empty: {
@@ -222,6 +445,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: Theme.text },
   emptyHint: { fontSize: 14, color: Theme.textSecondary },
+
   card: {
     backgroundColor: Theme.surface,
     borderRadius: 14,

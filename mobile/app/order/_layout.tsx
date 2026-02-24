@@ -5,6 +5,7 @@ export default function OrderLayout() {
     <Stack>
       <Stack.Screen name="location" options={{ title: 'Адрес', headerBackTitle: 'Назад' }} />
       <Stack.Screen name="confirm" options={{ title: 'Подтверждение', headerBackTitle: 'Назад' }} />
+      <Stack.Screen name="track" options={{ title: 'Отслеживание заказа', headerBackVisible: false }} />
     </Stack>
   );
 }

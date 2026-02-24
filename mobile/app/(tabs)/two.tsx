@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useRouter } from 'expo-router';
 import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
 import { apiFetch } from '@/constants/api';
@@ -61,6 +62,8 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
   DONE: Theme.success,
   CANCELED: Theme.error,
 };
+
+const ACTIVE_STATUSES: OrderStatus[] = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'SERVICE_STARTED'];
 
 export default function OrdersScreen() {
   const { token, logout } = useAuth();
@@ -134,13 +137,14 @@ export default function OrdersScreen() {
             </View>
           ) : null
         }
-        renderItem={({ item }) => <OrderCard order={item} />}
+        renderItem={({ item }) => <OrderCard order={item} isActive={ACTIVE_STATUSES.includes(item.status)} />}
       />
     </View>
   );
 }
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({ order, isActive }: { order: Order; isActive: boolean }) {
+  const router = useRouter();
   const finalPrice = order.priceAmount - (order.discountAmount ?? 0);
   const statusColor = STATUS_COLOR[order.status] ?? Theme.textSecondary;
   const date = new Date(order.created_at);
@@ -152,7 +156,13 @@ function OrderCard({ order }: { order: Order }) {
   });
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
+      onPress={() => isActive
+        ? router.push({ pathname: '/order/track', params: { orderId: order.id } })
+        : undefined
+      }
+    >
       <View style={styles.cardHeader}>
         <Text style={styles.serviceTitle}>{order.serviceTitle}</Text>
         <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
@@ -175,11 +185,16 @@ function OrderCard({ order }: { order: Order }) {
 
       <View style={styles.cardFooter}>
         <Text style={styles.price}>{finalPrice.toLocaleString('ru-RU')} UZS</Text>
-        <Text style={styles.date} lightColor={Theme.textSecondary} darkColor={Theme.textSecondary}>
-          {dateStr}
-        </Text>
+        <View style={styles.cardFooterRight}>
+          <Text style={styles.date} lightColor={Theme.textSecondary} darkColor={Theme.textSecondary}>
+            {dateStr}
+          </Text>
+          {isActive && (
+            <FontAwesome name="chevron-right" size={12} color={Theme.textSecondary} />
+          )}
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -306,6 +321,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: Theme.border,
+  },
+  cardFooterRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   price: {
     fontSize: 16,

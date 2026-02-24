@@ -41,7 +41,7 @@ export default function OrderConfirmScreen() {
     if (!service) return;
     setLoading(true);
     try {
-      await apiFetch('/orders', {
+      const order = await apiFetch<{ id: string }>('/orders', {
         method: 'POST',
         token: token ?? undefined,
         body: JSON.stringify({
@@ -59,7 +59,7 @@ export default function OrderConfirmScreen() {
           },
         }),
       });
-      router.replace('/(tabs)/two');
+      router.replace({ pathname: '/order/track', params: { orderId: order.id } });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Ошибка при создании заказа';
       Alert.alert('Ошибка', msg);

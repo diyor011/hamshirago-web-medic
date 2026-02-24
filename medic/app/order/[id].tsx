@@ -1,6 +1,8 @@
 import {
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +15,37 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Theme } from '@/constants/Theme';
 import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
+
+async function openInMaps(latitude: number, longitude: number) {
+  const lat = latitude;
+  const lng = longitude;
+
+  const yandexApp = Platform.OS === 'ios'
+    ? `yandexmaps://maps.yandex.ru/?pt=${lng},${lat}&z=16&l=map`
+    : `yandexmaps://maps.yandex.ru/?pt=${lng},${lat}&z=16`;
+
+  const yandexWeb = `https://maps.yandex.ru/?pt=${lng},${lat}&z=16&l=map`;
+  const googleWeb = `https://maps.google.com/?q=${lat},${lng}`;
+
+  try {
+    const canYandex = await Linking.canOpenURL(yandexApp);
+    if (canYandex) {
+      await Linking.openURL(yandexApp);
+      return;
+    }
+  } catch {}
+
+  // fallback: Yandex Maps web, then Google Maps
+  Alert.alert(
+    'Открыть в картах',
+    '',
+    [
+      { text: 'Яндекс Карты', onPress: () => Linking.openURL(yandexWeb) },
+      { text: 'Google Maps', onPress: () => Linking.openURL(googleWeb) },
+      { text: 'Отмена', style: 'cancel' },
+    ],
+  );
+}
 
 type OrderStatus =
   | 'CREATED' | 'ASSIGNED' | 'ACCEPTED' | 'ON_THE_WAY'
@@ -199,6 +232,18 @@ export default function OrderDetailScreen() {
             <FontAwesome name="phone" size={16} color={Theme.primary} />
             <Text style={styles.locationText}>{order.location.phone}</Text>
           </View>
+          {order.location.latitude != null && order.location.longitude != null && (
+            <Pressable
+              style={({ pressed }) => [styles.mapsBtn, pressed && styles.mapsBtnPressed]}
+              onPress={() => openInMaps(
+                Number(order.location!.latitude),
+                Number(order.location!.longitude),
+              )}
+            >
+              <FontAwesome name="location-arrow" size={15} color="#fff" />
+              <Text style={styles.mapsBtnText}>Открыть маршрут</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -304,6 +349,18 @@ const styles = StyleSheet.create({
   finalValue: { fontSize: 17, fontWeight: '700', color: Theme.primary },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   locationText: { fontSize: 15, color: Theme.text, flex: 1 },
+  mapsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Theme.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  mapsBtnPressed: { opacity: 0.9 },
+  mapsBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   actionBtn: {
     backgroundColor: Theme.primary,
     borderRadius: 14,

@@ -21,11 +21,30 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0d9488"
       },
-      "package": "com.hamshirago.medic"
+      "package": "com.hamshirago.medic",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       "expo-router",
-      "expo-location"
-    ]
+      "expo-location",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#0d9488",
+          "sounds": []
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "bb076475-8c14-4266-8992-ebbe2eda93f6"
+      }
+    },
+    "owner": "abubakirilhomov"
   }
 }
