@@ -1,16 +1,94 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { Medic } from './entities/medic.entity';
+import { RegisterMedicDto } from './dto/register-medic.dto';
+import { LoginMedicDto } from './dto/login-medic.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
 
 @Injectable()
 export class MedicsService {
   constructor(
     @InjectRepository(Medic)
     private medicRepo: Repository<Medic>,
+    private jwtService: JwtService,
   ) {}
 
-  /** Simple distance approx (degrees). MVP: no PostGIS */
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  async register(dto: RegisterMedicDto) {
+    const existing = await this.medicRepo.findOne({ where: { phone: dto.phone } });
+    if (existing) throw new ConflictException('Medic with this phone already exists');
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const medic = this.medicRepo.create({
+      phone: dto.phone,
+      name: dto.name,
+      passwordHash,
+      experienceYears: dto.experienceYears ?? 0,
+    });
+    const saved = await this.medicRepo.save(medic);
+    return this.toAuthResponse(saved);
+  }
+
+  async login(dto: LoginMedicDto) {
+    const medic = await this.medicRepo.findOne({ where: { phone: dto.phone } });
+    if (!medic) throw new UnauthorizedException('Invalid phone or password');
+    const ok = await bcrypt.compare(dto.password, medic.passwordHash);
+    if (!ok) throw new UnauthorizedException('Invalid phone or password');
+    return this.toAuthResponse(medic);
+  }
+
+  private toAuthResponse(medic: Medic) {
+    const access_token = this.jwtService.sign({ sub: medic.id, role: 'medic' });
+    return {
+      access_token,
+      medic: {
+        id: medic.id,
+        phone: medic.phone,
+        name: medic.name,
+        experienceYears: medic.experienceYears,
+        rating: medic.rating,
+        balance: medic.balance,
+        isOnline: medic.isOnline,
+      },
+    };
+  }
+
+  // ── Profile & location ────────────────────────────────────────────────────
+
+  async findById(id: string): Promise<Medic | null> {
+    return this.medicRepo.findOne({ where: { id } });
+  }
+
+  async getProfile(id: string) {
+    const medic = await this.findById(id);
+    if (!medic) throw new UnauthorizedException();
+    return {
+      id: medic.id,
+      phone: medic.phone,
+      name: medic.name,
+      experienceYears: medic.experienceYears,
+      rating: medic.rating,
+      reviewCount: medic.reviewCount,
+      balance: medic.balance,
+      isOnline: medic.isOnline,
+      latitude: medic.latitude,
+      longitude: medic.longitude,
+    };
+  }
+
+  async updateLocation(id: string, dto: UpdateLocationDto): Promise<void> {
+    await this.medicRepo.update(id, {
+      isOnline: dto.isOnline,
+      ...(dto.latitude != null ? { latitude: dto.latitude } : {}),
+      ...(dto.longitude != null ? { longitude: dto.longitude } : {}),
+    });
+  }
+
+  // ── Nearby (used by client app) ───────────────────────────────────────────
+
   private distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;

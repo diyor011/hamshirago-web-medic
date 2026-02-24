@@ -65,4 +65,54 @@ export class OrdersService {
       order: { created_at: 'DESC' },
     });
   }
+
+  // ── Medic-facing ──────────────────────────────────────────────────────────
+
+  /** All CREATED orders available for medics to pick up */
+  async findAvailable(): Promise<Order[]> {
+    return this.orderRepo.find({
+      where: { status: OrderStatus.CREATED },
+      relations: { location: true },
+      order: { created_at: 'ASC' },
+    });
+  }
+
+  /** Medic accepts a CREATED order → status becomes ASSIGNED */
+  async acceptOrder(orderId: string, medicId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+    if (order.status !== OrderStatus.CREATED) {
+      throw new Error(`Order is not available (status: ${order.status})`);
+    }
+    await this.orderRepo.update(orderId, {
+      medicId,
+      status: OrderStatus.ASSIGNED,
+    });
+    this.orderEventsGateway.emitOrderStatus(orderId, OrderStatus.ASSIGNED);
+    return this.findOne(orderId);
+  }
+
+  /** Medic updates status of their own order */
+  async updateStatusByMedic(
+    orderId: string,
+    medicId: string,
+    status: OrderStatus,
+  ): Promise<Order> {
+    const order = await this.findOne(orderId);
+    if (order.medicId !== medicId) {
+      throw new Error('Order not assigned to you');
+    }
+    order.status = status;
+    await this.orderRepo.save(order);
+    this.orderEventsGateway.emitOrderStatus(orderId, status);
+    return this.findOne(orderId);
+  }
+
+  /** All orders assigned to a medic */
+  async findByMedic(medicId: string): Promise<Order[]> {
+    return this.orderRepo.find({
+      where: { medicId },
+      relations: { location: true },
+      order: { created_at: 'DESC' },
+    });
+  }
 }

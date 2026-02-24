@@ -23,7 +23,7 @@ export class AuthService {
       passwordHash,
       name: dto.name ?? null,
     });
-    return { access_token: this.jwtService.sign({ sub: user.id }), user: { id: user.id, phone: user.phone, name: user.name } };
+    return { access_token: this.jwtService.sign({ sub: user.id, role: 'client' }), user: { id: user.id, phone: user.phone, name: user.name } };
   }
 
   async loginClient(dto: LoginDto) {
@@ -35,6 +35,6 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException('Invalid phone or password');
     }
-    return { access_token: this.jwtService.sign({ sub: user.id }), user: { id: user.id, phone: user.phone, name: user.name } };
+    return { access_token: this.jwtService.sign({ sub: user.id, role: 'client' }), user: { id: user.id, phone: user.phone, name: user.name } };
   }
 }
