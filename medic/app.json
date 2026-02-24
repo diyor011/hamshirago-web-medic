@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "HamshiraGo Medic",
+    "slug": "hamshira-go-medic",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "hamshiragomedic",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d9488"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hamshirago.medic"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0d9488"
+      },
+      "package": "com.hamshirago.medic"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-location"
+    ]
+  }
+}
