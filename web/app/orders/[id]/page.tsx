@@ -36,7 +36,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 const STATUS_FLOW: OrderStatus[] = [
-  "CREATED", "ASSIGNED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE",
+  "CREATED", "ASSIGNED", "ACCEPTED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE",
 ];
 
 function StatusStepper({ current }: { current: OrderStatus }) {
@@ -121,9 +121,9 @@ export default function OrderDetailPage() {
       socket.emit("subscribe_order", id);
     });
 
-    socket.on("order_status", ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
+    socket.on("order_status", ({ orderId }: { orderId: string; status: OrderStatus }) => {
       if (orderId === id) {
-        setOrder((prev) => prev ? { ...prev, status } : prev);
+        api.orders.get(id).then(setOrder).catch(() => {});
       }
     });
 

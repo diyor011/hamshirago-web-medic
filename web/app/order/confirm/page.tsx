@@ -7,7 +7,6 @@ import {
   FaChevronLeft,
   FaMapMarker,
   FaPhone,
-  FaUser,
   FaMedkit,
   FaTint,
   FaHeartbeat,
@@ -39,8 +38,6 @@ function ConfirmForm() {
   const phone      = params.get("phone")     ?? "";
   const lat        = parseFloat(params.get("lat") ?? "41.2995");
   const lng        = parseFloat(params.get("lng") ?? "69.2401");
-  const medicId    = params.get("medicId")   ?? null;
-
   const service = SERVICES_MAP[serviceId];
   const Icon    = SERVICE_ICONS[serviceId] ?? FaMedkit;
 
@@ -242,17 +239,6 @@ function ConfirmForm() {
               <FaPhone size={13} color="#0d9488" style={{ flexShrink: 0 }} />
               <span style={infoText}>{phone}</span>
             </div>
-          </div>
-        </div>
-
-        {/* ─── Медсестра ─── */}
-        <div style={cardStyle}>
-          <h2 style={sectionTitle}>Медсестра</h2>
-          <div style={infoRow}>
-            <FaUser size={14} color="#0d9488" style={{ flexShrink: 0 }} />
-            <span style={infoText}>
-              {medicId ? "Выбранный специалист" : "Автоназначение"}
-            </span>
           </div>
         </div>
 

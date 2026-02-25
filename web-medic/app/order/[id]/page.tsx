@@ -32,8 +32,13 @@ export default function OrderDetailPage() {
       });
       socketRef.current = socket;
       socket.emit("subscribe_order", id);
-      socket.on("order_status", ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
-        if (orderId === id) setOrder(prev => prev ? { ...prev, status } : prev);
+      socket.on("order_status", ({ orderId }: { orderId: string; status: OrderStatus }) => {
+        if (orderId === id) {
+          medicApi.orders.my().then(orders => {
+            const found = orders.find(o => o.id === id);
+            if (found) setOrder(found);
+          }).catch(() => {});
+        }
       });
     }
     return () => { socketRef.current?.disconnect(); };
@@ -219,8 +224,8 @@ export default function OrderDetailPage() {
         <div style={cardStyle}>
           <h2 style={sectionTitle}>Статус заказа</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(["ASSIGNED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE"] as OrderStatus[]).map((s, i) => {
-              const statuses: OrderStatus[] = ["ASSIGNED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE"];
+            {(["ASSIGNED", "ACCEPTED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE"] as OrderStatus[]).map((s, i) => {
+              const statuses: OrderStatus[] = ["ASSIGNED", "ACCEPTED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE"];
               const currentIdx = statuses.indexOf(order.status);
               const stepIdx = i;
               const done = stepIdx < currentIdx || order.status === "DONE";

@@ -66,6 +66,13 @@ export default function DashboardPage() {
       setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
       setAvailable(prev => prev.filter(o => o.id !== orderId));
     });
+    socket.on("new_order", (order: Order) => {
+      setAvailable(prev => {
+        if (prev.some(o => o.id === order.id)) return prev;
+        return [order, ...prev];
+      });
+      setTab("available");
+    });
   }
 
   async function loadData() {

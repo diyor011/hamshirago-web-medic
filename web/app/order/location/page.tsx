@@ -10,11 +10,8 @@ import {
   FaMapMarker,
   FaExclamationTriangle,
   FaCrosshairs,
-  FaStar,
-  FaUser,
   FaExclamationCircle,
 } from "react-icons/fa";
-import { api, Medic } from "@/lib/api";
 
 // Карта грузится только на клиенте
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
@@ -63,11 +60,6 @@ function LocationForm() {
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const resolvedRef = useRef(false);
-
-  const [medics, setMedics] = useState<Medic[]>([]);
-  const [selectedMedicId, setSelectedMedicId] = useState<string | null>(null);
-  const [autoAssign, setAutoAssign] = useState(true);
-  const [medicsLoading, setMedicsLoading] = useState(false);
 
   const [error, setError] = useState("");
 
@@ -157,17 +149,6 @@ function LocationForm() {
     if (detected) setAddress(detected);
   }
 
-  // Грузим медсестёр при появлении координат
-  useEffect(() => {
-    if (lat === null || lng === null) return;
-    setMedicsLoading(true);
-    api.medics
-      .nearby(lat, lng)
-      .then(setMedics)
-      .catch(() => setMedics([]))
-      .finally(() => setMedicsLoading(false));
-  }, [lat, lng]);
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!address.trim()) { setError("Введите адрес"); return; }
@@ -181,7 +162,6 @@ function LocationForm() {
       phone,
       lat: String(lat ?? 41.2995),
       lng: String(lng ?? 69.2401),
-      ...(selectedMedicId && !autoAssign ? { medicId: selectedMedicId } : {}),
     });
     router.push(`/order/confirm?${params.toString()}`);
   }
@@ -331,85 +311,6 @@ function LocationForm() {
                 />
               </div>
             </div>
-          </div>
-
-          {/* ─── Выбор медсестры ─── */}
-          <div style={cardStyle}>
-            <h2 style={sectionTitle}>Медсестра</h2>
-
-            <div style={{ background: "#f1f5f9", borderRadius: 10, padding: 4, display: "flex", marginBottom: 14 }}>
-              {[true, false].map((isAuto) => (
-                <button
-                  key={String(isAuto)}
-                  type="button"
-                  onClick={() => setAutoAssign(isAuto)}
-                  style={{
-                    flex: 1, padding: "10px", borderRadius: 8,
-                    border: "none", cursor: "pointer",
-                    fontSize: 14, fontWeight: 600,
-                    transition: "all 150ms ease",
-                    background: autoAssign === isAuto ? "#fff" : "transparent",
-                    color: autoAssign === isAuto ? "#0d9488" : "#94a3b8",
-                    boxShadow: autoAssign === isAuto ? "0 1px 4px rgba(0,0,0,0.06)" : "none",
-                  }}
-                >
-                  {isAuto ? "Автоназначение" : "Выбрать вручную"}
-                </button>
-              ))}
-            </div>
-
-            {!autoAssign && (
-              <>
-                {medicsLoading && (
-                  <p style={{ fontSize: 14, color: "#64748b", textAlign: "center", padding: "12px 0" }}>
-                    Ищем ближайших медсестёр...
-                  </p>
-                )}
-                {!medicsLoading && medics.length === 0 && (
-                  <p style={{ fontSize: 14, color: "#64748b", textAlign: "center", padding: "12px 0" }}>
-                    Нет доступных медсестёр поблизости
-                  </p>
-                )}
-                {medics.map((medic) => (
-                  <button
-                    key={medic.id}
-                    type="button"
-                    onClick={() => setSelectedMedicId(medic.id)}
-                    style={{
-                      width: "100%",
-                      background: selectedMedicId === medic.id ? "#0d948814" : "#f8fafc",
-                      border: `1.5px solid ${selectedMedicId === medic.id ? "#0d9488" : "transparent"}`,
-                      borderRadius: 12, padding: 12, marginBottom: 8,
-                      cursor: "pointer", display: "flex", alignItems: "center",
-                      gap: 12, textAlign: "left", transition: "all 150ms ease",
-                    }}
-                  >
-                    <div style={{
-                      width: 44, height: 44, borderRadius: "50%",
-                      background: "#0d948818",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0,
-                    }}>
-                      <FaUser size={20} color="#0d9488" />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{medic.name}</p>
-                      <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 3 }}>
-                          <FaStar size={11} color="#eab308" /> {medic.rating != null ? medic.rating.toFixed(1) : "—"}
-                        </span>
-                        <span style={{ fontSize: 13, color: "#64748b" }}>Опыт {medic.experienceYears} лет</span>
-                        <span style={{ fontSize: 13, color: "#64748b" }}>
-                          {(medic.distanceKm ?? 0) < 1
-                            ? `${Math.round((medic.distanceKm ?? 0) * 1000)} м`
-                            : `${(medic.distanceKm ?? 0).toFixed(1)} км`}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </>
-            )}
           </div>
 
           {/* Ошибка */}
