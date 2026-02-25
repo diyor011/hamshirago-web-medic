@@ -6,12 +6,13 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { io, Socket } from 'socket.io-client';
 import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
-import { apiFetch } from '@/constants/api';
+import { API_BASE, apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
 type OrderStatus =
@@ -71,23 +72,64 @@ export default function OrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const subscribedRef = useRef<Set<string>>(new Set());
 
   const fetchOrders = useCallback(async () => {
     try {
       const data = await apiFetch<Order[]>('/orders', { token: token ?? undefined });
       setOrders(data);
       setError(null);
+      return data;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+      return [];
     }
   }, [token]);
+
+  // ── WebSocket: subscribe to active orders ───────────────────────────────────
+  useEffect(() => {
+    if (!token) return;
+
+    const socket = io(API_BASE, {
+      transports: ['websocket'],
+      auth: { token },
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+    });
+    socketRef.current = socket;
+
+    socket.on('order_status', ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status } : o)),
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+      subscribedRef.current.clear();
+    };
+  }, [token]);
+
+  // Subscribe to each active order once it appears in the list
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    orders.forEach((o) => {
+      if (ACTIVE_STATUSES.includes(o.status) && !subscribedRef.current.has(o.id)) {
+        socket.emit('subscribe_order', o.id);
+        subscribedRef.current.add(o.id);
+      }
+    });
+  }, [orders]);
 
   useEffect(() => {
     setLoading(true);
     fetchOrders().finally(() => setLoading(false));
   }, [fetchOrders]);
 
-  // Refresh list every time the tab comes into focus (e.g. returning from track screen)
+  // Also refresh when tab comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchOrders();
