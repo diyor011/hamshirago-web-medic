@@ -140,7 +140,11 @@ export default function OrderLocationScreen() {
         floor: address.floor ?? '',
         apartment: address.apartment ?? '',
         phone: address.phone,
-        nurseId: selectedNurse?.id ?? (autoAssign ? nearbyNurses[0]?.id : ''),
+        // Pass full nurse data so confirm screen doesn't rely on mock lookup
+        nurseName: selectedNurse?.name ?? '',
+        nurseRating: selectedNurse?.rating != null ? String(selectedNurse.rating) : '',
+        nurseEta: selectedNurse?.etaMinutes != null ? String(selectedNurse.etaMinutes) : '',
+        nurseDistance: selectedNurse?.distanceKm != null ? String(selectedNurse.distanceKm) : '',
         autoAssign: autoAssign ? '1' : '0',
       },
     });

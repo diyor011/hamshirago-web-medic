@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
 import { getServiceById, formatPriceRange, type ServiceId } from '@/types/services';
-import { MOCK_NEARBY_NURSES, formatEta } from '@/types/nurse';
+import { formatEta } from '@/types/nurse';
 import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
@@ -24,12 +24,24 @@ export default function OrderConfirmScreen() {
     floor?: string;
     apartment?: string;
     phone: string;
-    nurseId: string;
+    nurseName?: string;
+    nurseRating?: string;
+    nurseEta?: string;
+    nurseDistance?: string;
     autoAssign: string;
   }>();
 
   const service = params.serviceId ? getServiceById(params.serviceId as ServiceId) : null;
-  const nurse = params.nurseId ? MOCK_NEARBY_NURSES.find((n) => n.id === params.nurseId) : null;
+
+  // Nurse data comes directly from params (real API data from location screen)
+  const nurse = params.nurseName
+    ? {
+        name: params.nurseName,
+        rating: params.nurseRating ? parseFloat(params.nurseRating) : null,
+        etaMinutes: params.nurseEta ? parseInt(params.nurseEta, 10) : null,
+        distanceKm: params.nurseDistance ? parseFloat(params.nurseDistance) : null,
+      }
+    : null;
   const isFirstOrder = true;
   const price = service
     ? Math.round((service.priceMin + service.priceMax) / 2)
@@ -98,9 +110,16 @@ export default function OrderConfirmScreen() {
         {nurse && (
           <>
             <View style={styles.divider} />
-            <Row label="Медсестра" value={`${nurse.name} · ${nurse.rating} ★`} />
-            <Row label="Время подачи" value={formatEta(nurse.etaMinutes)} />
-            <Row label="Расстояние" value={`${nurse.distanceKm} км`} />
+            <Row
+              label="Медсестра"
+              value={nurse.rating ? `${nurse.name} · ${nurse.rating} ★` : nurse.name}
+            />
+            {nurse.etaMinutes != null && (
+              <Row label="Время подачи" value={formatEta(nurse.etaMinutes)} />
+            )}
+            {nurse.distanceKm != null && (
+              <Row label="Расстояние" value={`${nurse.distanceKm} км`} />
+            )}
           </>
         )}
       </View>

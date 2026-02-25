@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
 import { apiFetch } from '@/constants/api';
@@ -86,6 +86,13 @@ export default function OrdersScreen() {
     setLoading(true);
     fetchOrders().finally(() => setLoading(false));
   }, [fetchOrders]);
+
+  // Refresh list every time the tab comes into focus (e.g. returning from track screen)
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [fetchOrders]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
