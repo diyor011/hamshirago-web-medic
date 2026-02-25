@@ -72,7 +72,6 @@ function RootLayoutNav() {
     }
   }, [token, segments]);
 
-  // Register push token when logged in
   useEffect(() => {
     if (token) registerPushToken(token);
   }, [token]);
