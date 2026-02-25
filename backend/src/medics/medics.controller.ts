@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Patch,
@@ -16,10 +18,19 @@ import { UpdateLocationDto } from './dto/update-location.dto';
 import { MedicAuthGuard } from '../auth/guards/medic-auth.guard';
 import { MedicId } from '../auth/decorators/medic-id.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { WebPushService } from '../realtime/web-push.service';
+
+interface WebPushSubscriptionBody {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
 
 @Controller('medics')
 export class MedicsController {
-  constructor(private readonly medicsService: MedicsService) {}
+  constructor(
+    private readonly medicsService: MedicsService,
+    private readonly webPushService: WebPushService,
+  ) {}
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -51,13 +62,40 @@ export class MedicsController {
     await this.medicsService.updateLocation(medicId, dto);
   }
 
-  // ── Push token ────────────────────────────────────────────────────────────
+  // ── Push token (Expo) ────────────────────────────────────────────────────
 
   @Patch('push-token')
   @UseGuards(MedicAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async savePushToken(@MedicId() medicId: string, @Body() body: { token: string }) {
     if (body?.token) await this.medicsService.savePushToken(medicId, body.token);
+  }
+
+  // ── Web Push ──────────────────────────────────────────────────────────────
+
+  @Post('web-push-subscription')
+  @UseGuards(MedicAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async saveWebPushSubscription(
+    @MedicId() medicId: string,
+    @Body() body: WebPushSubscriptionBody,
+    @Headers('user-agent') userAgent?: string,
+  ) {
+    await this.webPushService.saveSubscription({
+      subscriberType: 'medic',
+      subscriberId: medicId,
+      endpoint: body.endpoint,
+      p256dh: body.keys.p256dh,
+      auth: body.keys.auth,
+      userAgent,
+    });
+  }
+
+  @Delete('web-push-subscription')
+  @UseGuards(MedicAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteWebPushSubscription(@Body() body: { endpoint: string }) {
+    if (body?.endpoint) await this.webPushService.removeSubscription(body.endpoint);
   }
 
   // ── Nearby (used by client app) ───────────────────────────────────────────

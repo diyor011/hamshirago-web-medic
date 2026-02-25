@@ -1,14 +1,16 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Medic } from './entities/medic.entity';
 import { MedicsService } from './medics.service';
 import { MedicsController } from './medics.controller';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Medic]),
+    forwardRef(() => RealtimeModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({

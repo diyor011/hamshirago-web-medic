@@ -9,6 +9,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { RateOrderDto } from './dto/rate-order.dto';
 import { OrderEventsGateway } from '../realtime/order-events.gateway';
 import { PushNotificationsService } from '../realtime/push-notifications.service';
+import { WebPushService } from '../realtime/web-push.service';
 import { MedicsService } from '../medics/medics.service';
 import { UsersService } from '../users/users.service';
 
@@ -31,23 +32,35 @@ export class OrdersService {
     private locationRepo: Repository<OrderLocation>,
     private orderEventsGateway: OrderEventsGateway,
     private pushService: PushNotificationsService,
+    private webPushService: WebPushService,
     private medicsService: MedicsService,
     private usersService: UsersService,
   ) {}
 
-  /** Send a push notification to the client of a given order */
+  /** Send Expo + Web Push notifications to the client of a given order */
   private async notifyClient(order: Order, status: string): Promise<void> {
     const msg = CLIENT_PUSH_MESSAGES[status];
     if (!msg || !order.clientId) return;
-    const token = await this.usersService.getPushToken(order.clientId);
-    if (!token) return;
-    this.pushService.send([token], {
+
+    // Expo push (mobile app)
+    const expoToken = await this.usersService.getPushToken(order.clientId);
+    if (expoToken) {
+      this.pushService.send([expoToken], {
+        title: msg.title,
+        body: msg.body,
+        sound: 'default',
+        data: { orderId: order.id, status },
+        channelId: 'order_updates',
+        priority: 'high',
+      });
+    }
+
+    // Web push (browser)
+    this.webPushService.sendToSubscriber('client', order.clientId, {
       title: msg.title,
       body: msg.body,
-      sound: 'default',
       data: { orderId: order.id, status },
-      channelId: 'order_updates',
-      priority: 'high',
+      url: `/orders/${order.id}`,
     });
   }
 
@@ -76,10 +89,10 @@ export class OrdersService {
     // WebSocket — for medics with the app open
     this.orderEventsGateway.emitNewOrder(fullOrder as unknown as Record<string, unknown>);
 
-    // Push notifications — for medics with the app in background/closed
+    // Expo push — for medics with the app in background/closed (mobile)
+    const price = (dto.priceAmount - (dto.discountAmount ?? 0)).toLocaleString('ru-RU');
     this.medicsService.getOnlinePushTokens().then((tokens) => {
       if (!tokens.length) return;
-      const price = (dto.priceAmount - (dto.discountAmount ?? 0)).toLocaleString('ru-RU');
       this.pushService.send(tokens, {
         title: '🚨 Новый заказ!',
         body: `${dto.serviceTitle} — ${price} UZS`,
@@ -88,6 +101,14 @@ export class OrdersService {
         channelId: 'new_orders',
         priority: 'high',
       });
+    });
+
+    // Web push — for medics using the web dashboard in any browser state
+    this.webPushService.broadcast('medic', {
+      title: '🚨 Новый заказ!',
+      body: `${dto.serviceTitle} — ${price} UZS`,
+      data: { orderId: saved.id },
+      url: `/orders/${saved.id}`,
     });
 
     return fullOrder;
