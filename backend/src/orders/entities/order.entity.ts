@@ -43,6 +43,10 @@ export class Order {
   })
   status: OrderStatus;
 
+  /** Rating left by client after order completion (1-5), null if not rated yet */
+  @Column({ type: 'smallint', nullable: true, default: null })
+  clientRating: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -91,6 +91,14 @@ export class MedicsService {
     await this.medicRepo.update(id, { pushToken: token });
   }
 
+  async updateRating(id: string, rating: number, reviewCount: number): Promise<void> {
+    await this.medicRepo.update(id, { rating, reviewCount });
+  }
+
+  async addBalance(id: string, amount: number): Promise<void> {
+    await this.medicRepo.increment({ id }, 'balance', amount);
+  }
+
   async getOnlinePushTokens(): Promise<string[]> {
     const medics = await this.medicRepo.find({
       where: { isOnline: true },

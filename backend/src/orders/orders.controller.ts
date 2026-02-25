@@ -12,6 +12,7 @@ import {
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { RateOrderDto } from './dto/rate-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MedicAuthGuard } from '../auth/guards/medic-auth.guard';
 import { ClientId } from '../auth/decorators/client-id.decorator';
@@ -40,6 +41,26 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
+  }
+
+  /** Client cancels their own order (only CREATED or ASSIGNED) */
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  cancelOrder(@Param('id') id: string, @ClientId() clientId: string) {
+    return this.ordersService.cancelOrder(id, clientId);
+  }
+
+  /** Client rates the medic after order is DONE */
+  @Post(':id/rate')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  rateOrder(
+    @Param('id') id: string,
+    @ClientId() clientId: string,
+    @Body() dto: RateOrderDto,
+  ) {
+    return this.ordersService.rateOrder(id, clientId, dto);
   }
 
   @Patch(':id/status')

@@ -39,6 +39,7 @@ interface Order {
   priceAmount: number;
   discountAmount: number;
   status: OrderStatus;
+  clientRating: number | null;
   medic?: Medic | null;
   location: {
     house: string;
@@ -75,6 +76,7 @@ export default function TrackOrderScreen() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
+  const [submittingRating, setSubmittingRating] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -131,6 +133,24 @@ export default function TrackOrderScreen() {
     };
   }, [orderId, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Rate order ───────────────────────────────────────────────────────────────
+  const handleRate = async (stars: number) => {
+    if (!orderId || !token || submittingRating) return;
+    setSubmittingRating(true);
+    try {
+      const updated = await apiFetch<Order>(`/orders/${orderId}/rate`, {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ rating: stars }),
+      });
+      setOrder(updated);
+    } catch (e: unknown) {
+      Alert.alert('Ошибка', e instanceof Error ? e.message : 'Не удалось отправить оценку');
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
   // ── Cancel order ────────────────────────────────────────────────────────────
   const handleCancel = () => {
     Alert.alert('Отменить заказ?', 'Вы уверены, что хотите отменить заказ?', [
@@ -140,10 +160,9 @@ export default function TrackOrderScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await apiFetch(`/orders/${orderId}/status`, {
-              method: 'PATCH',
+            await apiFetch(`/orders/${orderId}/cancel`, {
+              method: 'POST',
               token: token ?? undefined,
-              body: JSON.stringify({ status: 'CANCELED' }),
             });
             router.replace('/(tabs)/two');
           } catch (e: unknown) {
@@ -307,8 +326,49 @@ export default function TrackOrderScreen() {
         </View>
       )}
 
+      {/* Rating block — shown when DONE and not yet rated */}
+      {isDone && order.clientRating === null && order.medic && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Оцените медика</Text>
+          <Text style={styles.ratingHint} lightColor={Theme.textSecondary} darkColor={Theme.textSecondary}>
+            Как прошёл визит?
+          </Text>
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Pressable
+                key={star}
+                style={({ pressed }) => [styles.starBtn, pressed && { opacity: 0.6 }]}
+                onPress={() => handleRate(star)}
+                disabled={submittingRating}
+              >
+                <FontAwesome name="star" size={36} color={Theme.primary} />
+                <Text style={styles.starLabel}>{star}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {submittingRating && <ActivityIndicator color={Theme.primary} style={{ marginTop: 8 }} />}
+        </View>
+      )}
+
+      {/* Rating already submitted */}
+      {isDone && order.clientRating !== null && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Ваша оценка</Text>
+          <View style={styles.ratingDoneRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <FontAwesome
+                key={star}
+                name="star"
+                size={28}
+                color={star <= order.clientRating! ? Theme.primary : Theme.border}
+              />
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* Buttons */}
-      {isActive && order.status === 'CREATED' && (
+      {isActive && (order.status === 'CREATED' || order.status === 'ASSIGNED') && (
         <Pressable
           style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.7 }]}
           onPress={handleCancel}
@@ -558,5 +618,29 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#fff',
+  },
+
+  // Rating
+  ratingHint: {
+    fontSize: 14,
+    marginTop: -8,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
+  starBtn: {
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+  },
+  starLabel: {
+    fontSize: 12,
+    color: Theme.textSecondary,
+  },
+  ratingDoneRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
 });

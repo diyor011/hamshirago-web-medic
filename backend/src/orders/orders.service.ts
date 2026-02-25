@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
@@ -6,6 +6,7 @@ import { OrderStatus } from './entities/order-status.enum';
 import { OrderLocation } from './entities/order-location.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { RateOrderDto } from './dto/rate-order.dto';
 import { OrderEventsGateway } from '../realtime/order-events.gateway';
 import { PushNotificationsService } from '../realtime/push-notifications.service';
 import { MedicsService } from '../medics/medics.service';
@@ -101,6 +102,47 @@ export class OrdersService {
     return order;
   }
 
+  /** Client cancels their own order — only allowed while CREATED or ASSIGNED */
+  async cancelOrder(orderId: string, clientId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+    if (order.clientId !== clientId) throw new ForbiddenException('Not your order');
+    const cancellable: OrderStatus[] = [OrderStatus.CREATED, OrderStatus.ASSIGNED];
+    if (!cancellable.includes(order.status)) {
+      throw new BadRequestException(
+        `Cannot cancel an order with status "${order.status}". Only CREATED or ASSIGNED orders can be cancelled.`,
+      );
+    }
+    await this.orderRepo.update(orderId, { status: OrderStatus.CANCELED });
+    this.orderEventsGateway.emitOrderStatus(orderId, OrderStatus.CANCELED);
+    const updated = await this.findOne(orderId);
+    this.notifyClient(updated, OrderStatus.CANCELED);
+    return updated;
+  }
+
+  /** Client rates the medic after order is DONE */
+  async rateOrder(orderId: string, clientId: string, dto: RateOrderDto): Promise<Order> {
+    const order = await this.findOne(orderId);
+    if (order.clientId !== clientId) throw new ForbiddenException('Not your order');
+    if (order.status !== OrderStatus.DONE) throw new BadRequestException('Can only rate a completed order');
+    if (order.clientRating !== null) throw new BadRequestException('Order already rated');
+    if (!order.medicId) throw new BadRequestException('No medic assigned to this order');
+
+    // Save rating on the order
+    await this.orderRepo.update(orderId, { clientRating: dto.rating });
+
+    // Recalculate medic's weighted average rating
+    const medic = await this.medicsService.findById(order.medicId);
+    if (medic) {
+      const currentCount = medic.reviewCount ?? 0;
+      const currentRating = Number(medic.rating ?? 0);
+      const newCount = currentCount + 1;
+      const newRating = Number(((currentRating * currentCount + dto.rating) / newCount).toFixed(2));
+      await this.medicsService.updateRating(order.medicId, newRating, newCount);
+    }
+
+    return this.findOne(orderId);
+  }
+
   async updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<Order> {
     const order = await this.findOne(id);
     order.status = dto.status;
@@ -151,12 +193,32 @@ export class OrdersService {
     status: OrderStatus,
   ): Promise<Order> {
     const order = await this.findOne(orderId);
-    if (order.medicId !== medicId) {
-      throw new Error('Order not assigned to you');
+    if (order.medicId !== medicId) throw new ForbiddenException('Order not assigned to you');
+
+    const allowedTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      [OrderStatus.ASSIGNED]:        [OrderStatus.ACCEPTED, OrderStatus.CANCELED],
+      [OrderStatus.ACCEPTED]:        [OrderStatus.ON_THE_WAY],
+      [OrderStatus.ON_THE_WAY]:      [OrderStatus.ARRIVED],
+      [OrderStatus.ARRIVED]:         [OrderStatus.SERVICE_STARTED],
+      [OrderStatus.SERVICE_STARTED]: [OrderStatus.DONE],
+    };
+    const allowed = allowedTransitions[order.status] ?? [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `Cannot transition from "${order.status}" to "${status}"`,
+      );
     }
+
     order.status = status;
     await this.orderRepo.save(order);
     this.orderEventsGateway.emitOrderStatus(orderId, status);
+
+    // Credit medic balance when order is completed
+    if (status === OrderStatus.DONE) {
+      const earned = order.priceAmount - (order.discountAmount ?? 0);
+      await this.medicsService.addBalance(medicId, earned);
+    }
+
     const updated = await this.findOne(orderId);
     this.notifyClient(updated, status);
     return updated;
