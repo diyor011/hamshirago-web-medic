@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
+import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { OrdersModule } from './orders/orders.module';
@@ -32,6 +33,7 @@ import { RealtimeModule } from './realtime/realtime.module';
         synchronize: process.env.NODE_ENV !== 'production',
       }),
     }),
+    CommonModule,
     AuthModule,
     UsersModule,
     OrdersModule,

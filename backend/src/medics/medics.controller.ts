@@ -12,14 +12,14 @@ import {
   Patch,
   Post,
   Query,
+  ServiceUnavailableException,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { memoryStorage } from 'multer';
+import { extname } from 'path';
 import { MedicsService } from './medics.service';
 import { RegisterMedicDto } from './dto/register-medic.dto';
 import { LoginMedicDto } from './dto/login-medic.dto';
@@ -30,6 +30,7 @@ import { MedicId } from '../auth/decorators/medic-id.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { WebPushService } from '../realtime/web-push.service';
+import { CloudinaryService } from '../common/cloudinary.service';
 
 interface WebPushSubscriptionBody {
   endpoint: string;
@@ -41,6 +42,7 @@ export class MedicsController {
   constructor(
     private readonly medicsService: MedicsService,
     private readonly webPushService: WebPushService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -75,7 +77,7 @@ export class MedicsController {
     await this.medicsService.updateLocation(medicId, dto);
   }
 
-  // ── Documents upload ──────────────────────────────────────────────────────
+  // ── Documents upload (Cloudinary) ────────────────────────────────────────
 
   @Post('documents')
   @UseGuards(MedicAuthGuard)
@@ -87,18 +89,9 @@ export class MedicsController {
         { name: 'licensePhoto', maxCount: 1 },
       ],
       {
-        storage: diskStorage({
-          destination: (_req, _file, cb) => {
-            const uploadDir = join(process.cwd(), 'uploads', 'medic-docs');
-            if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
-            cb(null, uploadDir);
-          },
-          filename: (_req, file, cb) => {
-            const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-            cb(null, `${unique}${extname(file.originalname)}`);
-          },
-        }),
-        limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max per file
+        // Keep files in memory — they go straight to Cloudinary, never touch disk
+        storage: memoryStorage(),
+        limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
         fileFilter: (_req, file, cb) => {
           const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
           if (!allowed.includes(extname(file.originalname).toLowerCase())) {
@@ -113,12 +106,27 @@ export class MedicsController {
     @MedicId() medicId: string,
     @UploadedFiles() files: { facePhoto?: Express.Multer.File[]; licensePhoto?: Express.Multer.File[] },
   ) {
-    const faceUrl = files.facePhoto?.[0]
-      ? `/uploads/medic-docs/${files.facePhoto[0].filename}`
-      : null;
-    const licenseUrl = files.licensePhoto?.[0]
-      ? `/uploads/medic-docs/${files.licensePhoto[0].filename}`
-      : null;
+    if (!this.cloudinaryService.isConfigured()) {
+      throw new ServiceUnavailableException('File storage is not configured on this server');
+    }
+
+    const [faceUrl, licenseUrl] = await Promise.all([
+      files.facePhoto?.[0]
+        ? this.cloudinaryService.uploadBuffer(
+            files.facePhoto[0].buffer,
+            'hamshirago/medic-docs',
+            `face-${medicId}`,
+          )
+        : Promise.resolve(null),
+      files.licensePhoto?.[0]
+        ? this.cloudinaryService.uploadBuffer(
+            files.licensePhoto[0].buffer,
+            'hamshirago/medic-docs',
+            `license-${medicId}`,
+          )
+        : Promise.resolve(null),
+    ]);
+
     await this.medicsService.saveDocumentUrls(medicId, faceUrl, licenseUrl);
   }
 
