@@ -9,6 +9,17 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderEventsGateway } from '../realtime/order-events.gateway';
 import { PushNotificationsService } from '../realtime/push-notifications.service';
 import { MedicsService } from '../medics/medics.service';
+import { UsersService } from '../users/users.service';
+
+const CLIENT_PUSH_MESSAGES: Partial<Record<string, { title: string; body: string }>> = {
+  ASSIGNED:        { title: '👤 Медик назначен',      body: 'Медик принял ваш заказ и скоро выедет' },
+  ACCEPTED:        { title: '✅ Медик подтвердил',     body: 'Медик подтвердил выезд к вам' },
+  ON_THE_WAY:      { title: '🚗 Медик едет',           body: 'Медик едет к вам' },
+  ARRIVED:         { title: '📍 Медик прибыл!',        body: 'Откройте дверь — медик у вашего дома' },
+  SERVICE_STARTED: { title: '💉 Услуга начата',        body: 'Медик начал оказание услуги' },
+  DONE:            { title: '✅ Заказ выполнен',       body: 'Спасибо, что выбрали HamshiraGo!' },
+  CANCELED:        { title: '❌ Заказ отменён',        body: 'Ваш заказ был отменён' },
+};
 
 @Injectable()
 export class OrdersService {
@@ -20,7 +31,24 @@ export class OrdersService {
     private orderEventsGateway: OrderEventsGateway,
     private pushService: PushNotificationsService,
     private medicsService: MedicsService,
+    private usersService: UsersService,
   ) {}
+
+  /** Send a push notification to the client of a given order */
+  private async notifyClient(order: Order, status: string): Promise<void> {
+    const msg = CLIENT_PUSH_MESSAGES[status];
+    if (!msg || !order.clientId) return;
+    const token = await this.usersService.getPushToken(order.clientId);
+    if (!token) return;
+    this.pushService.send([token], {
+      title: msg.title,
+      body: msg.body,
+      sound: 'default',
+      data: { orderId: order.id, status },
+      channelId: 'order_updates',
+      priority: 'high',
+    });
+  }
 
   async create(clientId: string, dto: CreateOrderDto): Promise<Order> {
     const order = this.orderRepo.create({
@@ -111,7 +139,9 @@ export class OrdersService {
       status: OrderStatus.ASSIGNED,
     });
     this.orderEventsGateway.emitOrderStatus(orderId, OrderStatus.ASSIGNED);
-    return this.findOne(orderId);
+    const updated = await this.findOne(orderId);
+    this.notifyClient(updated, OrderStatus.ASSIGNED);
+    return updated;
   }
 
   /** Medic updates status of their own order */
@@ -127,7 +157,9 @@ export class OrdersService {
     order.status = status;
     await this.orderRepo.save(order);
     this.orderEventsGateway.emitOrderStatus(orderId, status);
-    return this.findOne(orderId);
+    const updated = await this.findOne(orderId);
+    this.notifyClient(updated, status);
+    return updated;
   }
 
   /** All orders assigned to a medic */

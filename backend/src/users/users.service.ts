@@ -22,4 +22,13 @@ export class UsersService {
   async findByPhone(phone: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { phone } });
   }
+
+  async savePushToken(id: string, token: string): Promise<void> {
+    await this.userRepo.update(id, { pushToken: token });
+  }
+
+  async getPushToken(id: string): Promise<string | null> {
+    const user = await this.userRepo.findOne({ where: { id }, select: ['pushToken'] });
+    return user?.pushToken ?? null;
+  }
 }

@@ -23,6 +23,9 @@ export class User {
   @Column({ type: 'varchar', length: 255 })
   passwordHash: string;
 
+  @Column({ type: 'varchar', nullable: true, default: null })
+  pushToken: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

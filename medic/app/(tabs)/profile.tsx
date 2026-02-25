@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,9 +16,19 @@ import { Theme } from '@/constants/Theme';
 import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
+interface OrderCount { id: string; status: string; }
+
 export default function ProfileScreen() {
   const { medic, token, updateOnlineStatus, logout } = useAuth();
   const [togglingOnline, setTogglingOnline] = useState(false);
+  const [completedCount, setCompletedCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    apiFetch<OrderCount[]>('/orders/medic/my', { token })
+      .then((orders) => setCompletedCount(orders.filter((o) => o.status === 'DONE').length))
+      .catch(() => {});
+  }, [token]);
 
   if (!medic) return null;
 
@@ -118,14 +128,21 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>
-            {Number(medic.balance).toLocaleString('ru-RU')}
+            {completedCount ?? '—'}
           </Text>
-          <Text style={styles.statLabel}>UZS баланс</Text>
+          <Text style={styles.statLabel}>выполнено</Text>
         </View>
-        {medic.rating != null && (
+        {medic.rating != null ? (
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{Number(medic.rating).toFixed(1)}</Text>
             <Text style={styles.statLabel}>рейтинг</Text>
+          </View>
+        ) : (
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>
+              {Number(medic.balance).toLocaleString('ru-RU')}
+            </Text>
+            <Text style={styles.statLabel}>UZS баланс</Text>
           </View>
         )}
       </View>
