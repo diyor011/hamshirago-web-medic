@@ -72,6 +72,17 @@ export interface TelegramWebApp {
     selectionChanged: () => void;
   };
 
+  // LocationManager — нативная геолокация в Telegram (Bot API 7.0+)
+  LocationManager: {
+    isInited: boolean;
+    isLocationAvailable: boolean;
+    isAccessRequested: boolean;
+    isAccessGranted: boolean;
+    init: (callback: () => void) => void;
+    getLocation: (callback: (location: { latitude: number; longitude: number } | null) => void) => void;
+    openSettings: () => void;
+  };
+
   showAlert: (message: string, callback?: () => void) => void;
   showConfirm: (message: string, callback: (confirmed: boolean) => void) => void;
   showPopup: (params: {

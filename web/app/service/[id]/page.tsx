@@ -78,117 +78,77 @@ export default function ServicePage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      {/* Шапка */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
-          padding: "16px 16px 48px",
-          position: "relative",
-        }}
-      >
-        <button
-          onClick={() => router.back()}
-          style={{
-            background: "rgba(255,255,255,0.2)",
-            border: "none",
-            borderRadius: "50%",
-            width: 36,
-            height: 36,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            color: "#fff",
-          }}
-        >
-          <FaChevronLeft size={16} />
-        </button>
+      {/* Шапка с иконкой и названием */}
+      <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)", padding: "16px 24px 56px" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          <button
+            onClick={() => router.back()}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              border: "none",
+              borderRadius: "50%",
+              width: 36,
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "#fff",
+            }}
+          >
+            <FaChevronLeft size={16} />
+          </button>
+
+          <div style={{ textAlign: "center", marginTop: 20 }}>
+            <div style={{
+              width: 76, height: 76, borderRadius: "50%",
+              background: "rgba(255,255,255,0.2)",
+              border: "3px solid rgba(255,255,255,0.35)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 14px",
+            }}>
+              <Icon size={34} color="#fff" />
+            </div>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 6, letterSpacing: "-0.3px" }}>
+              {nameRu}
+            </h1>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>
+              от {formatPrice(priceMin)} UZS
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Карточка контента */}
-      <div style={{ padding: "0 16px", marginTop: -32 }}>
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 20,
-            padding: 24,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-          }}
-        >
-          {/* Иконка по центру */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-            <div
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: "50%",
-                background: "#0d948818",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon size={36} color="#0d9488" />
-            </div>
-          </div>
-
-          {/* Название */}
-          <h1
-            style={{
-              fontSize: 22,
-              fontWeight: 700,
-              color: "#0f172a",
-              textAlign: "center",
-              marginBottom: 16,
-            }}
-          >
-            {nameRu}
-          </h1>
+      <div style={{ maxWidth: 720, margin: "-28px auto 0", padding: "0 24px 32px" }}>
+        <div style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
 
           {/* Блок цены */}
-          <div
-            style={{
-              background: "#f8fafc",
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 16,
-            }}
-          >
+          <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={{ fontSize: 14, color: "#64748b" }}>Стоимость</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
                 {formatPrice(priceMin)} – {formatPrice(priceMax)} UZS
               </span>
             </div>
-            <div
-              style={{
-                height: 1,
-                background: "#e2e8f0",
-                margin: "8px 0",
-              }}
-            />
+            <div style={{ height: 1, background: "#e2e8f0", margin: "8px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 14, color: "#64748b" }}>
-                Со скидкой 10% <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>для новых</span>
+                Со скидкой 10%{" "}
+                <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>для новых</span>
               </span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: "#0d9488" }}>
+              <span style={{ fontSize: 17, fontWeight: 700, color: "#0d9488" }}>
                 от {formatPrice(discountPrice)} UZS
               </span>
             </div>
           </div>
 
           {/* ETA */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 16,
-              background: "#0d948814",
-              borderRadius: 10,
-              padding: "10px 14px",
-            }}
-          >
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            marginBottom: 16,
+            background: "#0d948814", borderRadius: 10, padding: "10px 14px",
+          }}>
             <FaClock size={14} color="#0d9488" />
             <span style={{ fontSize: 14, color: "#0d9488", fontWeight: 600 }}>
               Медсестра приедет через {eta}
@@ -200,7 +160,6 @@ export default function ServicePage() {
             {description}
           </p>
 
-          {/* Разделитель */}
           <div style={{ height: 1, background: "#e2e8f0", margin: "16px 0" }} />
 
           {/* Что входит */}
@@ -210,19 +169,13 @@ export default function ServicePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
             {includes.map((item) => (
               <div key={item} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    background: "#0d948818",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ fontSize: 10, color: "#0d9488", fontWeight: 700 }}>✓</span>
+                <div style={{
+                  width: 22, height: 22, borderRadius: "50%",
+                  background: "#0d948818",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <span style={{ fontSize: 11, color: "#0d9488", fontWeight: 700 }}>✓</span>
                 </div>
                 <span style={{ fontSize: 14, color: "#0f172a" }}>{item}</span>
               </div>
@@ -248,8 +201,6 @@ export default function ServicePage() {
           </button>
         </div>
       </div>
-
-      <div style={{ height: 32 }} />
     </div>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTelegramBackButton } from "@/hooks/useTelegram";
+import { getTelegramWebApp, isInTelegram } from "@/lib/telegram";
 import dynamic from "next/dynamic";
 import {
   FaChevronLeft,
@@ -25,13 +26,16 @@ const SERVICES: Record<string, string> = {
   long_term_care: "Долговременный уход",
 };
 
-// Reverse geocoding через OpenStreetMap Nominatim (бесплатно)
+// Reverse geocoding через OpenStreetMap Nominatim
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`,
-      { headers: { "User-Agent": "HamshiraGo/1.0" } }
+      { signal: controller.signal }
     );
+    clearTimeout(timeout);
     const data = await res.json();
     const { road, house_number, suburb, city } = data.address ?? {};
     const parts = [road, house_number, suburb, city].filter(Boolean);
@@ -53,10 +57,12 @@ function LocationForm() {
   const [phone, setPhone] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const [lat, setLat] = useState<number | null>(null);
-  const [lng, setLng] = useState<number | null>(null);
+  // Default coords (Tashkent) — map shows immediately, GPS updates async
+  const [lat, setLat] = useState<number>(41.2995);
+  const [lng, setLng] = useState<number>(69.2401);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const resolvedRef = useRef(false);
 
   const [medics, setMedics] = useState<Medic[]>([]);
   const [selectedMedicId, setSelectedMedicId] = useState<string | null>(null);
@@ -65,33 +71,79 @@ function LocationForm() {
 
   const [error, setError] = useState("");
 
+  const applyCoords = useCallback(async (latitude: number, longitude: number, accuracy?: number) => {
+    resolvedRef.current = true;
+    setLat(latitude);
+    setLng(longitude);
+    if (accuracy !== undefined) setGpsAccuracy(Math.round(accuracy));
+    setGpsLoading(false);
+    const detected = await reverseGeocode(latitude, longitude);
+    if (detected) setAddress(detected);
+  }, []);
+
   const getLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("Геолокация не поддерживается браузером");
+    resolvedRef.current = false;
+    setGpsLoading(true);
+    setError("");
+
+    // Hard timeout — если за 10 сек ничего не пришло, используем Ташкент
+    const hardTimeout = setTimeout(() => {
+      if (!resolvedRef.current) {
+        resolvedRef.current = true;
+        setGpsLoading(false);
+        setError("Не удалось определить геолокацию. Уточните адрес или подвиньте маркер.");
+      }
+    }, 10000);
+
+    // 1. Пробуем Telegram LocationManager (нативный TMA API)
+    const twa = getTelegramWebApp();
+    if (isInTelegram() && twa?.LocationManager) {
+      twa.LocationManager.init(() => {
+        if (!twa.LocationManager.isLocationAvailable) {
+          tryBrowserGeolocation(hardTimeout);
+          return;
+        }
+        twa.LocationManager.getLocation((loc) => {
+          clearTimeout(hardTimeout);
+          if (loc) {
+            applyCoords(loc.latitude, loc.longitude);
+          } else {
+            tryBrowserGeolocation();
+          }
+        });
+      });
       return;
     }
-    setGpsLoading(true);
+
+    // 2. Обычный браузерный геолокация
+    tryBrowserGeolocation(hardTimeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyCoords]);
+
+  const tryBrowserGeolocation = useCallback((outerTimeout?: ReturnType<typeof setTimeout>) => {
+    if (!navigator.geolocation) {
+      if (outerTimeout) clearTimeout(outerTimeout);
+      setError("Геолокация не поддерживается. Введите адрес вручную.");
+      resolvedRef.current = true;
+      setGpsLoading(false);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        setLat(latitude);
-        setLng(longitude);
-        setGpsAccuracy(Math.round(accuracy));
-        setGpsLoading(false);
-        // Автоматически заполняем адрес
-        const detected = await reverseGeocode(latitude, longitude);
-        if (detected) setAddress(detected);
+      (pos) => {
+        if (outerTimeout) clearTimeout(outerTimeout);
+        applyCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
       },
       () => {
-        setError("Не удалось получить геолокацию. Введите адрес вручную.");
-        setGpsLoading(false);
-        // Таш по умолчанию
-        setLat(41.2995);
-        setLng(69.2401);
+        if (outerTimeout) clearTimeout(outerTimeout);
+        if (!resolvedRef.current) {
+          resolvedRef.current = true;
+          setError("Не удалось определить геолокацию. Введите адрес или подвиньте маркер.");
+          setGpsLoading(false);
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
     );
-  }, []);
+  }, [applyCoords]);
 
   useEffect(() => {
     getLocation();
@@ -153,9 +205,10 @@ function LocationForm() {
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
       {/* Шапка */}
+      <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
       <div style={{
-        background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
-        padding: "16px 16px 24px",
+        maxWidth: 860, margin: "0 auto",
+        padding: "16px 24px 24px",
         display: "flex",
         alignItems: "center",
         gap: 12,
@@ -179,8 +232,9 @@ function LocationForm() {
           </p>
         </div>
       </div>
+      </div>
 
-      <div style={{ padding: "16px 16px 100px" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "16px 24px 100px" }}>
 
         {/* GPS статус */}
         {gpsLoading && (
@@ -212,38 +266,12 @@ function LocationForm() {
           position: "relative",
           background: "#e2e8f0",
         }}>
-          {lat && lng ? (
             <Map lat={lat} lng={lng} onMove={handleMapMove} />
-          ) : (
-            <div style={{
-              height: "100%",
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              gap: 10, color: "#64748b",
-            }}>
-              <FaMapMarker size={28} color="#94a3b8" />
-              <span style={{ fontSize: 13 }}>
-                {gpsLoading ? "Определяем местоположение..." : "Нет доступа к GPS"}
-              </span>
-              {!gpsLoading && (
-                <button onClick={getLocation} style={{
-                  background: "#0d9488", color: "#fff",
-                  border: "none", borderRadius: 8,
-                  padding: "8px 18px", fontSize: 13, fontWeight: 600,
-                  cursor: "pointer",
-                }}>
-                  Попробовать снова
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
-        {lat && lng && (
-          <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 16, marginTop: -8 }}>
-            Нажмите на карту или перетащите маркер чтобы уточнить место
-          </p>
-        )}
+        <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 16, marginTop: -8 }}>
+          Нажмите на карту или перетащите маркер чтобы уточнить место
+        </p>
 
         <form onSubmit={handleSubmit}>
           {/* ─── Адрес ─── */}

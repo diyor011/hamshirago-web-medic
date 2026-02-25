@@ -139,6 +139,7 @@ export default function AuthPage() {
             padding: 32px 20px !important;
             align-items: flex-start !important;
           }
+          .mobile-logo { display: flex !important; align-items: center; gap: 10px; margin-bottom: 28px; }
         }
       `}</style>
 

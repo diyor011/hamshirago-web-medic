@@ -172,9 +172,10 @@ function ConfirmForm() {
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
       {/* Шапка */}
+      <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
       <div style={{
-        background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
-        padding: "16px 16px 24px",
+        maxWidth: 720, margin: "0 auto",
+        padding: "16px 24px 24px",
         display: "flex", alignItems: "center", gap: 12,
       }}>
         <button
@@ -192,8 +193,9 @@ function ConfirmForm() {
           Подтверждение заказа
         </h1>
       </div>
+      </div>
 
-      <div style={{ padding: "16px 16px 100px" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 24px 100px" }}>
 
         {/* ─── Услуга ─── */}
         <div style={cardStyle}>
