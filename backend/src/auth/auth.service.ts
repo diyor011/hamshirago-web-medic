@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
@@ -35,6 +35,7 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException('Invalid phone or password');
     }
+    if (user.isBlocked) throw new ForbiddenException('Your account has been blocked. Contact support.');
     return { access_token: this.jwtService.sign({ sub: user.id, role: 'client' }), user: { id: user.id, phone: user.phone, name: user.name } };
   }
 }

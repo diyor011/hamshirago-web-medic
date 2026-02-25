@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
@@ -33,8 +34,16 @@ export class OrdersController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  findByClient(@ClientId() clientId: string) {
-    return this.ordersService.findByClient(clientId);
+  findByClient(
+    @ClientId() clientId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.ordersService.findByClient(
+      clientId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   @Get(':id')
@@ -81,8 +90,16 @@ export class OrdersController {
   /** Medic's own order history */
   @Get('medic/my')
   @UseGuards(MedicAuthGuard)
-  findMyOrders(@MedicId() medicId: string) {
-    return this.ordersService.findByMedic(medicId);
+  findMyOrders(
+    @MedicId() medicId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.ordersService.findByMedic(
+      medicId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   /** Accept an available order */

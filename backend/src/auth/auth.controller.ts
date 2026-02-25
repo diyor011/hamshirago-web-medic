@@ -3,17 +3,20 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
+  Param,
   Patch,
   Post,
   UseGuards,
-  Headers,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterClientDto } from './dto/register-client.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AdminGuard } from './guards/admin.guard';
 import { ClientId } from './decorators/client-id.decorator';
 import { UsersService } from '../users/users.service';
 import { WebPushService } from '../realtime/web-push.service';
@@ -32,11 +35,13 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   registerClient(@Body() dto: RegisterClientDto) {
     return this.authService.registerClient(dto);
   }
 
   @Post('login')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @HttpCode(HttpStatus.OK)
   loginClient(@Body() dto: LoginDto) {
     return this.authService.loginClient(dto);
@@ -80,5 +85,14 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteWebPushSubscription(@Body() body: { endpoint: string }) {
     if (body?.endpoint) await this.webPushService.removeSubscription(body.endpoint);
+  }
+
+  // ── Admin ─────────────────────────────────────────────────────────────────
+
+  @Patch('admin/users/:id/block')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  blockUser(@Param('id') id: string, @Body() body: { isBlocked: boolean }) {
+    return this.usersService.blockUser(id, body.isBlocked ?? true);
   }
 }

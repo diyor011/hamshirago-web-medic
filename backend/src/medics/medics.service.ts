@@ -1,12 +1,21 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Medic } from './entities/medic.entity';
+import { VerificationStatus } from './entities/verification-status.enum';
 import { RegisterMedicDto } from './dto/register-medic.dto';
 import { LoginMedicDto } from './dto/login-medic.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
+import { VerifyMedicDto } from './dto/verify-medic.dto';
 
 @Injectable()
 export class MedicsService {
@@ -37,6 +46,7 @@ export class MedicsService {
     if (!medic) throw new UnauthorizedException('Invalid phone or password');
     const ok = await bcrypt.compare(dto.password, medic.passwordHash);
     if (!ok) throw new UnauthorizedException('Invalid phone or password');
+    if (medic.isBlocked) throw new ForbiddenException('Your account has been blocked. Contact support.');
     return this.toAuthResponse(medic);
   }
 
@@ -52,6 +62,10 @@ export class MedicsService {
         rating: medic.rating,
         balance: medic.balance,
         isOnline: medic.isOnline,
+        verificationStatus: medic.verificationStatus,
+        facePhotoUrl: medic.facePhotoUrl,
+        licensePhotoUrl: medic.licensePhotoUrl,
+        verificationRejectedReason: medic.verificationRejectedReason,
       },
     };
   }
@@ -74,9 +88,60 @@ export class MedicsService {
       reviewCount: medic.reviewCount,
       balance: medic.balance,
       isOnline: medic.isOnline,
+      isBlocked: medic.isBlocked,
+      verificationStatus: medic.verificationStatus,
+      facePhotoUrl: medic.facePhotoUrl,
+      licensePhotoUrl: medic.licensePhotoUrl,
+      verificationRejectedReason: medic.verificationRejectedReason,
       latitude: medic.latitude,
       longitude: medic.longitude,
     };
+  }
+
+  // ── Documents upload ──────────────────────────────────────────────────────
+
+  async saveDocumentUrls(
+    id: string,
+    facePhotoUrl: string | null,
+    licensePhotoUrl: string | null,
+  ): Promise<void> {
+    const update: Partial<Medic> = {};
+    if (facePhotoUrl) update.facePhotoUrl = facePhotoUrl;
+    if (licensePhotoUrl) update.licensePhotoUrl = licensePhotoUrl;
+    if (!Object.keys(update).length) throw new BadRequestException('No files provided');
+
+    // Re-set status to PENDING whenever documents are (re-)uploaded
+    update.verificationStatus = VerificationStatus.PENDING;
+    update.verificationRejectedReason = null;
+    await this.medicRepo.update(id, update);
+  }
+
+  // ── Admin: verify / block ─────────────────────────────────────────────────
+
+  async verifyMedic(id: string, dto: VerifyMedicDto): Promise<Medic> {
+    const medic = await this.findById(id);
+    if (!medic) throw new NotFoundException('Medic not found');
+
+    medic.verificationStatus = dto.status;
+    medic.verificationRejectedReason =
+      dto.status === VerificationStatus.REJECTED ? (dto.reason ?? null) : null;
+
+    return this.medicRepo.save(medic);
+  }
+
+  async blockMedic(id: string, isBlocked: boolean): Promise<void> {
+    const medic = await this.findById(id);
+    if (!medic) throw new NotFoundException('Medic not found');
+    await this.medicRepo.update(id, { isBlocked });
+  }
+
+  /** Returns pending medics awaiting review (for admin dashboard) */
+  async getPendingVerifications(): Promise<Partial<Medic>[]> {
+    return this.medicRepo.find({
+      where: { verificationStatus: VerificationStatus.PENDING },
+      select: ['id', 'name', 'phone', 'facePhotoUrl', 'licensePhotoUrl', 'created_at'],
+      order: { created_at: 'ASC' },
+    });
   }
 
   async updateLocation(id: string, dto: UpdateLocationDto): Promise<void> {

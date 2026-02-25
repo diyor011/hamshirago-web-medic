@@ -172,12 +172,21 @@ export class OrdersService {
     return this.findOne(id);
   }
 
-  async findByClient(clientId: string): Promise<Order[]> {
-    return this.orderRepo.find({
+  async findByClient(
+    clientId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: Order[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(limit, 100);
+    const skip = (page - 1) * take;
+    const [data, total] = await this.orderRepo.findAndCount({
       where: { clientId },
       relations: { location: true, medic: true },
       order: { created_at: 'DESC' },
+      take,
+      skip,
     });
+    return { data, total, page, totalPages: Math.ceil(total / take) };
   }
 
   // ── Medic-facing ──────────────────────────────────────────────────────────
@@ -193,6 +202,15 @@ export class OrdersService {
 
   /** Medic accepts a CREATED order → status becomes ASSIGNED */
   async acceptOrder(orderId: string, medicId: string): Promise<Order> {
+    const medic = await this.medicsService.findById(medicId);
+    if (!medic) throw new ForbiddenException('Medic not found');
+    if (medic.verificationStatus !== 'APPROVED') {
+      throw new ForbiddenException(
+        'Your account is not yet verified. Upload your documents and wait for approval.',
+      );
+    }
+    if (medic.isBlocked) throw new ForbiddenException('Your account has been blocked.');
+
     const order = await this.findOne(orderId);
     if (order.status !== OrderStatus.CREATED) {
       throw new Error(`Order is not available (status: ${order.status})`);
@@ -246,11 +264,20 @@ export class OrdersService {
   }
 
   /** All orders assigned to a medic */
-  async findByMedic(medicId: string): Promise<Order[]> {
-    return this.orderRepo.find({
+  async findByMedic(
+    medicId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: Order[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(limit, 100);
+    const skip = (page - 1) * take;
+    const [data, total] = await this.orderRepo.findAndCount({
       where: { medicId },
       relations: { location: true },
       order: { created_at: 'DESC' },
+      take,
+      skip,
     });
+    return { data, total, page, totalPages: Math.ceil(total / take) };
   }
 }
