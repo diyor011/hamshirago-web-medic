@@ -36,7 +36,7 @@ export class Medic {
   @Column({ type: 'boolean', default: false })
   isOnline: boolean;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: 'boolean', default: false, nullable: true })
   isBlocked: boolean;
 
   /** Verification lifecycle: PENDING → APPROVED or REJECTED */
@@ -44,6 +44,7 @@ export class Medic {
     type: 'enum',
     enum: VerificationStatus,
     default: VerificationStatus.PENDING,
+    nullable: true,
   })
   verificationStatus: VerificationStatus;
 

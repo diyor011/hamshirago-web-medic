@@ -26,7 +26,7 @@ export class User {
   @Column({ type: 'varchar', nullable: true, default: null })
   pushToken: string | null;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: 'boolean', default: false, nullable: true })
   isBlocked: boolean;
 
   @CreateDateColumn()
