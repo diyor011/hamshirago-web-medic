@@ -14,6 +14,7 @@ import {
   FaSignOutAlt,
 } from "react-icons/fa";
 import { medicApi, Medic, formatPrice } from "@/lib/api";
+import { unsubscribeWebPush } from "@/lib/webPush";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function ProfilePage() {
   }
 
   function handleLogout() {
+    unsubscribeWebPush();
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     router.push("/auth");

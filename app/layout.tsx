@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import WebPushInit from "@/components/WebPushInit";
 
 export const metadata: Metadata = {
   title: "HamshiraGo — Медик",
@@ -12,7 +13,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </head>
-      <body>{children}</body>
+      <body>
+        <WebPushInit />
+        {children}
+      </body>
     </html>
   );
 }
