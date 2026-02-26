@@ -18,6 +18,11 @@ interface OrderSummary {
   status: string;
 }
 
+interface PagedOrders {
+  data: OrderSummary[];
+  total: number;
+}
+
 const STATUS_DONE = ['DONE'];
 const STATUS_ACTIVE = ['CREATED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'SERVICE_STARTED'];
 
@@ -27,8 +32,8 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (!token) return;
-    apiFetch<OrderSummary[]>('/orders', { token })
-      .then(setOrders)
+    apiFetch<PagedOrders>('/orders?limit=100', { token })
+      .then((res) => setOrders(res.data))
       .catch(() => {});
   }, [token]);
 

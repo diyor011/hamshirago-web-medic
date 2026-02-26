@@ -25,8 +25,8 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (!token) return;
-    apiFetch<OrderCount[]>('/orders/medic/my', { token })
-      .then((orders) => setCompletedCount(orders.filter((o) => o.status === 'DONE').length))
+    apiFetch<{ data: OrderCount[] }>('/orders/medic/my?limit=100', { token })
+      .then((res) => setCompletedCount(res.data.filter((o) => o.status === 'DONE').length))
       .catch(() => {});
   }, [token]);
 

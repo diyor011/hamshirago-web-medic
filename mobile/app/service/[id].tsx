@@ -1,18 +1,41 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
 import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
-import {
-  getServiceById,
-  formatPriceRange,
-  type ServiceId,
-} from '@/types/services';
+import { apiFetch } from '@/constants/api';
+
+interface CatalogService {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  durationMinutes: number | null;
+  category: string | null;
+}
 
 export default function ServiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const service = id ? getServiceById(id as ServiceId) : null;
+  const [service, setService] = useState<CatalogService | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    apiFetch<CatalogService>(`/services/${id}`)
+      .then(setService)
+      .catch(() => setService(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={Theme.primary} />
+      </View>
+    );
+  }
 
   if (!service) {
     return (
@@ -29,29 +52,22 @@ export default function ServiceDetailScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.iconLarge}>
-        <FontAwesome name={service.icon as 'medkit'} size={40} color={Theme.primary} />
+        <FontAwesome name="medkit" size={40} color={Theme.primary} />
       </View>
       <Text style={styles.title}>{service.title}</Text>
       <View style={styles.priceBlock}>
         <Text style={styles.priceLabel}>Стоимость</Text>
-        <Text style={styles.price}>
-          {formatPriceRange(service.priceMin, service.priceMax, service.currency)}
-        </Text>
+        <Text style={styles.price}>{service.price.toLocaleString('ru-RU')} UZS</Text>
       </View>
-      <Text style={styles.desc}>{service.description}</Text>
-      {service.estimatedMinutes != null && (
+      {service.description && (
+        <Text style={styles.desc}>{service.description}</Text>
+      )}
+      {service.durationMinutes != null && (
         <Text style={styles.eta} lightColor={Theme.textSecondary} darkColor={Theme.textSecondary}>
-          Примерно {service.estimatedMinutes} мин.
+          Примерно {service.durationMinutes} мин.
         </Text>
       )}
       <View style={styles.footer}>
-        <Text
-          style={styles.discountHint}
-          lightColor={Theme.textSecondary}
-          darkColor={Theme.textSecondary}
-        >
-          Первый заказ — скидка 10%
-        </Text>
         <Pressable
           style={({ pressed }) => [styles.orderButton, pressed && styles.orderButtonPressed]}
           onPress={() => router.push({ pathname: '/order/location', params: { serviceId: service.id } })}

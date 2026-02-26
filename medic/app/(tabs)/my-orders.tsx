@@ -63,10 +63,10 @@ export default function MyOrdersScreen() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const data = await apiFetch<Order[]>('/orders/medic/my', {
+      const res = await apiFetch<{ data: Order[] }>('/orders/medic/my?limit=50', {
         token: token ?? undefined,
       });
-      setOrders(data);
+      setOrders(res.data);
     } catch {
       // ignore
     }
