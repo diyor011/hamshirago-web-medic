@@ -148,7 +148,7 @@ export default function OrderDetailPage() {
     if (!confirm("Вы уверены, что хотите отменить заказ?")) return;
     setCanceling(true);
     try {
-      const updated = await api.orders.updateStatus(id, "CANCELED");
+      const updated = await api.orders.cancel(id);
       setOrder(updated);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Ошибка при отмене");
@@ -184,7 +184,7 @@ export default function OrderDetailPage() {
   const dateStr = date.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
   const timeStr = date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   const finalPrice = order.priceAmount - order.discountAmount;
-  const canCancel = order.status === "CREATED";
+  const canCancel = order.status === "CREATED" || order.status === "ASSIGNED";
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>

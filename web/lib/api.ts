@@ -44,6 +44,8 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    cancel: (id: string) =>
+      request<Order>(`/orders/${id}/cancel`, { method: "POST" }),
     updateStatus: (id: string, status: OrderStatus) =>
       request<Order>(`/orders/${id}/status`, {
         method: "PATCH",
