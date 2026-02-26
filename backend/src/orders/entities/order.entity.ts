@@ -24,17 +24,23 @@ export class Order {
   @Column({ type: 'uuid', nullable: true })
   medicId: string | null;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'uuid' })
   serviceId: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  /** Snapshot of service title at the time of order (titles may change later) */
+  @Column({ type: 'varchar', length: 255 })
   serviceTitle: string;
 
+  /** Price taken from service catalog at order time */
   @Column({ type: 'int' })
   priceAmount: number;
 
   @Column({ type: 'int', default: 0 })
   discountAmount: number;
+
+  /** Platform commission (10% of net price), credited to platform account */
+  @Column({ type: 'int', default: 0 })
+  platformFee: number;
 
   @Column({
     type: 'enum',

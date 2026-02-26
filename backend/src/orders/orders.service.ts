@@ -12,6 +12,7 @@ import { PushNotificationsService } from '../realtime/push-notifications.service
 import { WebPushService } from '../realtime/web-push.service';
 import { MedicsService } from '../medics/medics.service';
 import { UsersService } from '../users/users.service';
+import { ServicesService } from '../services/services.service';
 
 const CLIENT_PUSH_MESSAGES: Partial<Record<string, { title: string; body: string }>> = {
   ASSIGNED:        { title: '👤 Медик назначен',      body: 'Медик принял ваш заказ и скоро выедет' },
@@ -25,6 +26,9 @@ const CLIENT_PUSH_MESSAGES: Partial<Record<string, { title: string; body: string
 
 @Injectable()
 export class OrdersService {
+  /** Platform commission rate — 10% of the net order price */
+  private static readonly COMMISSION_RATE = 0.10;
+
   constructor(
     @InjectRepository(Order)
     private orderRepo: Repository<Order>,
@@ -35,6 +39,7 @@ export class OrdersService {
     private webPushService: WebPushService,
     private medicsService: MedicsService,
     private usersService: UsersService,
+    private servicesService: ServicesService,
   ) {}
 
   /** Send Expo + Web Push notifications to the client of a given order */
@@ -65,12 +70,24 @@ export class OrdersService {
   }
 
   async create(clientId: string, dto: CreateOrderDto): Promise<Order> {
+    // ── Fetch & validate service from catalog ────────────────────────────────
+    const service = await this.servicesService.getActiveServiceOrThrow(dto.serviceId);
+
+    const discountAmount = dto.discountAmount ?? 0;
+    if (discountAmount > service.price) {
+      throw new BadRequestException('Discount cannot exceed the service price');
+    }
+
+    const netPrice = service.price - discountAmount;
+    const platformFee = Math.round(netPrice * OrdersService.COMMISSION_RATE);
+
     const order = this.orderRepo.create({
       clientId,
-      serviceId: dto.serviceId,
-      serviceTitle: dto.serviceTitle,
-      priceAmount: dto.priceAmount,
-      discountAmount: dto.discountAmount,
+      serviceId: service.id,
+      serviceTitle: service.title,     // snapshot from catalog
+      priceAmount: service.price,      // price locked from catalog, client cannot override
+      discountAmount,
+      platformFee,
       status: OrderStatus.CREATED,
     });
     const saved = await this.orderRepo.save(order);
@@ -90,12 +107,12 @@ export class OrdersService {
     this.orderEventsGateway.emitNewOrder(fullOrder as unknown as Record<string, unknown>);
 
     // Expo push — for medics with the app in background/closed (mobile)
-    const price = (dto.priceAmount - (dto.discountAmount ?? 0)).toLocaleString('ru-RU');
+    const priceLabel = netPrice.toLocaleString('ru-RU');
     this.medicsService.getOnlinePushTokens().then((tokens) => {
       if (!tokens.length) return;
       this.pushService.send(tokens, {
         title: '🚨 Новый заказ!',
-        body: `${dto.serviceTitle} — ${price} UZS`,
+        body: `${service.title} — ${priceLabel} UZS`,
         sound: 'default',
         data: { orderId: saved.id },
         channelId: 'new_orders',
@@ -106,7 +123,7 @@ export class OrdersService {
     // Web push — for medics using the web dashboard in any browser state
     this.webPushService.broadcast('medic', {
       title: '🚨 Новый заказ!',
-      body: `${dto.serviceTitle} — ${price} UZS`,
+      body: `${service.title} — ${priceLabel} UZS`,
       data: { orderId: saved.id },
       url: `/orders/${saved.id}`,
     });
@@ -252,10 +269,11 @@ export class OrdersService {
     await this.orderRepo.save(order);
     this.orderEventsGateway.emitOrderStatus(orderId, status);
 
-    // Credit medic balance when order is completed
+    // Credit medic balance when order is completed (net price minus platform commission)
     if (status === OrderStatus.DONE) {
-      const earned = order.priceAmount - (order.discountAmount ?? 0);
-      await this.medicsService.addBalance(medicId, earned);
+      const netPrice = order.priceAmount - (order.discountAmount ?? 0);
+      const medicEarned = netPrice - (order.platformFee ?? 0);
+      await this.medicsService.addBalance(medicId, medicEarned);
     }
 
     const updated = await this.findOne(orderId);

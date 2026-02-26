@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { OrdersModule } from './orders/orders.module';
 import { MedicsModule } from './medics/medics.module';
+import { ServicesModule } from './services/services.module';
 import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
@@ -38,6 +39,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     UsersModule,
     OrdersModule,
     MedicsModule,
+    ServicesModule,
     RealtimeModule,
   ],
   controllers: [AppController],

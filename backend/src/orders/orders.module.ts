@@ -7,6 +7,7 @@ import { OrdersController } from './orders.controller';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { MedicsModule } from '../medics/medics.module';
 import { UsersModule } from '../users/users.module';
+import { ServicesModule } from '../services/services.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UsersModule } from '../users/users.module';
     RealtimeModule,
     MedicsModule,
     UsersModule,
+    ServicesModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

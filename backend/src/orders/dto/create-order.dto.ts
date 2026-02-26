@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
+import { IsString, IsUUID, IsNumber, IsOptional, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class OrderLocationDto {
@@ -24,19 +24,18 @@ class OrderLocationDto {
 }
 
 export class CreateOrderDto {
-  @IsString()
+  /** Must reference an active service in the catalog */
+  @IsUUID()
   serviceId: string;
 
-  @IsString()
-  serviceTitle: string;
-
+  /**
+   * Optional discount in UZS (e.g. promo code).
+   * Cannot exceed the service price — validated in OrdersService.
+   */
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  priceAmount: number;
-
-  @IsNumber()
-  @Min(0)
-  discountAmount: number;
+  discountAmount?: number;
 
   @ValidateNested()
   @Type(() => OrderLocationDto)

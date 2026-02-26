@@ -1,18 +1,39 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
 import { Text } from '@/components/Themed';
-import { ServiceCard } from '@/components/ServiceCard';
 import { Theme } from '@/constants/Theme';
-import { SERVICES } from '@/types/services';
+import { apiFetch } from '@/constants/api';
+import { ServiceCard } from '@/components/ServiceCard';
+
+interface CatalogService {
+  id: string;
+  title: string;
+  price: number;
+  durationMinutes: number | null;
+  category: string | null;
+}
 
 export default function HomeScreen() {
+  const [services, setServices] = useState<CatalogService[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<CatalogService[]>('/services')
+      .then(setServices)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Group by category
+  const categories = [...new Set(services.map((s) => s.category ?? 'Прочее'))];
+
   return (
     <ScrollView
       style={styles.scroll}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* Banner: 3+ years experienced nurses */}
       <LinearGradient
         colors={Theme.bannerGradient}
         start={{ x: 0, y: 0 }}
@@ -23,16 +44,28 @@ export default function HomeScreen() {
         <Text style={styles.bannerSubtitle}>Медсёстры с опытом 3+ лет</Text>
       </LinearGradient>
 
-      {/* First order discount */}
-      <View style={styles.discountBadge}>
-        <Text style={styles.discountText}>Скидка 10% на первый заказ</Text>
-      </View>
-
-      {/* Service cards */}
-      <Text style={styles.sectionTitle}>Услуги</Text>
-      {SERVICES.map((service) => (
-        <ServiceCard key={service.id} service={service} />
-      ))}
+      {loading ? (
+        <ActivityIndicator color={Theme.primary} style={{ marginTop: 32 }} />
+      ) : (
+        categories.map((cat) => (
+          <View key={cat}>
+            <Text style={styles.sectionTitle}>{cat}</Text>
+            {services
+              .filter((s) => (s.category ?? 'Прочее') === cat)
+              .map((service) => (
+                <ServiceCard
+                  key={service.id}
+                  service={{
+                    id: service.id,
+                    title: service.title,
+                    price: service.price,
+                    durationMinutes: service.durationMinutes,
+                  }}
+                />
+              ))}
+          </View>
+        ))
+      )}
     </ScrollView>
   );
 }
