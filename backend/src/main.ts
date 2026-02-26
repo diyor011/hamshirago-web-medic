@@ -15,9 +15,24 @@ async function bootstrap() {
     }),
   );
 
+  const allowedOrigins = [
+    'https://hamshirago-web.vercel.app',
+    'https://hamshirago-web-medic.vercel.app',
+    // Allow local dev for both web apps
+    'http://localhost:3001',
+    'http://localhost:3002',
+  ];
+
   app.enableCors({
-    origin: true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin "${origin}" not allowed`));
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Secret'],
   });
 
   // Seed reference data (idempotent — skips existing rows)
