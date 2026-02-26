@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { FaMedkit, FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle } from "react-icons/fa";
-import { medicApi, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
+import { medicApi, WS_URL, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
+import { unsubscribeWebPush } from "@/lib/webPush";
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   const { text, bg } = ORDER_STATUS_COLOR[status];
@@ -24,7 +25,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [togglingOnline, setTogglingOnline] = useState(false);
   const [tab, setTab] = useState<"available" | "my">("available");
+  const [socketOk, setSocketOk] = useState(true);
   const socketRef = useRef<Socket | null>(null);
+  const isOnlineRef = useRef(false);
 
   useEffect(() => {
     const token = localStorage.getItem("medic_token");
@@ -32,9 +35,14 @@ export default function DashboardPage() {
 
     const saved = localStorage.getItem("medic");
     if (saved) {
-      const m = JSON.parse(saved) as Medic;
-      setMedic(m);
-      setIsOnline(m.isOnline);
+      try {
+        const m = JSON.parse(saved) as Medic;
+        setMedic(m);
+        setIsOnline(m.isOnline);
+        isOnlineRef.current = m.isOnline;
+      } catch {
+        localStorage.removeItem("medic");
+      }
     }
 
     loadData();
@@ -42,8 +50,7 @@ export default function DashboardPage() {
 
     // Обновляем координаты каждые 30 секунд если онлайн
     const interval = setInterval(() => {
-      const online = JSON.parse(localStorage.getItem("medic") || "{}").isOnline;
-      if (online && navigator.geolocation) {
+      if (isOnlineRef.current && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
           medicApi.location.update(true, pos.coords.latitude, pos.coords.longitude).catch(() => {});
         }, () => {}, { enableHighAccuracy: false, timeout: 5000 });
@@ -58,10 +65,13 @@ export default function DashboardPage() {
   }, []);
 
   function connectSocket(token: string) {
-    const socket = io("https://hamshirago-production.up.railway.app", {
+    const socket = io(WS_URL, {
       auth: { token }, transports: ["websocket"], reconnection: true,
     });
     socketRef.current = socket;
+    socket.on("connect", () => setSocketOk(true));
+    socket.on("disconnect", () => setSocketOk(false));
+    socket.on("connect_error", () => setSocketOk(false));
     socket.on("order_status", ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
       setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
       setAvailable(prev => prev.filter(o => o.id !== orderId));
@@ -106,8 +116,11 @@ export default function DashboardPage() {
       await medicApi.location.update(!isOnline, lat, lng);
       setIsOnline(v => {
         const next = !v;
-        const saved = JSON.parse(localStorage.getItem("medic") || "{}");
-        localStorage.setItem("medic", JSON.stringify({ ...saved, isOnline: next }));
+        isOnlineRef.current = next;
+        try {
+          const saved = JSON.parse(localStorage.getItem("medic") || "{}");
+          localStorage.setItem("medic", JSON.stringify({ ...saved, isOnline: next }));
+        } catch { /* ignore */ }
         return next;
       });
       if (!isOnline) loadData();
@@ -129,6 +142,7 @@ export default function DashboardPage() {
   }
 
   function handleLogout() {
+    unsubscribeWebPush();
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     router.push("/auth");
@@ -180,6 +194,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="dash-body">
+        {/* Баннер обрыва соединения */}
+        {!socketOk && (
+          <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
+            Соединение потеряно — новые заказы могут не поступать. Проверьте интернет.
+          </div>
+        )}
         <div className="dash-columns">
 
           {/* ─── Левая колонка (статус + инфо) ─── */}

@@ -7,6 +7,18 @@ import { medicApi } from "@/lib/api";
 
 type Mode = "login" | "register";
 
+function formatPhone(raw: string) {
+  const digits = raw.replace(/\D/g, "").slice(0, 12);
+  if (!digits) return "";
+  const d = digits.startsWith("998") ? digits.slice(3) : digits;
+  let result = "+998";
+  if (d.length > 0) result += " " + d.slice(0, 2);
+  if (d.length > 2) result += " " + d.slice(2, 5);
+  if (d.length > 5) result += " " + d.slice(5, 7);
+  if (d.length > 7) result += " " + d.slice(7, 9);
+  return result;
+}
+
 export default function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("login");
@@ -120,8 +132,10 @@ export default function AuthPage() {
               <div style={{ position: "relative" }}>
                 <FaPhone size={14} color={focused === "phone" ? "#0d9488" : "#94a3b8"}
                   style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)" }} />
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                  onFocus={() => setFocused("phone")} onBlur={() => setFocused(null)}
+                <input type="tel" value={phone}
+                  onChange={(e) => setPhone(formatPhone(e.target.value.replace(/\D/g, "")))}
+                  onFocus={() => { setFocused("phone"); if (!phone) setPhone("+998 "); }}
+                  onBlur={() => { setFocused(null); if (phone === "+998 ") setPhone(""); }}
                   placeholder="+998 90 123 45 67" required style={fieldStyle("phone")} />
               </div>
             </div>

@@ -7,7 +7,7 @@ import {
   FaChevronLeft, FaMapMarker, FaPhone, FaUser,
   FaYandex, FaLocationArrow, FaCheckCircle,
 } from "react-icons/fa";
-import { medicApi, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice } from "@/lib/api";
+import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
@@ -21,23 +21,26 @@ export default function OrderDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [showNavChoice, setShowNavChoice] = useState(false);
+  const [socketOk, setSocketOk] = useState(true);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     loadOrder();
     const token = localStorage.getItem("medic_token");
     if (token) {
-      const socket = io("https://hamshirago-production.up.railway.app", {
-        auth: { token }, transports: ["websocket"],
+      const socket = io(WS_URL, {
+        auth: { token }, transports: ["websocket"], reconnection: true,
       });
       socketRef.current = socket;
-      socket.emit("subscribe_order", id);
+      socket.on("connect", () => {
+        setSocketOk(true);
+        socket.emit("subscribe_order", id);
+      });
+      socket.on("disconnect", () => setSocketOk(false));
+      socket.on("connect_error", () => setSocketOk(false));
       socket.on("order_status", ({ orderId }: { orderId: string; status: OrderStatus }) => {
         if (orderId === id) {
-          medicApi.orders.my().then(orders => {
-            const found = orders.find(o => o.id === id);
-            if (found) setOrder(found);
-          }).catch(() => {});
+          loadOrder();
         }
       });
     }
@@ -133,6 +136,13 @@ export default function OrderDetailPage() {
       </div>
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "16px 24px 100px" }}>
+
+        {/* Баннер обрыва соединения */}
+        {!socketOk && (
+          <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
+            Соединение потеряно — статус может не обновляться.
+          </div>
+        )}
 
         {/* Карта с локацией клиента */}
         {order.location && (

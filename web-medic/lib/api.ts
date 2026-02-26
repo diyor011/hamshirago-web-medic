@@ -1,4 +1,5 @@
-const BASE_URL = "https://hamshirago-production.up.railway.app";
+const BASE_URL = "https://hamshirago-production-0a65.up.railway.app";
+export const WS_URL = BASE_URL;
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;

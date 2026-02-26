@@ -15,7 +15,11 @@ export default function Map({ lat, lng }: MapProps) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    let mounted = true;
+
     import("leaflet").then((L) => {
+      if (!mounted || !containerRef.current || mapRef.current) return;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
@@ -58,6 +62,7 @@ export default function Map({ lat, lng }: MapProps) {
     });
 
     return () => {
+      mounted = false;
       if (mapRef.current) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (mapRef.current as any).remove();
