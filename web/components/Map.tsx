@@ -16,8 +16,13 @@ export default function Map({ lat, lng, onMove }: MapProps) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
+    let mounted = true;
+
     // Динамический импорт — leaflet нужен только на клиенте
     import("leaflet").then((L) => {
+      // Если компонент уже размонтировали (StrictMode / fast refresh) — выходим
+      if (!mounted || !containerRef.current || mapRef.current) return;
+
       // Фикс иконок leaflet в Next.js
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -72,6 +77,7 @@ export default function Map({ lat, lng, onMove }: MapProps) {
     });
 
     return () => {
+      mounted = false;
       if (mapRef.current) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (mapRef.current as any).remove();

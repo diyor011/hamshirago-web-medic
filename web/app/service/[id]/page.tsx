@@ -1,68 +1,46 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { FaMedkit, FaTint, FaHeartbeat, FaUser, FaChevronLeft, FaClock } from "react-icons/fa";
 import { useTelegramBackButton, useHaptic } from "@/hooks/useTelegram";
+import { api, Service, formatPrice } from "@/lib/api";
 
-const SERVICES = {
-  injection: {
-    id: "injection",
-    nameRu: "Укол",
-    priceMin: 80000,
-    priceMax: 120000,
-    Icon: FaMedkit,
-    description:
-      "Профессиональное введение инъекций на дому. Медсестра использует стерильные одноразовые иглы и соблюдает все санитарные нормы. Подходит для внутримышечных и подкожных инъекций.",
-    eta: "15–25 мин",
-    includes: ["Стерильные расходники", "Медицинские перчатки", "Консультация"],
-  },
-  iv_drip: {
-    id: "iv_drip",
-    nameRu: "Капельница",
-    priceMin: 150000,
-    priceMax: 250000,
-    Icon: FaTint,
-    description:
-      "Внутривенное капельное введение препаратов на дому. Медсестра устанавливает катетер, следит за процессом и снимает систему после завершения. Длительность 30–90 минут.",
-    eta: "20–35 мин",
-    includes: ["Система для капельницы", "Катетер", "Стерильные расходники", "Мониторинг"],
-  },
-  blood_pressure: {
-    id: "blood_pressure",
-    nameRu: "Измерение давления",
-    priceMin: 50000,
-    priceMax: 80000,
-    Icon: FaHeartbeat,
-    description:
-      "Измерение артериального давления и пульса профессиональным тонометром. Медсестра расскажет показатели и при необходимости даст рекомендации.",
-    eta: "10–20 мин",
-    includes: ["Профессиональный тонометр", "Консультация по показателям"],
-  },
-  long_term_care: {
-    id: "long_term_care",
-    nameRu: "Долговременный уход",
-    priceMin: 200000,
-    priceMax: 400000,
-    Icon: FaUser,
-    description:
-      "Комплексный уход за лежачими или малоподвижными пациентами. Медсестра помогает с гигиеническими процедурами, сменой перевязок, приёмом лекарств и контролем состояния.",
-    eta: "25–40 мин",
-    includes: ["Гигиенические процедуры", "Перевязка", "Приём лекарств", "Контроль состояния"],
-  },
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  "Уколы":      FaMedkit,
+  "Капельницы": FaTint,
+  "Измерения":  FaHeartbeat,
+  "Анализы":    FaTint,
+  "Перевязки":  FaMedkit,
+  "Уход":       FaUser,
 };
-
-function formatPrice(n: number) {
-  return n.toLocaleString("ru-RU");
-}
 
 export default function ServicePage() {
   const router = useRouter();
   const { impact } = useHaptic();
   useTelegramBackButton(() => router.back());
   const { id } = useParams<{ id: string }>();
-  const service = SERVICES[id as keyof typeof SERVICES];
 
-  if (!service) {
+  const [service, setService] = useState<Service | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    api.services.get(id)
+      .then(setService)
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "#94a3b8", fontSize: 15 }}>Загружаем...</p>
+      </div>
+    );
+  }
+
+  if (notFound || !service) {
     return (
       <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", padding: 24 }}>
@@ -73,27 +51,20 @@ export default function ServicePage() {
     );
   }
 
-  const { nameRu, priceMin, priceMax, Icon, description, eta, includes } = service;
-  const discountPrice = Math.round(priceMin * 0.9);
+  const Icon = CATEGORY_ICONS[service.category] ?? FaMedkit;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      {/* Шапка с иконкой и названием */}
+      {/* Шапка */}
       <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)", padding: "16px 24px 56px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
           <button
             onClick={() => router.back()}
             style={{
-              background: "rgba(255,255,255,0.2)",
-              border: "none",
-              borderRadius: "50%",
-              width: 36,
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              color: "#fff",
+              background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%",
+              width: 36, height: 36,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "#fff",
             }}
           >
             <FaChevronLeft size={16} />
@@ -110,40 +81,30 @@ export default function ServicePage() {
               <Icon size={34} color="#fff" />
             </div>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 6, letterSpacing: "-0.3px" }}>
-              {nameRu}
+              {service.title}
             </h1>
             <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>
-              от {formatPrice(priceMin)} UZS
+              {formatPrice(service.price)} UZS
             </p>
           </div>
         </div>
       </div>
 
-      {/* Карточка контента */}
+      {/* Контент */}
       <div style={{ maxWidth: 720, margin: "-28px auto 0", padding: "0 24px 32px" }}>
         <div style={{ background: "#fff", borderRadius: 20, padding: 24, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
 
-          {/* Блок цены */}
+          {/* Цена */}
           <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 14, color: "#64748b" }}>Стоимость</span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
-                {formatPrice(priceMin)} – {formatPrice(priceMax)} UZS
-              </span>
-            </div>
-            <div style={{ height: 1, background: "#e2e8f0", margin: "8px 0" }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 14, color: "#64748b" }}>
-                Со скидкой 10%{" "}
-                <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>для новых</span>
-              </span>
-              <span style={{ fontSize: 17, fontWeight: 700, color: "#0d9488" }}>
-                от {formatPrice(discountPrice)} UZS
+              <span style={{ fontSize: 14, color: "#64748b" }}>Стоимость</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: "#0d9488" }}>
+                {formatPrice(service.price)} UZS
               </span>
             </div>
           </div>
 
-          {/* ETA */}
+          {/* Длительность */}
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
             marginBottom: 16,
@@ -151,50 +112,29 @@ export default function ServicePage() {
           }}>
             <FaClock size={14} color="#0d9488" />
             <span style={{ fontSize: 14, color: "#0d9488", fontWeight: 600 }}>
-              Медсестра приедет через {eta}
+              Время процедуры: ~{service.durationMinutes} мин
             </span>
           </div>
 
           {/* Описание */}
-          <p style={{ fontSize: 15, color: "#0f172a", lineHeight: 1.6, marginBottom: 16 }}>
-            {description}
+          <p style={{ fontSize: 15, color: "#0f172a", lineHeight: 1.6, marginBottom: 24 }}>
+            {service.description}
           </p>
-
-          <div style={{ height: 1, background: "#e2e8f0", margin: "16px 0" }} />
-
-          {/* Что входит */}
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#0f172a", marginBottom: 10 }}>
-            Что входит в услугу
-          </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
-            {includes.map((item) => (
-              <div key={item} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: "50%",
-                  background: "#0d948818",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0,
-                }}>
-                  <span style={{ fontSize: 11, color: "#0d9488", fontWeight: 700 }}>✓</span>
-                </div>
-                <span style={{ fontSize: 14, color: "#0f172a" }}>{item}</span>
-              </div>
-            ))}
-          </div>
 
           {/* Кнопка заказать */}
           <button
-            onClick={() => { impact("medium"); router.push(`/order/location?service=${id}`); }}
+            onClick={() => {
+              impact("medium");
+              router.push(
+                `/order/location?service=${service.id}&title=${encodeURIComponent(service.title)}&price=${service.price}`
+              );
+            }}
             style={{
               width: "100%",
-              background: "#0d9488",
-              color: "#fff",
-              fontSize: 17,
-              fontWeight: 700,
-              borderRadius: 12,
-              padding: "16px 24px",
-              border: "none",
-              cursor: "pointer",
+              background: "#0d9488", color: "#fff",
+              fontSize: 17, fontWeight: 700,
+              borderRadius: 12, padding: "16px 24px",
+              border: "none", cursor: "pointer",
             }}
           >
             Заказать
@@ -206,12 +146,8 @@ export default function ServicePage() {
 }
 
 const backBtnStyle: React.CSSProperties = {
-  background: "#0d9488",
-  color: "#fff",
-  fontSize: 16,
-  fontWeight: 600,
-  borderRadius: 12,
-  padding: "12px 24px",
-  border: "none",
-  cursor: "pointer",
+  background: "#0d9488", color: "#fff",
+  fontSize: 16, fontWeight: 600,
+  borderRadius: 12, padding: "12px 24px",
+  border: "none", cursor: "pointer",
 };

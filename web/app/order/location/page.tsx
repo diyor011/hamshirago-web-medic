@@ -16,13 +16,6 @@ import {
 // Карта грузится только на клиенте
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
-const SERVICES: Record<string, string> = {
-  injection: "Укол",
-  iv_drip: "Капельница",
-  blood_pressure: "Давление",
-  long_term_care: "Долговременный уход",
-};
-
 // Reverse geocoding через OpenStreetMap Nominatim
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
@@ -45,7 +38,9 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 function LocationForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const serviceId = searchParams.get("service") ?? "";
+  const serviceId    = searchParams.get("service") ?? "";
+  const serviceTitle = searchParams.get("title")   ?? "Услуга";
+  const servicePrice = searchParams.get("price")   ?? "0";
   useTelegramBackButton(() => router.back());
 
   const [address, setAddress] = useState("");
@@ -156,6 +151,8 @@ function LocationForm() {
 
     const params = new URLSearchParams({
       service: serviceId,
+      title:   serviceTitle,
+      price:   servicePrice,
       address,
       floor,
       apartment,
@@ -208,7 +205,7 @@ function LocationForm() {
         <div>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Адрес вызова</h1>
           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-            {SERVICES[serviceId] ?? "Услуга"}
+            {serviceTitle}
           </p>
         </div>
       </div>

@@ -1,4 +1,5 @@
-const BASE_URL = "https://hamshirago-production.up.railway.app";
+const BASE_URL = "https://hamshirago-production-0a65.up.railway.app";
+export const WS_URL = BASE_URL;
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -17,12 +18,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Ошибка сервера" }));
-    throw new Error(error.message || "Ошибка сервера");
+    const msg = Array.isArray(error.message) ? error.message.join(", ") : (error.message || "Ошибка сервера");
+    throw new Error(msg);
   }
-  return res.json();
+  const text = await res.text();
+  if (!text.trim()) return undefined as T;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Ошибка парсинга ответа сервера");
+  }
 }
 
 export const api = {
+  services: {
+    list: () => request<Service[]>("/services"),
+    get: (id: string) => request<Service>(`/services/${id}`),
+  },
+
   auth: {
     login: (phone: string, password: string) =>
       request<AuthResponse>("/auth/login", {
@@ -46,10 +59,10 @@ export const api = {
       }),
     cancel: (id: string) =>
       request<Order>(`/orders/${id}/cancel`, { method: "POST" }),
-    updateStatus: (id: string, status: OrderStatus) =>
-      request<Order>(`/orders/${id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
+    rate: (id: string, rating: number) =>
+      request<Order>(`/orders/${id}/rate`, {
+        method: "POST",
+        body: JSON.stringify({ rating }),
       }),
   },
 
@@ -60,6 +73,19 @@ export const api = {
 };
 
 // ─── Types ───────────────────────────────────────────────
+
+export interface Service {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price: number;
+  durationMinutes: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface AuthResponse {
   access_token: string;
@@ -85,6 +111,7 @@ export interface Order {
   priceAmount: number;
   discountAmount: number;
   status: OrderStatus;
+  clientRating: number | null;
   created_at: string;
   updated_at: string;
   location: OrderLocation;

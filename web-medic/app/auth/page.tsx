@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FaMedkit, FaPhone, FaLock, FaUser, FaEye, FaEyeSlash, FaExclamationCircle } from "react-icons/fa";
 import { medicApi } from "@/lib/api";
+import { subscribeWebPush } from "@/lib/webPush";
 
 type Mode = "login" | "register";
 
@@ -42,6 +43,7 @@ export default function AuthPage() {
         : await medicApi.auth.register({ name, phone: rawPhone, password, experienceYears: Number(experience) || 0 });
       localStorage.setItem("medic_token", res.access_token);
       localStorage.setItem("medic", JSON.stringify(res.medic));
+      subscribeWebPush();
       router.push("/");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка входа");

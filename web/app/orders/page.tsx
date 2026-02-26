@@ -10,8 +10,10 @@ import {
   FaListAlt,
   FaRedo,
 } from "react-icons/fa";
+import { unsubscribeWebPush } from "@/lib/webPush";
 import {
   api,
+  WS_URL,
   Order,
   OrderStatus,
   ORDER_STATUS_LABEL,
@@ -87,17 +89,24 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
 
 export default function OrdersPage() {
   const router = useRouter();
-  const [orders, setOrders]     = useState<Order[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
+  const [orders, setOrders]       = useState<Order[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState("");
+  const [socketOk, setSocketOk]   = useState(true);
   const socketRef = useRef<Socket | null>(null);
 
   async function loadOrders() {
     setLoading(true);
     setError("");
     try {
-      const data = await api.orders.list();
-      // Сортируем — свежие сверху
+      const raw = await api.orders.list();
+      // Поддержка plain array и paginated { data: [] } / { items: [] }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = raw as any;
+      const data: Order[] = Array.isArray(raw) ? raw
+        : Array.isArray(r?.data)  ? r.data
+        : Array.isArray(r?.items) ? r.items
+        : [];
       setOrders(data.sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ));
@@ -116,7 +125,7 @@ export default function OrdersPage() {
     loadOrders();
 
     // Подключаем Socket.io (как и требует бекенд)
-    const socket = io("https://hamshirago-production.up.railway.app", {
+    const socket = io(WS_URL, {
       auth: { token },
       transports: ["websocket"],
       reconnection: true,
@@ -124,10 +133,18 @@ export default function OrdersPage() {
     });
     socketRef.current = socket;
 
+    socket.on("connect", () => setSocketOk(true));
+    socket.on("disconnect", () => setSocketOk(false));
+    socket.on("connect_error", () => setSocketOk(false));
+
     socket.on("order_status", ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status } : o))
       );
+      // Отписываемся от завершённых заказов
+      if (status === "DONE" || status === "CANCELED") {
+        socket.emit("unsubscribe_order", orderId);
+      }
     });
 
     return () => {
@@ -148,6 +165,7 @@ export default function OrdersPage() {
   }, [orders]);
 
   function handleLogout() {
+    unsubscribeWebPush();
     localStorage.removeItem("token");
     router.push("/auth");
   }
@@ -167,6 +185,10 @@ export default function OrdersPage() {
       <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
         <div className="orders-header-inner">
           <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <FaMedkit size={18} color="#fff" />
+              <span style={{ fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.85)", letterSpacing: "-0.2px" }}>HamshiraGo</span>
+            </div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>Мои заказы</h1>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>
               Статус обновляется в реальном времени
@@ -190,6 +212,12 @@ export default function OrdersPage() {
       </div>
 
       <div className="orders-body">
+        {/* Баннер обрыва соединения */}
+        {!socketOk && (
+          <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
+            Соединение потеряно — статусы не обновляются. Проверьте интернет.
+          </div>
+        )}
         {/* Загрузка */}
         {loading && (
           <div style={{ textAlign: "center", padding: "48px 0" }}>

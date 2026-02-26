@@ -17,6 +17,7 @@ import {
   FaStar,
 } from "react-icons/fa";
 import { api } from "@/lib/api";
+import { subscribeWebPush } from "@/lib/webPush";
 
 type Mode = "login" | "register";
 
@@ -78,6 +79,7 @@ export default function AuthPage() {
           ? await api.auth.login(rawPhone, password)
           : await api.auth.register(name, rawPhone, password);
       localStorage.setItem("token", res.access_token);
+      subscribeWebPush();
       notify("success");
       router.push("/");
     } catch (err: unknown) {

@@ -6,6 +6,7 @@ import { io, Socket } from "socket.io-client";
 import {
   FaArrowLeft,
   FaMapMarker,
+  FaMedkit,
   FaUserNurse,
   FaStar,
   FaPhone,
@@ -14,6 +15,7 @@ import {
 } from "react-icons/fa";
 import {
   api,
+  WS_URL,
   Order,
   OrderStatus,
   ORDER_STATUS_LABEL,
@@ -101,6 +103,11 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [canceling, setCanceling] = useState(false);
+  const [hoverStar, setHoverStar] = useState(0);
+  const [rating, setRating] = useState(0);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
+  const [socketOk, setSocketOk] = useState(true);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -109,7 +116,7 @@ export default function OrderDetailPage() {
 
     loadOrder();
 
-    const socket = io("https://hamshirago-production.up.railway.app", {
+    const socket = io(WS_URL, {
       auth: { token },
       transports: ["websocket"],
       reconnection: true,
@@ -118,8 +125,11 @@ export default function OrderDetailPage() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
+      setSocketOk(true);
       socket.emit("subscribe_order", id);
     });
+    socket.on("disconnect", () => setSocketOk(false));
+    socket.on("connect_error", () => setSocketOk(false));
 
     socket.on("order_status", ({ orderId }: { orderId: string; status: OrderStatus }) => {
       if (orderId === id) {
@@ -148,12 +158,25 @@ export default function OrderDetailPage() {
     if (!confirm("Вы уверены, что хотите отменить заказ?")) return;
     setCanceling(true);
     try {
-      const updated = await api.orders.cancel(id);
-      setOrder(updated);
+      await api.orders.cancel(id);
+      router.push("/");
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Ошибка при отмене");
-    } finally {
       setCanceling(false);
+    }
+  }
+
+  async function handleRate(stars: number) {
+    setRatingLoading(true);
+    try {
+      const updated = await api.orders.rate(id, stars);
+      setOrder(updated);
+      setRating(stars);
+      setRatingDone(true);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Ошибка при оценке");
+    } finally {
+      setRatingLoading(false);
     }
   }
 
@@ -190,7 +213,12 @@ export default function OrderDetailPage() {
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
       {/* Шапка */}
       <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "20px 24px 28px" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 24px 28px" }}>
+        {/* Логотип */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <FaMedkit size={20} color="#fff" />
+          <span style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px" }}>HamshiraGo</span>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button
             onClick={() => router.push("/orders")}
@@ -212,6 +240,13 @@ export default function OrderDetailPage() {
       </div>
 
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 24px 80px" }}>
+
+        {/* Баннер обрыва соединения */}
+        {!socketOk && (
+          <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
+            Соединение потеряно — статус может не обновляться.
+          </div>
+        )}
 
         {/* Прогресс */}
         <div style={{ background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -293,6 +328,48 @@ export default function OrderDetailPage() {
             <span style={{ fontSize: 22, fontWeight: 800, color: "#0d9488" }}>{formatPrice(finalPrice)} UZS</span>
           </div>
         </div>
+
+        {/* Рейтинг — показываем только для завершённых заказов с медиком */}
+        {order.status === "DONE" && order.medic && (
+          <div style={{ background: "#fff", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)", textAlign: "center" }}>
+            {order.clientRating !== null || ratingDone ? (
+              <>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Ваша оценка</p>
+                <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <span key={s} style={{ fontSize: 28, color: s <= (order.clientRating ?? rating) ? "#eab308" : "#e2e8f0" }}>★</span>
+                  ))}
+                </div>
+                <p style={{ fontSize: 13, color: "#64748b", marginTop: 8 }}>Спасибо за оценку!</p>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Оцените медсестру</p>
+                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 14 }}>{order.medic.name}</p>
+                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button
+                      key={s}
+                      disabled={ratingLoading}
+                      onClick={() => handleRate(s)}
+                      onMouseEnter={() => setHoverStar(s)}
+                      onMouseLeave={() => setHoverStar(0)}
+                      style={{
+                        background: "none", border: "none", cursor: ratingLoading ? "not-allowed" : "pointer",
+                        fontSize: 36, lineHeight: 1, padding: "0 2px",
+                        color: s <= (hoverStar || rating) ? "#eab308" : "#e2e8f0",
+                        transition: "color 100ms ease",
+                      }}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                {ratingLoading && <p style={{ fontSize: 13, color: "#64748b" }}>Сохраняем...</p>}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Кнопка отмены */}
         {canCancel && (

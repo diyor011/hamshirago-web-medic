@@ -1,11 +1,31 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FaMedkit, FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle } from "react-icons/fa";
 import { medicApi, WS_URL, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { unsubscribeWebPush } from "@/lib/webPush";
+
+function playOrderAlert() {
+  try {
+    const ctx = new AudioContext();
+    const beeps = [0, 0.35, 0.7];
+    beeps.forEach((t) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.28);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.28);
+    });
+  } catch { /* ignore */ }
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+}
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   const { text, bg } = ORDER_STATUS_COLOR[status];
@@ -26,8 +46,38 @@ export default function DashboardPage() {
   const [togglingOnline, setTogglingOnline] = useState(false);
   const [tab, setTab] = useState<"available" | "my">("available");
   const [socketOk, setSocketOk] = useState(true);
+  const [acceptError, setAcceptError] = useState("");
   const socketRef = useRef<Socket | null>(null);
   const isOnlineRef = useRef(false);
+  const availableIdsRef = useRef<Set<string>>(new Set());
+  const titleBlinkRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const notifyNewOrder = useCallback((order?: Order) => {
+    playOrderAlert();
+    // Мигание заголовка вкладки
+    if (titleBlinkRef.current) clearInterval(titleBlinkRef.current);
+    let on = true;
+    titleBlinkRef.current = setInterval(() => {
+      document.title = on ? "🔔 НОВЫЙ ЗАКАЗ!" : "HamshiraGo Медик";
+      on = !on;
+    }, 700);
+    setTimeout(() => {
+      if (titleBlinkRef.current) { clearInterval(titleBlinkRef.current); titleBlinkRef.current = null; }
+      document.title = "HamshiraGo Медик";
+    }, 30000);
+    // Telegram уведомление
+    const chatId = localStorage.getItem("tg_chat_id");
+    if (chatId) {
+      const text = order
+        ? `🔔 <b>Новый заказ!</b>\n\n📋 ${order.serviceTitle}\n💰 ${order.priceAmount.toLocaleString()} UZS\n📍 ${order.location?.house || ""}\n\nОткройте приложение чтобы принять заказ.`
+        : "🔔 <b>Новый заказ!</b>\n\nОткройте приложение чтобы принять заказ.";
+      fetch("/api/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId, text }),
+      }).catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("medic_token");
@@ -49,7 +99,7 @@ export default function DashboardPage() {
     connectSocket(token);
 
     // Обновляем координаты каждые 30 секунд если онлайн
-    const interval = setInterval(() => {
+    const locationInterval = setInterval(() => {
       if (isOnlineRef.current && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
           medicApi.location.update(true, pos.coords.latitude, pos.coords.longitude).catch(() => {});
@@ -57,12 +107,27 @@ export default function DashboardPage() {
       }
     }, 30000);
 
+    // Поллинг доступных заказов каждые 15 секунд (fallback если WebSocket пропустил)
+    const pollInterval = setInterval(() => {
+      if (isOnlineRef.current) {
+        medicApi.orders.available().then((avail) => {
+          // Проверяем появились ли новые заказы
+          const hasNew = avail.some((o) => !availableIdsRef.current.has(o.id));
+          if (hasNew) notifyNewOrder();
+          availableIdsRef.current = new Set(avail.map((o) => o.id));
+          setAvailable(avail);
+        }).catch(() => {});
+      }
+    }, 15000);
+
     return () => {
-      clearInterval(interval);
+      clearInterval(locationInterval);
+      clearInterval(pollInterval);
+      if (titleBlinkRef.current) clearInterval(titleBlinkRef.current);
       socketRef.current?.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [notifyNewOrder]);
 
   function connectSocket(token: string) {
     const socket = io(WS_URL, {
@@ -79,6 +144,8 @@ export default function DashboardPage() {
     socket.on("new_order", (order: Order) => {
       setAvailable(prev => {
         if (prev.some(o => o.id === order.id)) return prev;
+        notifyNewOrder(order);
+        availableIdsRef.current.add(order.id);
         return [order, ...prev];
       });
       setTab("available");
@@ -92,8 +159,11 @@ export default function DashboardPage() {
         medicApi.orders.available().catch(() => [] as Order[]),
         medicApi.orders.my().catch(() => [] as Order[]),
       ]);
-      setAvailable(avail);
-      setMyOrders(my.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      const availArr = Array.isArray(avail) ? avail : [];
+      const myArr = Array.isArray(my) ? my : [];
+      availableIdsRef.current = new Set(availArr.map((o) => o.id));
+      setAvailable(availArr);
+      setMyOrders(myArr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     } finally {
       setLoading(false);
     }
@@ -137,7 +207,9 @@ export default function DashboardPage() {
       socketRef.current?.emit("subscribe_order", orderId);
       router.push(`/order/${orderId}`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Ошибка");
+      const msg = err instanceof Error ? err.message : "Ошибка";
+      setAcceptError(msg);
+      setTimeout(() => setAcceptError(""), 5000);
     }
   }
 
@@ -198,6 +270,19 @@ export default function DashboardPage() {
         {!socketOk && (
           <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
             Соединение потеряно — новые заказы могут не поступать. Проверьте интернет.
+          </div>
+        )}
+        {/* Баннер верификации */}
+        {medic && medic.verificationStatus !== "APPROVED" && (
+          <div style={{ background: medic.verificationStatus === "REJECTED" ? "#fef2f2" : "#fef3c7", border: `1px solid ${medic.verificationStatus === "REJECTED" ? "#fca5a5" : "#fbbf24"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: medic.verificationStatus === "REJECTED" ? "#dc2626" : "#92400e" }}>
+              {medic.verificationStatus === "REJECTED"
+                ? "❌ Верификация отклонена — загрузите документы заново"
+                : "⏳ Аккаунт ожидает верификации — вы не можете принимать заказы"}
+            </span>
+            <button onClick={() => router.push("/profile")} style={{ background: medic.verificationStatus === "REJECTED" ? "#dc2626" : "#92400e", color: "#fff", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+              Профиль
+            </button>
           </div>
         )}
         <div className="dash-columns">
@@ -296,6 +381,22 @@ export default function DashboardPage() {
                     <p style={{ fontSize: 14, color: "#64748b" }}>Ожидайте — заказы появятся здесь</p>
                   </div>
                 ) : (
+                  <>
+                    {acceptError && (
+                      <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 12, color: "#dc2626", fontSize: 14, fontWeight: 600 }}>
+                        {(acceptError.includes("not yet verified") || acceptError.includes("не верифицирован")) ? (
+                          <div>
+                            <p style={{ marginBottom: 8 }}>Аккаунт не верифицирован. Загрузите документы в профиле.</p>
+                            <button
+                              onClick={() => router.push("/profile")}
+                              style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                            >
+                              Перейти в профиль
+                            </button>
+                          </div>
+                        ) : acceptError}
+                      </div>
+                    )}
                   <div className="orders-grid-2">
                     {available.map(order => (
                       <div key={order.id} style={{ background: "#fff", borderRadius: 16, padding: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
@@ -320,6 +421,7 @@ export default function DashboardPage() {
                       </div>
                     ))}
                   </div>
+                  </>
                 )}
               </>
             )}

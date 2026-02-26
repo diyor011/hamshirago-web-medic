@@ -8,161 +8,70 @@ import {
   FaMapMarker,
   FaPhone,
   FaMedkit,
-  FaTint,
-  FaHeartbeat,
-  FaCheckCircle,
   FaExclamationCircle,
 } from "react-icons/fa";
-import {
-  api,
-  SERVICES_MAP,
-  ORDER_STATUS_COLOR,
-  formatPrice,
-} from "@/lib/api";
-
-const SERVICE_ICONS: Record<string, React.ElementType> = {
-  injection:      FaMedkit,
-  iv_drip:        FaTint,
-  blood_pressure: FaHeartbeat,
-  long_term_care: FaUser,
-};
+import { api, formatPrice } from "@/lib/api";
 
 function ConfirmForm() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const serviceId  = params.get("service")   ?? "";
-  const address    = params.get("address")   ?? "";
-  const floor      = params.get("floor")     ?? "";
-  const apartment  = params.get("apartment") ?? "";
-  const phone      = params.get("phone")     ?? "";
-  const lat        = parseFloat(params.get("lat") ?? "41.2995");
-  const lng        = parseFloat(params.get("lng") ?? "69.2401");
-  const service = SERVICES_MAP[serviceId];
-  const Icon    = SERVICE_ICONS[serviceId] ?? FaMedkit;
+  const serviceId    = params.get("service")   ?? "";
+  const serviceTitle = params.get("title")     ?? "Услуга";
+  const price        = parseInt(params.get("price") || "0", 10);
+  const address      = params.get("address")   ?? "";
+  const floor        = params.get("floor")     ?? "";
+  const apartment    = params.get("apartment") ?? "";
+  const phone        = params.get("phone")     ?? "";
+  const lat          = parseFloat(params.get("lat") || "41.2995");
+  const lng          = parseFloat(params.get("lng") || "69.2401");
 
-  const price    = service?.priceMin ?? 0;
-  const discount = Math.round(price * 0.1);
-  const total    = price - discount;
+  const total = price;
 
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
-  const [success, setSuccess]   = useState(false);
-  const [orderId, setOrderId]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
 
   const { inTelegram } = useTelegram();
   const { notify } = useHaptic();
 
   // Telegram BackButton — назад
-  useTelegramBackButton(!success ? () => router.back() : null);
+  useTelegramBackButton(() => router.back());
 
   // Telegram MainButton — подтвердить заказ
-  useTelegramMainButton(!success ? {
+  useTelegramMainButton({
     text: loading ? "Создаём заказ..." : "Подтвердить заказ",
     onClick: handleConfirm,
     loading,
     color: "#0d9488",
-  } : null);
+  });
 
   async function handleConfirm() {
     setError("");
     setLoading(true);
+    const body = {
+      serviceId,
+      serviceTitle,
+      priceAmount:    price,
+      discountAmount: 0,
+      location: {
+        latitude:  lat,
+        longitude: lng,
+        house:     address,
+        floor:     floor || undefined,
+        apartment: apartment || undefined,
+        phone,
+      },
+    };
+    console.log("[confirm] sending order body:", JSON.stringify(body));
     try {
-      const order = await api.orders.create({
-        serviceId,
-        serviceTitle: service?.nameRu ?? serviceId,
-        priceAmount:    price,
-        discountAmount: discount,
-        location: {
-          latitude:  lat,
-          longitude: lng,
-          house:     address,
-          floor:     floor || undefined,
-          apartment: apartment || undefined,
-          phone,
-        },
-      });
-      setOrderId(order.id);
+      const order = await api.orders.create(body);
       notify("success");
-      setSuccess(true);
+      router.push(`/orders/${order.id}`);
     } catch (err: unknown) {
       notify("error");
       setError(err instanceof Error ? err.message : "Ошибка создания заказа");
-    } finally {
       setLoading(false);
     }
-  }
-
-  // ─── Экран успеха ───
-  if (success) {
-    const color = ORDER_STATUS_COLOR["CREATED"];
-    return (
-      <div style={{
-        minHeight: "100vh", background: "#f8fafc",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        padding: 24,
-      }}>
-        <div style={{
-          background: "#fff", borderRadius: 24,
-          padding: 32, width: "100%", maxWidth: 400,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-          textAlign: "center",
-        }}>
-          <div style={{
-            width: 80, height: 80, borderRadius: "50%",
-            background: "#22c55e20",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 20px",
-          }}>
-            <FaCheckCircle size={40} color="#22c55e" />
-          </div>
-
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>
-            Заказ создан!
-          </h1>
-          <p style={{ fontSize: 15, color: "#64748b", marginBottom: 24 }}>
-            Ищем ближайшую медсестру. Среднее время ожидания — 15–25 минут.
-          </p>
-
-          <div style={{
-            background: color.bg, borderRadius: 12,
-            padding: "10px 20px", display: "inline-block",
-            marginBottom: 28,
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: color.text }}>
-              Создан
-            </span>
-          </div>
-
-          <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 28 }}>
-            ID заказа: {orderId}
-          </p>
-
-          <button
-            onClick={() => router.push("/orders")}
-            style={{
-              width: "100%", background: "#0d9488", color: "#fff",
-              fontSize: 16, fontWeight: 700, borderRadius: 12,
-              padding: "15px 24px", border: "none", cursor: "pointer",
-              marginBottom: 12,
-            }}
-          >
-            Отслеживать заказ
-          </button>
-          <button
-            onClick={() => router.push("/")}
-            style={{
-              width: "100%", background: "#fff", color: "#0f172a",
-              fontSize: 15, fontWeight: 600, borderRadius: 12,
-              padding: "14px 24px", border: "1px solid #e2e8f0", cursor: "pointer",
-            }}
-          >
-            На главную
-          </button>
-        </div>
-      </div>
-    );
   }
 
   // ─── Экран подтверждения ───
@@ -204,14 +113,14 @@ function ConfirmForm() {
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
             }}>
-              <Icon size={24} color="#0d9488" />
+              <FaMedkit size={24} color="#0d9488" />
             </div>
             <div>
               <p style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>
-                {service?.nameRu ?? serviceId}
+                {serviceTitle}
               </p>
               <p style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
-                Базовая стоимость: {formatPrice(price)} UZS
+                Стоимость: {formatPrice(price)} UZS
               </p>
             </div>
           </div>
@@ -251,15 +160,6 @@ function ConfirmForm() {
               <span style={{ fontSize: 14, color: "#64748b" }}>Стоимость услуги</span>
               <span style={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
                 {formatPrice(price)} UZS
-              </span>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 14, color: "#22c55e", fontWeight: 600 }}>
-                Скидка 10% (первый заказ)
-              </span>
-              <span style={{ fontSize: 14, color: "#22c55e", fontWeight: 600 }}>
-                −{formatPrice(discount)} UZS
               </span>
             </div>
 

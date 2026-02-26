@@ -43,3 +43,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Запрет зума при фокусе на input (iOS Safari) */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Запрет двойного тапа/зума на кнопках */
+button, a {
+  touch-action: manipulation;
+}
+

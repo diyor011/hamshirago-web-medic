@@ -18,33 +18,29 @@ export async function subscribeWebPush(): Promise<void> {
     return;
   }
 
-  const token = localStorage.getItem("medic_token");
+  const token = localStorage.getItem("token");
   if (!token) {
-    console.log("[WebPush] нет medic_token, пропускаем");
+    console.log("[WebPush] нет token, пропускаем");
     return;
   }
 
   try {
     // 1. Регистрируем service worker
-    console.log("[WebPush] регистрируем SW...");
     const registration = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
     console.log("[WebPush] SW готов");
 
     // 2. Получаем VAPID публичный ключ от бекенда
-    console.log("[WebPush] запрашиваем VAPID ключ...");
     const res = await fetch(`${BASE_URL}/auth/vapid-public-key`);
     const text = await res.text();
-    if (!text) { console.log("[WebPush] VAPID ключ не настроен на бекенде"); return; }
+    if (!text) { console.log("[WebPush] VAPID ключ не настроен"); return; }
     const { publicKey } = JSON.parse(text);
-    console.log("[WebPush] publicKey:", publicKey);
     if (!publicKey) {
-      console.log("[WebPush] VAPID ключ не настроен на бекенде");
+      console.log("[WebPush] VAPID ключ не настроен");
       return;
     }
 
     // 3. Запрашиваем разрешение у пользователя
-    console.log("[WebPush] запрашиваем разрешение...");
     const permission = await Notification.requestPermission();
     console.log("[WebPush] разрешение:", permission);
     if (permission !== "granted") return;
@@ -58,7 +54,7 @@ export async function subscribeWebPush(): Promise<void> {
 
     // 5. Сохраняем подписку на бекенде
     const sub = subscription.toJSON();
-    await fetch(`${BASE_URL}/medics/web-push-subscription`, {
+    await fetch(`${BASE_URL}/auth/web-push-subscription`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,7 +75,7 @@ export async function unsubscribeWebPush(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!("serviceWorker" in navigator)) return;
 
-  const token = localStorage.getItem("medic_token");
+  const token = localStorage.getItem("token");
 
   try {
     const registration = await navigator.serviceWorker.getRegistration("/sw.js");
@@ -92,7 +88,7 @@ export async function unsubscribeWebPush(): Promise<void> {
     await subscription.unsubscribe();
 
     if (token) {
-      await fetch(`${BASE_URL}/medics/web-push-subscription`, {
+      await fetch(`${BASE_URL}/auth/web-push-subscription`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

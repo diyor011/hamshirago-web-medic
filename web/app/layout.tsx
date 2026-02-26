@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import TelegramProvider from "@/components/TelegramProvider";
+import WebPushInit from "@/components/WebPushInit";
 
 export const metadata: Metadata = {
   title: "HamshiraGo — Медсестра на дом",
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script src="https://telegram.org/js/telegram-web-app.js" />
       </head>
       <body>
+        <WebPushInit />
         <TelegramProvider>
           {children}
         </TelegramProvider>

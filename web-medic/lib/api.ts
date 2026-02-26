@@ -20,8 +20,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const error = await res.json().catch(() => ({ message: "Ошибка сервера" }));
     throw new Error(error.message || "Ошибка сервера");
   }
-  if (res.status === 204) return undefined as T;
-  return res.json();
+  const text = await res.text();
+  if (!text.trim()) return undefined as T;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Ошибка парсинга ответа сервера");
+  }
 }
 
 export const medicApi = {
@@ -36,7 +41,7 @@ export const medicApi = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    me: () => request<Medic>("/medics/me"),
+    me: () => request<Medic>(`/medics/me?_=${Date.now()}`),
   },
 
   location: {
@@ -49,6 +54,28 @@ export const medicApi = {
           ...(lng !== undefined ? { longitude: lng } : {}),
         }),
       }),
+  },
+
+  documents: {
+    upload: (facePhoto: File, licensePhoto: File) => {
+      const token = getToken();
+      const form = new FormData();
+      form.append("facePhoto", facePhoto);
+      form.append("licensePhoto", licensePhoto);
+      return fetch(`${BASE_URL}/medics/documents`, {
+        method: "POST",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: form,
+      }).then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Ошибка загрузки" }));
+          throw new Error(err.message || "Ошибка загрузки");
+        }
+        const text = await res.text();
+        if (!text) return undefined as unknown as Medic;
+        return JSON.parse(text) as Medic;
+      });
+    },
   },
 
   orders: {
@@ -78,6 +105,8 @@ export interface RegisterMedicDto {
   experienceYears?: number;
 }
 
+export type VerificationStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 export interface Medic {
   id: string;
   name: string;
@@ -86,9 +115,14 @@ export interface Medic {
   reviewCount: number;
   experienceYears: number;
   isOnline: boolean;
+  isBlocked: boolean;
   balance: number;
   latitude: number | null;
   longitude: number | null;
+  verificationStatus: VerificationStatus;
+  facePhotoUrl: string | null;
+  licensePhotoUrl: string | null;
+  verificationRejectedReason: string | null;
 }
 
 export interface OrderLocation {
