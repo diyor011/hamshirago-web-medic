@@ -66,6 +66,7 @@ interface OrderDetail {
   serviceId: string;
   priceAmount: number;
   discountAmount: number;
+  platformFee: number;
   status: OrderStatus;
   location: OrderLocation | null;
   created_at: string;
@@ -152,9 +153,14 @@ export default function OrderDetailScreen() {
             });
             setOrder(updated);
             if (next.status === 'DONE') {
-              Alert.alert('Заказ завершён', 'Спасибо! Заказ успешно выполнен.', [
-                { text: 'OK', onPress: () => router.replace('/(tabs)/my-orders') },
-              ]);
+              const net = updated.priceAmount - (updated.discountAmount ?? 0);
+              const fee = updated.platformFee ?? Math.round(net * 0.1);
+              const earned = net - fee;
+              Alert.alert(
+                'Заказ завершён ✓',
+                `Заработок зачислен на баланс:\n+${earned.toLocaleString('ru-RU')} UZS`,
+                [{ text: 'OK', onPress: () => router.replace('/(tabs)/my-orders') }],
+              );
             }
           } catch (e: unknown) {
             Alert.alert('Ошибка', e instanceof Error ? e.message : 'Не удалось обновить статус');
@@ -176,7 +182,9 @@ export default function OrderDetailScreen() {
 
   const statusColor = STATUS_COLOR[order.status];
   const nextStep = NEXT_STATUS[order.status];
-  const finalPrice = order.priceAmount - (order.discountAmount ?? 0);
+  const netPrice = order.priceAmount - (order.discountAmount ?? 0);
+  const platformFee = order.platformFee ?? Math.round(netPrice * 0.1);
+  const medicEarnings = netPrice - platformFee;
   const date = new Date(order.created_at).toLocaleDateString('ru-RU', {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
   });
@@ -198,20 +206,25 @@ export default function OrderDetailScreen() {
         <View style={styles.divider} />
         <Row label="Дата создания" value={date} />
         <Row
-          label="Стоимость"
+          label="Стоимость услуги"
           value={`${order.priceAmount.toLocaleString('ru-RU')} UZS`}
         />
         {order.discountAmount > 0 && (
           <Row
-            label="Скидка"
+            label="Скидка клиента"
             value={`−${order.discountAmount.toLocaleString('ru-RU')} UZS`}
             valueColor={Theme.success}
           />
         )}
+        <Row
+          label="Комиссия платформы (10%)"
+          value={`−${platformFee.toLocaleString('ru-RU')} UZS`}
+          valueColor={Theme.textSecondary}
+        />
         <View style={styles.finalRow}>
-          <Text style={styles.finalLabel}>Итого (ваш доход ~90%)</Text>
+          <Text style={styles.finalLabel}>Ваш заработок</Text>
           <Text style={styles.finalValue}>
-            {Math.round(finalPrice * 0.9).toLocaleString('ru-RU')} UZS
+            {medicEarnings.toLocaleString('ru-RU')} UZS
           </Text>
         </View>
       </View>

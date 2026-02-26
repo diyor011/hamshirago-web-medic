@@ -12,14 +12,22 @@ import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { Theme } from '@/constants/Theme';
 import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
 interface OrderCount { id: string; status: string; }
 
+const VERIFICATION_CONFIG = {
+  PENDING:  { label: 'Ожидает проверки', color: '#f59e0b', icon: 'clock-o' as const,     bg: '#fef3c720', border: '#f59e0b40' },
+  APPROVED: { label: 'Верифицирован',    color: '#10b981', icon: 'check-circle' as const, bg: '#d1fae520', border: '#10b98140' },
+  REJECTED: { label: 'Отклонено',        color: '#ef4444', icon: 'times-circle' as const, bg: '#fee2e220', border: '#ef444440' },
+};
+
 export default function ProfileScreen() {
   const { medic, token, updateOnlineStatus, logout } = useAuth();
+  const router = useRouter();
   const [togglingOnline, setTogglingOnline] = useState(false);
   const [completedCount, setCompletedCount] = useState<number | null>(null);
 
@@ -69,6 +77,9 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const vStatus = (medic.verificationStatus ?? 'PENDING') as keyof typeof VERIFICATION_CONFIG;
+  const vConfig = VERIFICATION_CONFIG[vStatus];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
@@ -90,6 +101,23 @@ export default function ProfileScreen() {
           </View>
         )}
       </LinearGradient>
+
+      {/* Verification status card */}
+      <Pressable
+        style={[styles.verifyCard, { backgroundColor: vConfig.bg, borderColor: vConfig.border }]}
+        onPress={() => router.push('/verification')}
+      >
+        <FontAwesome name={vConfig.icon} size={20} color={vConfig.color} />
+        <View style={styles.verifyTexts}>
+          <Text style={[styles.verifyTitle, { color: vConfig.color }]}>{vConfig.label}</Text>
+          <Text style={styles.verifyHint}>
+            {vStatus === 'APPROVED'
+              ? 'Аккаунт подтверждён — вы можете принимать заказы'
+              : 'Нажмите чтобы загрузить документы'}
+          </Text>
+        </View>
+        <FontAwesome name="chevron-right" size={13} color={vConfig.color} />
+      </Pressable>
 
       {/* Online toggle */}
       <View style={styles.card}>
@@ -181,6 +209,20 @@ const styles = StyleSheet.create({
   phone: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   ratingText: { fontSize: 15, fontWeight: '700', color: '#fde68a' },
+  verifyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  verifyTexts: { flex: 1 },
+  verifyTitle: { fontSize: 15, fontWeight: '700' },
+  verifyHint: { fontSize: 12, color: Theme.textSecondary, marginTop: 2 },
+
   card: {
     margin: 16,
     backgroundColor: Theme.surface,

@@ -20,12 +20,12 @@ async function bootstrap() {
     'https://hamshirago-web-medic.vercel.app',
     // Allow local dev for both web apps
     'http://localhost:3001',
+    'http://localhost:3000',
     'http://localhost:3002',
   ];
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
       callback(new Error(`CORS: origin "${origin}" not allowed`));

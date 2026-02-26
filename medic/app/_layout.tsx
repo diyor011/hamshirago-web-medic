@@ -79,6 +79,10 @@ function RootLayoutNav() {
           name="order/[id]"
           options={{ title: 'Детали заказа', headerBackTitle: 'Назад' }}
         />
+        <Stack.Screen
+          name="verification"
+          options={{ title: 'Верификация аккаунта', headerBackTitle: 'Назад' }}
+        />
       </Stack>
     </ThemeProvider>
   );
