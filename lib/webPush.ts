@@ -34,7 +34,9 @@ export async function subscribeWebPush(): Promise<void> {
     // 2. Получаем VAPID публичный ключ от бекенда
     console.log("[WebPush] запрашиваем VAPID ключ...");
     const res = await fetch(`${BASE_URL}/auth/vapid-public-key`);
-    const { publicKey } = await res.json();
+    const text = await res.text();
+    if (!text) { console.log("[WebPush] VAPID ключ не настроен на бекенде"); return; }
+    const { publicKey } = JSON.parse(text);
     console.log("[WebPush] publicKey:", publicKey);
     if (!publicKey) {
       console.log("[WebPush] VAPID ключ не настроен на бекенде");
