@@ -10,6 +10,7 @@ import { RateOrderDto } from './dto/rate-order.dto';
 import { OrderEventsGateway } from '../realtime/order-events.gateway';
 import { PushNotificationsService } from '../realtime/push-notifications.service';
 import { WebPushService } from '../realtime/web-push.service';
+import { TelegramService } from '../common/telegram.service';
 import { MedicsService } from '../medics/medics.service';
 import { UsersService } from '../users/users.service';
 import { ServicesService } from '../services/services.service';
@@ -37,6 +38,7 @@ export class OrdersService {
     private orderEventsGateway: OrderEventsGateway,
     private pushService: PushNotificationsService,
     private webPushService: WebPushService,
+    private telegramService: TelegramService,
     private medicsService: MedicsService,
     private usersService: UsersService,
     private servicesService: ServicesService,
@@ -126,6 +128,19 @@ export class OrdersService {
       body: `${service.title} — ${priceLabel} UZS`,
       data: { orderId: saved.id },
       url: `/orders/${saved.id}`,
+    });
+
+    // Telegram — for medics who linked their Telegram (works even if app/browser closed)
+    this.medicsService.getOnlineTelegramChatIds().then((chatIds) => {
+      if (!chatIds.length) return;
+      const address = fullOrder.location?.house ?? 'адрес не указан';
+      const msg =
+        `🚨 <b>Новый заказ!</b>\n\n` +
+        `📋 <b>${service.title}</b>\n` +
+        `💰 ${priceLabel} UZS\n` +
+        `📍 ${address}\n\n` +
+        `Откройте приложение чтобы принять заказ.`;
+      this.telegramService.broadcastToAll(chatIds, msg);
     });
 
     return fullOrder;
