@@ -271,7 +271,7 @@ export class OrdersService {
 
     // Credit medic balance when order is completed (net price minus platform commission)
     if (status === OrderStatus.DONE) {
-      const netPrice = order.priceAmount - (order.discountAmount ?? 0);
+      const netPrice = (order.priceAmount ?? 0) - (order.discountAmount ?? 0);
       const medicEarned = netPrice - (order.platformFee ?? 0);
       await this.medicsService.addBalance(medicId, medicEarned);
     }
