@@ -12,6 +12,7 @@ import { PushNotificationsService } from '../realtime/push-notifications.service
 import { WebPushService } from '../realtime/web-push.service';
 import { MedicsService } from '../medics/medics.service';
 import { UsersService } from '../users/users.service';
+import { ServicesService } from '../services/services.service';
 
 const CLIENT_PUSH_MESSAGES: Partial<Record<string, { title: string; body: string }>> = {
   ASSIGNED:        { title: '👤 Медик назначен',      body: 'Медик принял ваш заказ и скоро выедет' },
@@ -25,6 +26,9 @@ const CLIENT_PUSH_MESSAGES: Partial<Record<string, { title: string; body: string
 
 @Injectable()
 export class OrdersService {
+  /** Platform commission rate — 10% of the net order price */
+  private static readonly COMMISSION_RATE = 0.10;
+
   constructor(
     @InjectRepository(Order)
     private orderRepo: Repository<Order>,
@@ -35,6 +39,7 @@ export class OrdersService {
     private webPushService: WebPushService,
     private medicsService: MedicsService,
     private usersService: UsersService,
+    private servicesService: ServicesService,
   ) {}
 
   /** Send Expo + Web Push notifications to the client of a given order */
@@ -65,12 +70,24 @@ export class OrdersService {
   }
 
   async create(clientId: string, dto: CreateOrderDto): Promise<Order> {
+    // ── Fetch & validate service from catalog ────────────────────────────────
+    const service = await this.servicesService.getActiveServiceOrThrow(dto.serviceId);
+
+    const discountAmount = dto.discountAmount ?? 0;
+    if (discountAmount > service.price) {
+      throw new BadRequestException('Discount cannot exceed the service price');
+    }
+
+    const netPrice = service.price - discountAmount;
+    const platformFee = Math.round(netPrice * OrdersService.COMMISSION_RATE);
+
     const order = this.orderRepo.create({
       clientId,
-      serviceId: dto.serviceId,
-      serviceTitle: dto.serviceTitle,
-      priceAmount: dto.priceAmount,
-      discountAmount: dto.discountAmount,
+      serviceId: service.id,
+      serviceTitle: service.title,     // snapshot from catalog
+      priceAmount: service.price,      // price locked from catalog, client cannot override
+      discountAmount,
+      platformFee,
       status: OrderStatus.CREATED,
     });
     const saved = await this.orderRepo.save(order);
@@ -90,12 +107,12 @@ export class OrdersService {
     this.orderEventsGateway.emitNewOrder(fullOrder as unknown as Record<string, unknown>);
 
     // Expo push — for medics with the app in background/closed (mobile)
-    const price = (dto.priceAmount - (dto.discountAmount ?? 0)).toLocaleString('ru-RU');
+    const priceLabel = netPrice.toLocaleString('ru-RU');
     this.medicsService.getOnlinePushTokens().then((tokens) => {
       if (!tokens.length) return;
       this.pushService.send(tokens, {
         title: '🚨 Новый заказ!',
-        body: `${dto.serviceTitle} — ${price} UZS`,
+        body: `${service.title} — ${priceLabel} UZS`,
         sound: 'default',
         data: { orderId: saved.id },
         channelId: 'new_orders',
@@ -106,7 +123,7 @@ export class OrdersService {
     // Web push — for medics using the web dashboard in any browser state
     this.webPushService.broadcast('medic', {
       title: '🚨 Новый заказ!',
-      body: `${dto.serviceTitle} — ${price} UZS`,
+      body: `${service.title} — ${priceLabel} UZS`,
       data: { orderId: saved.id },
       url: `/orders/${saved.id}`,
     });
@@ -172,12 +189,21 @@ export class OrdersService {
     return this.findOne(id);
   }
 
-  async findByClient(clientId: string): Promise<Order[]> {
-    return this.orderRepo.find({
+  async findByClient(
+    clientId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: Order[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(limit, 100);
+    const skip = (page - 1) * take;
+    const [data, total] = await this.orderRepo.findAndCount({
       where: { clientId },
       relations: { location: true, medic: true },
       order: { created_at: 'DESC' },
+      take,
+      skip,
     });
+    return { data, total, page, totalPages: Math.ceil(total / take) };
   }
 
   // ── Medic-facing ──────────────────────────────────────────────────────────
@@ -193,6 +219,15 @@ export class OrdersService {
 
   /** Medic accepts a CREATED order → status becomes ASSIGNED */
   async acceptOrder(orderId: string, medicId: string): Promise<Order> {
+    const medic = await this.medicsService.findById(medicId);
+    if (!medic) throw new ForbiddenException('Medic not found');
+    if (medic.verificationStatus !== 'APPROVED') {
+      throw new ForbiddenException(
+        'Your account is not yet verified. Upload your documents and wait for approval.',
+      );
+    }
+    if (medic.isBlocked) throw new ForbiddenException('Your account has been blocked.');
+
     const order = await this.findOne(orderId);
     if (order.status !== OrderStatus.CREATED) {
       throw new Error(`Order is not available (status: ${order.status})`);
@@ -234,10 +269,11 @@ export class OrdersService {
     await this.orderRepo.save(order);
     this.orderEventsGateway.emitOrderStatus(orderId, status);
 
-    // Credit medic balance when order is completed
+    // Credit medic balance when order is completed (net price minus platform commission)
     if (status === OrderStatus.DONE) {
-      const earned = order.priceAmount - (order.discountAmount ?? 0);
-      await this.medicsService.addBalance(medicId, earned);
+      const netPrice = (order.priceAmount ?? 0) - (order.discountAmount ?? 0);
+      const medicEarned = netPrice - (order.platformFee ?? 0);
+      await this.medicsService.addBalance(medicId, medicEarned);
     }
 
     const updated = await this.findOne(orderId);
@@ -246,11 +282,54 @@ export class OrdersService {
   }
 
   /** All orders assigned to a medic */
-  async findByMedic(medicId: string): Promise<Order[]> {
-    return this.orderRepo.find({
+  async findByMedic(
+    medicId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ data: Order[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(limit, 100);
+    const skip = (page - 1) * take;
+    const [data, total] = await this.orderRepo.findAndCount({
       where: { medicId },
       relations: { location: true },
       order: { created_at: 'DESC' },
+      take,
+      skip,
     });
+    return { data, total, page, totalPages: Math.ceil(total / take) };
+  }
+
+  // ── Admin ─────────────────────────────────────────────────────────────────
+
+  /** All orders with optional status filter — for admin dashboard */
+  async findAllAdmin(
+    page = 1,
+    limit = 20,
+    status?: OrderStatus,
+  ): Promise<{ data: Order[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(limit, 100);
+    const skip = (page - 1) * take;
+    const where = status ? { status } : {};
+    const [data, total] = await this.orderRepo.findAndCount({
+      where,
+      relations: { location: true },
+      order: { created_at: 'DESC' },
+      take,
+      skip,
+    });
+    return { data, total, page, totalPages: Math.ceil(total / take) };
+  }
+
+  /** Admin force-cancels any order regardless of current status */
+  async adminCancelOrder(orderId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+    if (order.status === OrderStatus.DONE || order.status === OrderStatus.CANCELED) {
+      throw new BadRequestException(`Order is already ${order.status}`);
+    }
+    order.status = OrderStatus.CANCELED;
+    await this.orderRepo.save(order);
+    this.orderEventsGateway.emitOrderStatus(orderId, OrderStatus.CANCELED);
+    this.notifyClient(order, OrderStatus.CANCELED);
+    return this.findOne(orderId);
   }
 }

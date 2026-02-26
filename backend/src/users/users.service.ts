@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -30,5 +30,11 @@ export class UsersService {
   async getPushToken(id: string): Promise<string | null> {
     const user = await this.userRepo.findOne({ where: { id }, select: ['pushToken'] });
     return user?.pushToken ?? null;
+  }
+
+  async blockUser(id: string, isBlocked: boolean): Promise<void> {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    await this.userRepo.update(id, { isBlocked });
   }
 }

@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
+import { VerificationStatus } from './verification-status.enum';
 
 @Entity('medics')
 export class Medic {
@@ -34,6 +35,30 @@ export class Medic {
 
   @Column({ type: 'boolean', default: false })
   isOnline: boolean;
+
+  @Column({ type: 'boolean', default: false, nullable: true })
+  isBlocked: boolean;
+
+  /** Verification lifecycle: PENDING → APPROVED or REJECTED */
+  @Column({
+    type: 'enum',
+    enum: VerificationStatus,
+    default: VerificationStatus.PENDING,
+    nullable: true,
+  })
+  verificationStatus: VerificationStatus;
+
+  /** URL/path of uploaded face photo */
+  @Column({ type: 'varchar', length: 512, nullable: true, default: null })
+  facePhotoUrl: string | null;
+
+  /** URL/path of uploaded medical license photo */
+  @Column({ type: 'varchar', length: 512, nullable: true, default: null })
+  licensePhotoUrl: string | null;
+
+  /** Reason shown to medic when rejected */
+  @Column({ type: 'text', nullable: true, default: null })
+  verificationRejectedReason: string | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   balance: number;

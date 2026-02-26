@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState } from 'react';
 import { apiFetch } from '@/constants/api';
 
+export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface MedicUser {
   id: string;
   phone: string;
@@ -9,6 +11,10 @@ export interface MedicUser {
   rating: number | null;
   balance: number;
   isOnline: boolean;
+  verificationStatus: VerificationStatus;
+  facePhotoUrl: string | null;
+  licensePhotoUrl: string | null;
+  verificationRejectedReason: string | null;
 }
 
 interface AuthState {
@@ -20,6 +26,7 @@ interface AuthContextType extends AuthState {
   login: (phone: string, password: string) => Promise<void>;
   register: (phone: string, password: string, name: string, experienceYears?: number) => Promise<void>;
   updateOnlineStatus: (isOnline: boolean) => void;
+  refreshProfile: () => Promise<void>;
   logout: () => void;
 }
 
@@ -56,10 +63,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  /** Re-fetch profile from backend to get latest verificationStatus */
+  const refreshProfile = async () => {
+    setState((s) => {
+      if (!s.token) return s;
+      apiFetch<MedicUser>('/medics/me', { token: s.token })
+        .then((profile) => setState((prev) => ({ ...prev, medic: profile })))
+        .catch(() => {});
+      return s;
+    });
+  };
+
   const logout = () => setState({ medic: null, token: null });
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, updateOnlineStatus, logout }}>
+    <AuthContext.Provider value={{ ...state, login, register, updateOnlineStatus, refreshProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );

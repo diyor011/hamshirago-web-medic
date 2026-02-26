@@ -24,12 +24,22 @@
       "package": "com.hamshirago.medic",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
       ]
     },
     "plugins": [
       "expo-router",
       "expo-location",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "HamshiraGo Medic использует галерею для загрузки документов верификации.",
+          "cameraPermission": "HamshiraGo Medic использует камеру для фото документов верификации."
+        }
+      ],
       [
         "expo-notifications",
         {

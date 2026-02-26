@@ -77,7 +77,8 @@ export default function OrdersScreen() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const data = await apiFetch<Order[]>('/orders', { token: token ?? undefined });
+      const res = await apiFetch<{ data: Order[] }>('/orders?limit=50', { token: token ?? undefined });
+      const data = res.data;
       setOrders(data);
       setError(null);
       return data;

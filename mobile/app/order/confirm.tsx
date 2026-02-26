@@ -2,20 +2,28 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Pressable } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
-import { getServiceById, formatPriceRange, type ServiceId } from '@/types/services';
 import { formatEta } from '@/types/nurse';
 import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
-const FIRST_ORDER_DISCOUNT_PERCENT = 10;
+interface CatalogService {
+  id: string;
+  title: string;
+  price: number;
+  durationMinutes: number | null;
+  category: string | null;
+}
 
 export default function OrderConfirmScreen() {
   const router = useRouter();
   const { token } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [service, setService] = useState<CatalogService | null>(null);
+  const [loadingService, setLoadingService] = useState(true);
+
   const params = useLocalSearchParams<{
     serviceId: string;
     lat: string;
@@ -28,10 +36,15 @@ export default function OrderConfirmScreen() {
     nurseRating?: string;
     nurseEta?: string;
     nurseDistance?: string;
-    autoAssign: string;
   }>();
 
-  const service = params.serviceId ? getServiceById(params.serviceId as ServiceId) : null;
+  useEffect(() => {
+    if (!params.serviceId) return;
+    apiFetch<CatalogService>(`/services/${params.serviceId}`)
+      .then(setService)
+      .catch(() => setService(null))
+      .finally(() => setLoadingService(false));
+  }, [params.serviceId]);
 
   // Nurse data comes directly from params (real API data from location screen)
   const nurse = params.nurseName
@@ -42,12 +55,8 @@ export default function OrderConfirmScreen() {
         distanceKm: params.nurseDistance ? parseFloat(params.nurseDistance) : null,
       }
     : null;
-  const isFirstOrder = true;
-  const price = service
-    ? Math.round((service.priceMin + service.priceMax) / 2)
-    : 0;
-  const discount = isFirstOrder ? Math.round((price * FIRST_ORDER_DISCOUNT_PERCENT) / 100) : 0;
-  const finalPrice = price - discount;
+
+  const finalPrice = service ? service.price : 0;
 
   const handleSubmit = async () => {
     if (!service) return;
@@ -58,9 +67,7 @@ export default function OrderConfirmScreen() {
         token: token ?? undefined,
         body: JSON.stringify({
           serviceId: service.id,
-          serviceTitle: service.title,
-          priceAmount: price,
-          discountAmount: discount,
+          // price is now determined server-side from catalog — no priceAmount/serviceTitle needed
           location: {
             latitude: parseFloat(params.lat),
             longitude: parseFloat(params.lng),
@@ -84,6 +91,14 @@ export default function OrderConfirmScreen() {
     router.back();
   };
 
+  if (loadingService) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={Theme.primary} />
+      </View>
+    );
+  }
+
   if (!service) {
     return (
       <View style={styles.centered}>
@@ -98,7 +113,7 @@ export default function OrderConfirmScreen() {
 
       <View style={styles.card}>
         <View style={styles.serviceRow}>
-          <FontAwesome name={service.icon as 'medkit'} size={24} color={Theme.primary} />
+          <FontAwesome name="medkit" size={24} color={Theme.primary} />
           <Text style={styles.serviceName}>{service.title}</Text>
         </View>
         <View style={styles.divider} />
@@ -107,6 +122,9 @@ export default function OrderConfirmScreen() {
           value={`${params.house}${params.floor ? `, этаж ${params.floor}` : ''}${params.apartment ? `, кв. ${params.apartment}` : ''}`}
         />
         <Row label="Телефон" value={params.phone ?? ''} />
+        {service.durationMinutes && (
+          <Row label="Длительность" value={`~${service.durationMinutes} мин`} />
+        )}
         {nurse && (
           <>
             <View style={styles.divider} />
@@ -125,10 +143,6 @@ export default function OrderConfirmScreen() {
       </View>
 
       <View style={styles.priceBlock}>
-        <Row label="Стоимость" value={formatPriceRange(service.priceMin, service.priceMax, service.currency)} />
-        {isFirstOrder && discount > 0 && (
-          <Row label="Скидка 10% (первый заказ)" value={`−${discount.toLocaleString('ru-RU')} UZS`} valueGreen />
-        )}
         <View style={styles.finalRow}>
           <Text style={styles.finalLabel}>Итого</Text>
           <Text style={styles.finalPrice}>{finalPrice.toLocaleString('ru-RU')} UZS</Text>

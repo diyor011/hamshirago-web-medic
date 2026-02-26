@@ -3,11 +3,16 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
-import type { ServiceItem } from '@/types/services';
-import { formatPriceRange } from '@/types/services';
+
+export interface ServiceCardItem {
+  id: string;
+  title: string;
+  price: number;
+  durationMinutes?: number | null;
+}
 
 type ServiceCardProps = {
-  service: ServiceItem;
+  service: ServiceCardItem;
 };
 
 export function ServiceCard({ service }: ServiceCardProps) {
@@ -16,15 +21,21 @@ export function ServiceCard({ service }: ServiceCardProps) {
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={() => router.push(`/service/${service.id}`)}
+      onPress={() =>
+        router.push({
+          pathname: '/service/[id]',
+          params: { id: service.id },
+        })
+      }
     >
       <View style={styles.iconWrap}>
-        <FontAwesome name={service.icon as 'medkit'} size={24} color={Theme.primary} />
+        <FontAwesome name="medkit" size={24} color={Theme.primary} />
       </View>
       <View style={styles.body}>
         <Text style={styles.title}>{service.title}</Text>
         <Text style={styles.price} lightColor={Theme.textSecondary} darkColor={Theme.textSecondary}>
-          {formatPriceRange(service.priceMin, service.priceMax, service.currency)}
+          {service.price.toLocaleString('ru-RU')} UZS
+          {service.durationMinutes ? ` · ~${service.durationMinutes} мин` : ''}
         </Text>
       </View>
       <FontAwesome name="chevron-right" size={14} color={Theme.textSecondary} />

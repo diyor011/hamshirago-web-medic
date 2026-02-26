@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
@@ -15,6 +16,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { RateOrderDto } from './dto/rate-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MedicAuthGuard } from '../auth/guards/medic-auth.guard';
+import { AdminGuard } from '../auth/guards/admin.guard';
 import { ClientId } from '../auth/decorators/client-id.decorator';
 import { MedicId } from '../auth/decorators/medic-id.decorator';
 import { OrderStatus } from './entities/order-status.enum';
@@ -33,8 +35,16 @@ export class OrdersController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  findByClient(@ClientId() clientId: string) {
-    return this.ordersService.findByClient(clientId);
+  findByClient(
+    @ClientId() clientId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.ordersService.findByClient(
+      clientId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   @Get(':id')
@@ -81,8 +91,16 @@ export class OrdersController {
   /** Medic's own order history */
   @Get('medic/my')
   @UseGuards(MedicAuthGuard)
-  findMyOrders(@MedicId() medicId: string) {
-    return this.ordersService.findByMedic(medicId);
+  findMyOrders(
+    @MedicId() medicId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.ordersService.findByMedic(
+      medicId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+    );
   }
 
   /** Accept an available order */
@@ -102,5 +120,37 @@ export class OrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateStatusByMedic(id, medicId, dto.status as OrderStatus);
+  }
+
+  // ── Admin endpoints ───────────────────────────────────────────────────────
+
+  /**
+   * GET /orders/admin/all?page=1&limit=20&status=CREATED
+   * Returns all orders with pagination and optional status filter.
+   * Requires X-Admin-Secret header.
+   */
+  @Get('admin/all')
+  @UseGuards(AdminGuard)
+  findAllAdmin(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.ordersService.findAllAdmin(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      status as OrderStatus | undefined,
+    );
+  }
+
+  /**
+   * PATCH /orders/admin/:id/cancel
+   * Force-cancel any order. Requires X-Admin-Secret header.
+   */
+  @Patch('admin/:id/cancel')
+  @UseGuards(AdminGuard)
+  @HttpCode(HttpStatus.OK)
+  adminCancelOrder(@Param('id') id: string) {
+    return this.ordersService.adminCancelOrder(id);
   }
 }

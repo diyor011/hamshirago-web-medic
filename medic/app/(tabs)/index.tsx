@@ -235,8 +235,34 @@ export default function AvailableOrdersScreen() {
     );
   }
 
+  const vStatus = medic?.verificationStatus ?? 'PENDING';
+  const isNotApproved = vStatus !== 'APPROVED';
+
   return (
     <View style={styles.container}>
+      {/* Verification warning banner */}
+      {isNotApproved && (
+        <Pressable
+          style={[
+            styles.verifyBanner,
+            vStatus === 'REJECTED' ? styles.verifyBannerRejected : styles.verifyBannerPending,
+          ]}
+          onPress={() => router.push('/verification')}
+        >
+          <FontAwesome
+            name={vStatus === 'REJECTED' ? 'times-circle' : 'clock-o'}
+            size={15}
+            color={vStatus === 'REJECTED' ? '#ef4444' : '#92400e'}
+          />
+          <Text style={[styles.verifyBannerText, vStatus === 'REJECTED' && { color: '#ef4444' }]}>
+            {vStatus === 'REJECTED'
+              ? 'Аккаунт отклонён — загрузите документы повторно'
+              : 'Аккаунт не верифицирован — вы не можете принимать заказы'}
+          </Text>
+          <FontAwesome name="chevron-right" size={11} color={vStatus === 'REJECTED' ? '#ef4444' : '#92400e'} />
+        </Pressable>
+      )}
+
       {/* Offline banner */}
       {!medic?.isOnline && (
         <View style={styles.offlineBanner}>
@@ -359,6 +385,29 @@ function AvailableOrderCard({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.background },
+
+  verifyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  verifyBannerPending: {
+    backgroundColor: '#fef3c720',
+    borderBottomColor: '#f59e0b40',
+  },
+  verifyBannerRejected: {
+    backgroundColor: '#fee2e220',
+    borderBottomColor: '#ef444440',
+  },
+  verifyBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400e',
+  },
 
   offlineBanner: {
     flexDirection: 'row',
