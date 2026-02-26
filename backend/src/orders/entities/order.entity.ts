@@ -24,19 +24,19 @@ export class Order {
   @Column({ type: 'uuid', nullable: true })
   medicId: string | null;
 
-  /** UUID of the service from catalog — stored as varchar to avoid migration pain on existing rows */
-  @Column({ type: 'varchar', length: 255 })
-  serviceId: string;
+  /** UUID of the service from catalog — nullable for legacy rows created before catalog */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  serviceId: string | null;
 
-  /** Snapshot of service title at the time of order (titles may change later) */
-  @Column({ type: 'varchar', length: 255 })
-  serviceTitle: string;
+  /** Snapshot of service title at the time of order */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  serviceTitle: string | null;
 
   /** Price taken from service catalog at order time */
-  @Column({ type: 'int' })
-  priceAmount: number;
+  @Column({ type: 'int', nullable: true })
+  priceAmount: number | null;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'int', default: 0, nullable: true })
   discountAmount: number;
 
   /** Platform commission (10% of net price), credited to platform account */

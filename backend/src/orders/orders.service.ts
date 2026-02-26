@@ -298,4 +298,38 @@ export class OrdersService {
     });
     return { data, total, page, totalPages: Math.ceil(total / take) };
   }
+
+  // ── Admin ─────────────────────────────────────────────────────────────────
+
+  /** All orders with optional status filter — for admin dashboard */
+  async findAllAdmin(
+    page = 1,
+    limit = 20,
+    status?: OrderStatus,
+  ): Promise<{ data: Order[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(limit, 100);
+    const skip = (page - 1) * take;
+    const where = status ? { status } : {};
+    const [data, total] = await this.orderRepo.findAndCount({
+      where,
+      relations: { location: true },
+      order: { created_at: 'DESC' },
+      take,
+      skip,
+    });
+    return { data, total, page, totalPages: Math.ceil(total / take) };
+  }
+
+  /** Admin force-cancels any order regardless of current status */
+  async adminCancelOrder(orderId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+    if (order.status === OrderStatus.DONE || order.status === OrderStatus.CANCELED) {
+      throw new BadRequestException(`Order is already ${order.status}`);
+    }
+    order.status = OrderStatus.CANCELED;
+    await this.orderRepo.save(order);
+    this.orderEventsGateway.emitOrderStatus(orderId, OrderStatus.CANCELED);
+    this.notifyClient(order, OrderStatus.CANCELED);
+    return this.findOne(orderId);
+  }
 }
