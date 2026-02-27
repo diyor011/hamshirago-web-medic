@@ -173,7 +173,7 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   ACCEPTED:        "Принят",
   ON_THE_WAY:      "В пути",
   ARRIVED:         "Прибыл",
-  SERVICE_STARTED: "Услуга начата",
+  SERVICE_STARTED: "Оказывается услуга",
   DONE:            "Выполнен",
   CANCELED:        "Отменён",
 };
