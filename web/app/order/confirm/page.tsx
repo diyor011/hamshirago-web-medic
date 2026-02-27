@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTelegram, useTelegramBackButton, useTelegramMainButton, useHaptic } from "@/hooks/useTelegram";
 import {
@@ -26,10 +26,29 @@ function ConfirmForm() {
   const lat          = parseFloat(params.get("lat") || "41.2995");
   const lng          = parseFloat(params.get("lng") || "69.2401");
 
-  const total = price;
+  const [discount, setDiscount] = useState(0);
+  const [checkingDiscount, setCheckingDiscount] = useState(true);
+  const total = price - discount;
 
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
+
+  // Проверяем первый ли это заказ — если да, даём скидку 10%
+  useEffect(() => {
+    api.orders.list()
+      .then((orders) => {
+        const arr = Array.isArray(orders) ? orders
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          : Array.isArray((orders as any)?.data) ? (orders as any).data
+          : [];
+        if (arr.length === 0) {
+          setDiscount(Math.round(price * 0.1));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCheckingDiscount(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { inTelegram } = useTelegram();
   const { notify } = useHaptic();
@@ -52,7 +71,7 @@ function ConfirmForm() {
       serviceId,
       serviceTitle,
       priceAmount:    price,
-      discountAmount: 0,
+      discountAmount: discount,
       location: {
         latitude:  lat,
         longitude: lng,
@@ -162,6 +181,21 @@ function ConfirmForm() {
                 {formatPrice(price)} UZS
               </span>
             </div>
+
+            {checkingDiscount && (
+              <div style={{ fontSize: 13, color: "#94a3b8" }}>Проверяем скидку...</div>
+            )}
+
+            {!checkingDiscount && discount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: "#16a34a", fontWeight: 600 }}>
+                  🎁 Скидка 10% (первый заказ)
+                </span>
+                <span style={{ fontSize: 14, color: "#22c55e", fontWeight: 700 }}>
+                  −{formatPrice(discount)} UZS
+                </span>
+              </div>
+            )}
 
             <div style={{ height: 1, background: "#e2e8f0" }} />
 
