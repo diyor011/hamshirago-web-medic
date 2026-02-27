@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
-import { clearAdminSecret } from "@/lib/api";
+import { clearAdminToken as clearAdminSecret } from "@/lib/api";
 import {
   Sidebar,
   SidebarContent,
