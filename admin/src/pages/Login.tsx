@@ -1,35 +1,31 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { setAdminSecret, validateAdminSecret } from "@/lib/api";
+import { adminLogin } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Shield, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Login = () => {
-  const [secret, setSecret] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = secret.trim();
-    if (!trimmed) return;
+    if (!username.trim() || !password.trim()) return;
 
     setLoading(true);
     setError("");
 
     try {
-      const valid = await validateAdminSecret(trimmed);
-      if (valid) {
-        setAdminSecret(trimmed);
-        navigate("/");
-      } else {
-        setError("Неверный секретный ключ. Проверьте значение ADMIN_SECRET.");
-      }
-    } catch {
-      setError("Не удалось подключиться к серверу. Попробуйте позже.");
+      await adminLogin(username.trim(), password);
+      navigate("/");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Произошла ошибка");
     } finally {
       setLoading(false);
     }
@@ -47,24 +43,38 @@ const Login = () => {
             <Shield className="h-7 w-7 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">HamshiraGo</h1>
-          <p className="text-sm text-muted-foreground">
-            Введите секретный ключ для входа в админ-панель
-          </p>
+          <p className="text-sm text-muted-foreground">Админ-панель</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            type="password"
-            placeholder="Admin Secret"
-            value={secret}
-            onChange={(e) => {
-              setSecret(e.target.value);
-              setError("");
-            }}
-            className={`h-11 ${error ? "border-destructive focus-visible:ring-destructive" : ""}`}
-            disabled={loading}
-            autoFocus
-          />
+          <div className="space-y-2">
+            <Label htmlFor="username">Логин</Label>
+            <Input
+              id="username"
+              type="text"
+              placeholder="admin"
+              value={username}
+              onChange={(e) => { setUsername(e.target.value); setError(""); }}
+              className="h-11"
+              disabled={loading}
+              autoFocus
+              autoComplete="username"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Пароль</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(""); }}
+              className={`h-11 ${error ? "border-destructive focus-visible:ring-destructive" : ""}`}
+              disabled={loading}
+              autoComplete="current-password"
+            />
+          </div>
 
           {error && (
             <motion.div
@@ -80,12 +90,12 @@ const Login = () => {
           <Button
             type="submit"
             className="w-full h-11"
-            disabled={!secret.trim() || loading}
+            disabled={!username.trim() || !password.trim() || loading}
           >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Проверка...
+                Вход...
               </>
             ) : (
               "Войти"

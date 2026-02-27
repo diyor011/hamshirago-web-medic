@@ -1,47 +1,60 @@
 const API_BASE = "https://hamshirago-production-0a65.up.railway.app";
 
-function getAdminSecret(): string {
-  return localStorage.getItem("admin_secret") || "";
+// ── Token storage ─────────────────────────────────────────────────────────────
+
+function getAdminToken(): string {
+  return localStorage.getItem("admin_token") || "";
 }
 
-export function setAdminSecret(secret: string) {
-  localStorage.setItem("admin_secret", secret);
+export function setAdminToken(token: string) {
+  localStorage.setItem("admin_token", token);
 }
 
-export function clearAdminSecret() {
-  localStorage.removeItem("admin_secret");
+export function clearAdminToken() {
+  localStorage.removeItem("admin_token");
 }
 
-export function hasAdminSecret(): boolean {
-  return !!localStorage.getItem("admin_secret");
+export function hasAdminToken(): boolean {
+  return !!localStorage.getItem("admin_token");
 }
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 
 /**
- * Validates the secret against the backend by hitting a real admin endpoint.
- * Returns true if accepted (2xx), false if 403 or network error.
+ * Calls POST /auth/admin/login, stores the JWT on success.
+ * Throws on invalid credentials or network error.
  */
-export async function validateAdminSecret(secret: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/medics/admin/pending`, {
-      headers: { "X-Admin-Secret": secret },
-    });
-    return res.status !== 403;
-  } catch {
-    return false;
+export async function adminLogin(username: string, password: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/auth/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (res.status === 401) {
+    throw new Error("Неверный логин или пароль");
   }
+  if (!res.ok) {
+    throw new Error("Ошибка сервера. Попробуйте позже.");
+  }
+
+  const data = await res.json();
+  setAdminToken(data.access_token);
 }
+
+// ── Request helper ────────────────────────────────────────────────────────────
 
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  isAdmin = true
+  requiresAuth = true
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (isAdmin) {
-    headers["X-Admin-Secret"] = getAdminSecret();
+  if (requiresAuth) {
+    headers["Authorization"] = `Bearer ${getAdminToken()}`;
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -50,10 +63,10 @@ async function request<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 403) {
-    clearAdminSecret();
+  if (res.status === 401) {
+    clearAdminToken();
     window.location.href = "/login";
-    throw new Error("Forbidden");
+    throw new Error("Unauthorized");
   }
 
   if (res.status === 204) return null as T;
