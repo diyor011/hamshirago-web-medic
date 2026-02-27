@@ -131,7 +131,7 @@ export default function HomePage() {
                           key={service.id}
                           onClick={() => router.push(`/service/${service.id}`)}
                           style={{
-                            background: "#fff", borderRadius: 16,
+                            background: "#fff", borderRadius: 12,
                             padding: "18px 16px",
                             boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                             border: "1px solid #f1f5f9",
@@ -145,7 +145,7 @@ export default function HomePage() {
                           onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.06)"; e.currentTarget.style.transform = "none"; }}
                         >
                           <div style={{
-                            width: 52, height: 52, borderRadius: 14,
+                            width: 48, height: 48, borderRadius: 12,
                             background: "#0d948812",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             flexShrink: 0,

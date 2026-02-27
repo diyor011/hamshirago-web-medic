@@ -249,7 +249,7 @@ export default function AuthPage() {
                     fontWeight: 700,
                     transition: "all 200ms ease",
                     background: mode === m ? "#fff" : "transparent",
-                    color: mode === m ? "#0d9488" : "#94a3b8",
+                    color: mode === m ? "#0d9488" : "#64748b",
                     boxShadow: mode === m ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                   }}
                 >
@@ -390,7 +390,7 @@ export default function AuthPage() {
 const labelStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
-  color: "#475569",
+  color: "#64748b",
   marginBottom: 7,
   display: "block",
 };
