@@ -63,6 +63,8 @@ function ProfileContent() {
       localStorage.setItem("tg_chat_id", chatIdFromBot);
       setTgChatId(chatIdFromBot);
       setTgConnected(true);
+      // Сохраняем chatId на бэкенде чтобы уведомления работали на любом устройстве
+      medicApi.telegram.saveChatId(chatIdFromBot).catch(() => {});
       router.replace("/profile");
     }
 
