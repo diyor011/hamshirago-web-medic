@@ -103,6 +103,7 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [canceling, setCanceling] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [hoverStar, setHoverStar] = useState(0);
   const [rating, setRating] = useState(0);
   const [ratingLoading, setRatingLoading] = useState(false);
@@ -151,6 +152,19 @@ export default function OrderDetailPage() {
       setError(err instanceof Error ? err.message : "Ошибка загрузки");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleConfirmDone() {
+    if (!confirm("Подтвердить, что услуга выполнена?")) return;
+    setConfirming(true);
+    try {
+      const updated = await api.orders.updateStatus(id, "DONE");
+      setOrder(updated);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Ошибка при подтверждении");
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -208,6 +222,7 @@ export default function OrderDetailPage() {
   const timeStr = date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   const finalPrice = order.priceAmount - order.discountAmount;
   const canCancel = order.status === "CREATED" || order.status === "ASSIGNED";
+  const canConfirmDone = order.status === "SERVICE_STARTED";
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
@@ -328,6 +343,42 @@ export default function OrderDetailPage() {
             <span style={{ fontSize: 22, fontWeight: 800, color: "#0d9488" }}>{formatPrice(finalPrice)} UZS</span>
           </div>
         </div>
+
+        {/* Подтверждение завершения — клиент подтверждает что услуга выполнена */}
+        {canConfirmDone && (
+          <div style={{
+            background: "#fff",
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 12,
+            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            border: "1.5px solid #0d948840",
+          }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
+              Услуга оказывается
+            </p>
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              Если медик завершил работу — подтвердите выполнение услуги
+            </p>
+            <button
+              onClick={handleConfirmDone}
+              disabled={confirming}
+              style={{
+                width: "100%",
+                background: confirming ? "#94a3b8" : "#0d9488",
+                color: "#fff",
+                border: "none",
+                borderRadius: 12,
+                padding: "13px 16px",
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: confirming ? "not-allowed" : "pointer",
+              }}
+            >
+              {confirming ? "Подтверждаем..." : "Подтвердить завершение"}
+            </button>
+          </div>
+        )}
 
         {/* Рейтинг — показываем только для завершённых заказов с медиком */}
         {order.status === "DONE" && order.medic && (

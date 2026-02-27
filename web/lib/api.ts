@@ -59,6 +59,11 @@ export const api = {
       }),
     cancel: (id: string) =>
       request<Order>(`/orders/${id}/cancel`, { method: "POST" }),
+    updateStatus: (id: string, status: OrderStatus) =>
+      request<Order>(`/orders/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
     rate: (id: string, rating: number) =>
       request<Order>(`/orders/${id}/rate`, {
         method: "POST",

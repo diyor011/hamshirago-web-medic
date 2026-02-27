@@ -11,7 +11,10 @@ import {
   FaExclamationTriangle,
   FaCrosshairs,
   FaExclamationCircle,
+  FaUserNurse,
 } from "react-icons/fa";
+import { api, Medic } from "@/lib/api";
+import type { MedicMarker } from "@/components/Map";
 
 // Карта грузится только на клиенте
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
@@ -57,6 +60,34 @@ function LocationForm() {
   const resolvedRef = useRef(false);
 
   const [error, setError] = useState("");
+  const [nearbyMedics, setNearbyMedics] = useState<MedicMarker[]>([]);
+  const [loadingMedics, setLoadingMedics] = useState(false);
+  const medicsFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchNearbyMedics = useCallback((latitude: number, longitude: number) => {
+    if (medicsFetchTimer.current) clearTimeout(medicsFetchTimer.current);
+    medicsFetchTimer.current = setTimeout(async () => {
+      setLoadingMedics(true);
+      try {
+        const data: Medic[] = await api.medics.nearby(latitude, longitude);
+        const markers: MedicMarker[] = data
+          .filter((m) => m.latitude != null && m.longitude != null)
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            lat: m.latitude!,
+            lng: m.longitude!,
+            rating: m.rating,
+            distanceKm: m.distanceKm,
+          }));
+        setNearbyMedics(markers);
+      } catch {
+        // не критично — просто не показываем медиков
+      } finally {
+        setLoadingMedics(false);
+      }
+    }, 600);
+  }, []);
 
   const applyCoords = useCallback(async (latitude: number, longitude: number, accuracy?: number) => {
     resolvedRef.current = true;
@@ -66,7 +97,8 @@ function LocationForm() {
     setGpsLoading(false);
     const detected = await reverseGeocode(latitude, longitude);
     if (detected) setAddress(detected);
-  }, []);
+    fetchNearbyMedics(latitude, longitude);
+  }, [fetchNearbyMedics]);
 
   const getLocation = useCallback(() => {
     resolvedRef.current = false;
@@ -136,12 +168,13 @@ function LocationForm() {
     getLocation();
   }, [getLocation]);
 
-  // Когда пользователь двигает маркер — обновляем адрес
+  // Когда пользователь двигает маркер — обновляем адрес и медиков
   async function handleMapMove(newLat: number, newLng: number) {
     setLat(newLat);
     setLng(newLng);
     const detected = await reverseGeocode(newLat, newLng);
     if (detected) setAddress(detected);
+    fetchNearbyMedics(newLat, newLng);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -237,16 +270,42 @@ function LocationForm() {
         <div style={{
           borderRadius: 16,
           overflow: "hidden",
-          marginBottom: 16,
+          marginBottom: 0,
           boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-          height: 240,
+          height: 260,
           position: "relative",
           background: "#e2e8f0",
         }}>
-            <Map lat={lat} lng={lng} onMove={handleMapMove} />
+          <Map lat={lat} lng={lng} onMove={handleMapMove} medics={nearbyMedics} />
         </div>
 
-        <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 16, marginTop: -8 }}>
+        {/* Плашка: количество медиков рядом */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: nearbyMedics.length > 0 ? "#0d948814" : "#f1f5f9",
+          border: `1px solid ${nearbyMedics.length > 0 ? "#0d948830" : "#e2e8f0"}`,
+          borderRadius: "0 0 12px 12px",
+          padding: "8px 14px",
+          marginBottom: 12,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <FaUserNurse size={13} color={nearbyMedics.length > 0 ? "#0d9488" : "#94a3b8"} />
+            {loadingMedics ? (
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>Ищем медиков рядом...</span>
+            ) : nearbyMedics.length > 0 ? (
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#0d9488" }}>
+                {nearbyMedics.length} медик{nearbyMedics.length === 1 ? "" : nearbyMedics.length < 5 ? "а" : "ов"} доступно рядом
+              </span>
+            ) : (
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>Медики рядом не найдены</span>
+            )}
+          </div>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>
+            Нажмите на значок 👩‍⚕️ на карте
+          </span>
+        </div>
+
+        <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 16 }}>
           Нажмите на карту или перетащите маркер чтобы уточнить место
         </p>
 
