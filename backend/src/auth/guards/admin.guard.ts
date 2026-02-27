@@ -4,33 +4,42 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 
-/**
- * Simple admin guard — checks the X-Admin-Secret header against
- * the ADMIN_SECRET environment variable.
- *
- * For a production setup this should be replaced with a proper
- * admin role inside the JWT, but this is sufficient for MVP operator usage.
- */
 @Injectable()
 export class AdminGuard implements CanActivate {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
+  ) {}
 
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
+
+    // ── Option 1: Bearer JWT with role "admin" ─────────────────────────────
+    const authHeader = req.headers['authorization'];
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      try {
+        const payload = this.jwtService.verify<{ sub: string; role: string }>(token, {
+          secret: this.config.get<string>('JWT_SECRET'),
+        });
+        if (payload.role === 'admin') return true;
+      } catch {
+        throw new UnauthorizedException('Invalid or expired admin token');
+      }
+      throw new UnauthorizedException('Token does not have admin role');
+    }
+
+    // ── Option 2: Legacy X-Admin-Secret header (kept for backward compat) ──
     const secret = this.config.get<string>('ADMIN_SECRET');
-
-    if (!secret) {
-      throw new UnauthorizedException('Admin access is not configured (ADMIN_SECRET missing)');
+    if (secret) {
+      const provided = req.headers['x-admin-secret'];
+      if (provided === secret) return true;
     }
 
-    const provided = req.headers['x-admin-secret'];
-    if (!provided || provided !== secret) {
-      throw new UnauthorizedException('Invalid admin secret');
-    }
-
-    return true;
+    throw new UnauthorizedException('Admin authentication required');
   }
 }

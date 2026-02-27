@@ -89,6 +89,17 @@ export class AuthController {
 
   // ── Admin ─────────────────────────────────────────────────────────────────
 
+  /**
+   * POST /auth/admin/login
+   * Validates ADMIN_USERNAME + ADMIN_PASSWORD from env,
+   * returns a short-lived JWT with role "admin".
+   */
+  @Post('admin/login')
+  @HttpCode(HttpStatus.OK)
+  adminLogin(@Body() body: { username: string; password: string }) {
+    return this.authService.adminLogin(body.username, body.password);
+  }
+
   @Patch('admin/users/:id/block')
   @UseGuards(AdminGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
