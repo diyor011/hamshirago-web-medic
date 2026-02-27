@@ -2,16 +2,27 @@
 
 import { useEffect, useRef } from "react";
 
+export interface MedicMarker {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  rating: number | null;
+  distanceKm?: number;
+}
+
 interface MapProps {
   lat: number;
   lng: number;
   onMove?: (lat: number, lng: number) => void;
+  medics?: MedicMarker[];
 }
 
-export default function Map({ lat, lng, onMove }: MapProps) {
+export default function Map({ lat, lng, onMove, medics = [] }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<unknown>(null);
   const markerRef = useRef<unknown>(null);
+  const medicMarkersRef = useRef<unknown[]>([]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -96,6 +107,67 @@ export default function Map({ lat, lng, onMove }: MapProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mapRef.current as any).setView([lat, lng], 16, { animate: true });
   }, [lat, lng]);
+
+  // Обновляем маркеры медиков при изменении списка
+  useEffect(() => {
+    if (!mapRef.current) return;
+    import("leaflet").then((L) => {
+      // Удаляем старые маркеры
+      medicMarkersRef.current.forEach((m) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (m as any).remove();
+      });
+      medicMarkersRef.current = [];
+
+      // Добавляем новые
+      medics.forEach((medic) => {
+        if (medic.lat == null || medic.lng == null) return;
+        const icon = L.divIcon({
+          html: `
+            <div style="
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              cursor: pointer;
+            ">
+              <div style="
+                width: 34px; height: 34px;
+                background: #fff;
+                border: 3px solid #0d9488;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 8px rgba(13,148,136,0.35);
+                font-size: 16px;
+              ">👩‍⚕️</div>
+            </div>
+          `,
+          iconSize: [34, 34],
+          iconAnchor: [17, 34],
+          className: "",
+        });
+
+        const distText = medic.distanceKm != null
+          ? ` • ${medic.distanceKm.toFixed(1)} км`
+          : "";
+        const ratingText = medic.rating != null
+          ? `⭐ ${medic.rating.toFixed(1)}`
+          : "Нет оценок";
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const m = L.marker([medic.lat, medic.lng], { icon }).addTo(mapRef.current as any);
+        m.bindPopup(`
+          <div style="font-family: sans-serif; min-width: 130px;">
+            <b style="font-size:14px;">${medic.name}</b><br/>
+            <span style="color:#64748b; font-size:12px;">${ratingText}${distText}</span>
+          </div>
+        `);
+        medicMarkersRef.current.push(m);
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medics]);
 
   return (
     <>
