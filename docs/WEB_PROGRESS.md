@@ -59,3 +59,4 @@
 - [x] Адаптивный layout — 2-column sidebar на ≥860px, mobile-first
 - [x] ✅ Telegram chatId сохраняется в БД (`PATCH /medics/telegram-chat-id`) — уведомления с любого устройства
 - [x] ✅ Лейбл SERVICE_STARTED синхронизирован с web и STYLE_GUIDE — «Оказывается услуга»
+- [x] ✅ Web Push полностью работает — VAPID env vars подтверждены на Railway
