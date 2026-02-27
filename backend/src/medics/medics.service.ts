@@ -174,6 +174,22 @@ export class MedicsService {
       .filter((t): t is string => !!t);
   }
 
+  /** Save Telegram chat_id for the medic (called after /start in bot) */
+  async saveTelegramChatId(id: string, chatId: string): Promise<void> {
+    await this.medicRepo.update(id, { telegramChatId: chatId });
+  }
+
+  /** Returns chat_ids of all online medics (for new order broadcast) */
+  async getOnlineTelegramChatIds(): Promise<string[]> {
+    const medics = await this.medicRepo.find({
+      where: { isOnline: true },
+      select: ['telegramChatId'],
+    });
+    return medics
+      .map((m) => m.telegramChatId)
+      .filter((t): t is string => !!t);
+  }
+
   // ── Nearby (used by client app) ───────────────────────────────────────────
 
   private distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

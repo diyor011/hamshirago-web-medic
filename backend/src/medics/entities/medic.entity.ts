@@ -67,6 +67,10 @@ export class Medic {
   @Column({ type: 'varchar', nullable: true, default: null })
   pushToken: string | null;
 
+  /** Telegram chat_id — for bot notifications when app is closed */
+  @Column({ type: 'bigint', nullable: true, default: null })
+  telegramChatId: string | null;
+
   /** Last known lat/lng for dispatch */
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   latitude: number | null;

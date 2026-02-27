@@ -161,6 +161,21 @@ export class MedicsController {
     if (body?.token) await this.medicsService.savePushToken(medicId, body.token);
   }
 
+  // ── Telegram chat_id ──────────────────────────────────────────────────────
+
+  /**
+   * PATCH /medics/telegram-chat-id
+   * Saves the Telegram chat_id for the authenticated medic.
+   * Call this after the medic sends /start to the bot and you receive their chat_id.
+   */
+  @Patch('telegram-chat-id')
+  @UseGuards(MedicAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async saveTelegramChatId(@MedicId() medicId: string, @Body() body: { chatId: string }) {
+    if (!body?.chatId) throw new BadRequestException('chatId is required');
+    await this.medicsService.saveTelegramChatId(medicId, String(body.chatId));
+  }
+
   // ── Web Push ──────────────────────────────────────────────────────────────
 
   @Post('web-push-subscription')
