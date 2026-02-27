@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
@@ -15,6 +16,34 @@ import { RealtimeModule } from './realtime/realtime.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport: process.env.NODE_ENV !== 'production'
+          ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+          : undefined,
+        redact: {
+          paths: [
+            'req.headers.authorization',
+            'req.body.password',
+            'req.body.passwordHash',
+          ],
+          censor: '[REDACTED]',
+        },
+        serializers: {
+          req(req) {
+            return {
+              method: req.method,
+              url: req.url,
+              id: req.id,
+            };
+          },
+        },
+        autoLogging: {
+          ignore: (req) => req.url === '/health',
+        },
+      },
+    }),
     ThrottlerModule.forRoot([
       {
         name: 'default',

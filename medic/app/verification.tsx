@@ -5,12 +5,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Text } from '@/components/Themed';
 import { Theme } from '@/constants/Theme';
 import { API_BASE } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';

@@ -89,6 +89,11 @@
     --sidebar-accent-foreground: 210 16% 90%;
     --sidebar-border: 222 20% 14%;
     --sidebar-ring: 168 60% 48%;
+    --chart-1: 168 68% 52%;
+    --chart-2: 202 88% 58%;
+    --chart-3: 38 96% 62%;
+    --chart-4: 0 84% 64%;
+    --chart-5: 280 70% 65%;
   }
 }
 
@@ -100,6 +105,16 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at 12% -10%, hsl(var(--primary) / 0.12), transparent 34%),
+      radial-gradient(circle at 90% 0%, hsl(var(--info) / 0.1), transparent 28%);
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(circle at 12% -10%, hsl(var(--primary) / 0.22), transparent 36%),
+      radial-gradient(circle at 90% 0%, hsl(var(--chart-2) / 0.18), transparent 30%);
   }
 
   h1, h2, h3, h4, h5, h6 {

@@ -81,11 +81,11 @@ export class OrdersController {
 
   // ── Medic endpoints ───────────────────────────────────────────────────────
 
-  /** List of CREATED orders available for medics to pick up */
+  /** List of CREATED orders available for medics to pick up (filtered by 10km radius) */
   @Get('medic/available')
   @UseGuards(MedicAuthGuard)
-  findAvailable() {
-    return this.ordersService.findAvailable();
+  findAvailable(@MedicId() medicId: string) {
+    return this.ordersService.findAvailable(medicId);
   }
 
   /** Medic's own order history */

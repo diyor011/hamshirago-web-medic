@@ -1,4 +1,5 @@
-const API_BASE = "https://hamshirago-production-0a65.up.railway.app";
+export const API_BASE = "https://hamshirago-production-0a65.up.railway.app";
+export const WS_URL = API_BASE;
 
 // ── Token storage ─────────────────────────────────────────────────────────────
 

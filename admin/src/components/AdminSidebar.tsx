@@ -8,7 +8,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { clearAdminToken as clearAdminSecret } from "@/lib/api";
 import {
   Sidebar,
@@ -43,19 +43,19 @@ export function AdminSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r border-white/30 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950/95 backdrop-blur-md">
       <SidebarContent>
         <div className="px-4 py-5">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-teal-400 text-sidebar-primary-foreground font-bold text-sm shadow-lg">
                 H
               </div>
               <span className="font-semibold text-sidebar-accent-foreground">HamshiraGo</span>
             </div>
           )}
           {collapsed && (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold text-sm mx-auto">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-teal-400 text-sidebar-primary-foreground font-bold text-sm mx-auto shadow-lg">
               H
             </div>
           )}
@@ -71,8 +71,8 @@ export function AdminSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="hover:bg-sidebar-accent"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      className="hover:bg-sidebar-accent/80 rounded-md"
+                      activeClassName="bg-gradient-to-r from-cyan-500/20 to-teal-500/20 text-cyan-300 font-medium rounded-md"
                     >
                       <item.icon className="h-4 w-4 mr-2" />
                       {!collapsed && <span>{item.title}</span>}
@@ -88,7 +88,7 @@ export function AdminSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} className="hover:bg-sidebar-accent text-sidebar-foreground">
+            <SidebarMenuButton onClick={handleLogout} className="hover:bg-sidebar-accent/80 text-sidebar-foreground rounded-md">
               <LogOut className="h-4 w-4 mr-2" />
               {!collapsed && <span>Выйти</span>}
             </SidebarMenuButton>

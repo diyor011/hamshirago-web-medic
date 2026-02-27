@@ -17,12 +17,15 @@ interface CatalogService {
   category: string | null;
 }
 
+const FIRST_ORDER_DISCOUNT_RATE = 0.10; // 10%
+
 export default function OrderConfirmScreen() {
   const router = useRouter();
   const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [service, setService] = useState<CatalogService | null>(null);
   const [loadingService, setLoadingService] = useState(true);
+  const [isFirstOrder, setIsFirstOrder] = useState(false);
 
   const params = useLocalSearchParams<{
     serviceId: string;
@@ -40,9 +43,16 @@ export default function OrderConfirmScreen() {
 
   useEffect(() => {
     if (!params.serviceId) return;
-    apiFetch<CatalogService>(`/services/${params.serviceId}`)
-      .then(setService)
-      .catch(() => setService(null))
+    // Load service and order history in parallel
+    Promise.all([
+      apiFetch<CatalogService>(`/services/${params.serviceId}`),
+      apiFetch<{ total: number }>('/orders?limit=1', { token: token ?? undefined }),
+    ])
+      .then(([svc, ordersResp]) => {
+        setService(svc);
+        setIsFirstOrder(ordersResp.total === 0);
+      })
+      .catch(() => {})
       .finally(() => setLoadingService(false));
   }, [params.serviceId]);
 
@@ -56,7 +66,9 @@ export default function OrderConfirmScreen() {
       }
     : null;
 
-  const finalPrice = service ? service.price : 0;
+  const basePrice = service?.price ?? 0;
+  const discountAmount = isFirstOrder ? Math.round(basePrice * FIRST_ORDER_DISCOUNT_RATE) : 0;
+  const finalPrice = basePrice - discountAmount;
 
   const handleSubmit = async () => {
     if (!service) return;
@@ -67,7 +79,7 @@ export default function OrderConfirmScreen() {
         token: token ?? undefined,
         body: JSON.stringify({
           serviceId: service.id,
-          // price is now determined server-side from catalog — no priceAmount/serviceTitle needed
+          ...(discountAmount > 0 ? { discountAmount } : {}),
           location: {
             latitude: parseFloat(params.lat),
             longitude: parseFloat(params.lng),
@@ -143,7 +155,21 @@ export default function OrderConfirmScreen() {
       </View>
 
       <View style={styles.priceBlock}>
-        <View style={styles.finalRow}>
+        {isFirstOrder && (
+          <View style={styles.discountBadge}>
+            <FontAwesome name="tag" size={14} color="#854d0e" />
+            <Text style={styles.discountBadgeText}>
+              Скидка 10% на первый заказ — −{discountAmount.toLocaleString('ru-RU')} UZS
+            </Text>
+          </View>
+        )}
+        {isFirstOrder && (
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Стоимость услуги</Text>
+            <Text style={styles.rowValue}>{basePrice.toLocaleString('ru-RU')} UZS</Text>
+          </View>
+        )}
+        <View style={[styles.finalRow, !isFirstOrder && { marginTop: 0, paddingTop: 0, borderTopWidth: 0 }]}>
           <Text style={styles.finalLabel}>Итого</Text>
           <Text style={styles.finalPrice}>{finalPrice.toLocaleString('ru-RU')} UZS</Text>
         </View>
@@ -246,6 +272,23 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: Theme.border,
+  },
+  discountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fef3c7',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  discountBadgeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#854d0e',
   },
   finalRow: {
     flexDirection: 'row',

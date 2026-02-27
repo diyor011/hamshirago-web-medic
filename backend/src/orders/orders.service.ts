@@ -224,12 +224,54 @@ export class OrdersService {
   // ── Medic-facing ──────────────────────────────────────────────────────────
 
   /** All CREATED orders available for medics to pick up */
-  async findAvailable(): Promise<Order[]> {
-    return this.orderRepo.find({
+  /**
+   * Returns CREATED orders visible to the medic.
+   * If the medic has a known location, only orders within MAX_DISPATCH_KM are returned,
+   * sorted by distance (nearest first). If the medic has no location, all orders are shown.
+   */
+  async findAvailable(medicId: string): Promise<Order[]> {
+    const orders = await this.orderRepo.find({
       where: { status: OrderStatus.CREATED },
       relations: { location: true },
       order: { created_at: 'ASC' },
     });
+
+    const medic = await this.medicsService.findById(medicId);
+    if (!medic || medic.latitude == null || medic.longitude == null) {
+      // No location data — return all orders (fallback)
+      return orders;
+    }
+
+    const MAX_KM = 10;
+    const medicLat = Number(medic.latitude);
+    const medicLon = Number(medic.longitude);
+
+    const withDistance = orders
+      .filter((o) => o.location?.latitude != null && o.location?.longitude != null)
+      .map((o) => ({
+        order: o,
+        distanceKm: this.haversineKm(
+          medicLat, medicLon,
+          Number(o.location!.latitude),
+          Number(o.location!.longitude),
+        ),
+      }))
+      .filter(({ distanceKm }) => distanceKm <= MAX_KM)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+
+    return withDistance.map(({ order }) => order);
+  }
+
+  private haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   /** Medic accepts a CREATED order → status becomes ASSIGNED */
