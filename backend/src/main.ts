@@ -18,6 +18,7 @@ async function bootstrap() {
   const allowedOrigins = [
     'https://hamshirago-web.vercel.app',
     'https://hamshirago-web-medic.vercel.app',
+    'https://hamshirago-admin.vercel.app',
     // Allow local dev for both web apps
     'http://localhost:3001',
     'http://localhost:3000',
