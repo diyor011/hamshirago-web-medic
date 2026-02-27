@@ -89,6 +89,14 @@ export const medicApi = {
         body: JSON.stringify({ status }),
       }),
   },
+
+  telegram: {
+    saveChatId: (chatId: string) =>
+      request<void>("/medics/telegram-chat-id", {
+        method: "PATCH",
+        body: JSON.stringify({ chatId }),
+      }),
+  },
 };
 
 // ─── Types ───────────────────────────────────────────────
