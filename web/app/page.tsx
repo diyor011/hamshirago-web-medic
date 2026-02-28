@@ -10,16 +10,17 @@ import {
 import { unsubscribeWebPush } from "@/lib/webPush";
 import { api, Service, formatPrice } from "@/lib/api";
 
-const CATEGORY_META: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
-  "Уколы":      { icon: FaSyringe,         color: "#ef4444", bg: "#fef2f2" },
-  "Капельницы": { icon: FaTint,             color: "#3b82f6", bg: "#eff6ff" },
-  "Измерения":  { icon: FaThermometerHalf,  color: "#f59e0b", bg: "#fffbeb" },
-  "Анализы":    { icon: FaFlask,            color: "#8b5cf6", bg: "#f5f3ff" },
-  "Перевязки":  { icon: FaBandAid,          color: "#ec4899", bg: "#fdf2f8" },
-  "Уход":       { icon: FaHeartbeat,        color: "#0d9488", bg: "#f0fdfa" },
+const CATEGORY_META: Record<string, { icon: React.ElementType }> = {
+  "Уколы":      { icon: FaSyringe        },
+  "Капельницы": { icon: FaTint           },
+  "Измерения":  { icon: FaThermometerHalf},
+  "Анализы":    { icon: FaFlask          },
+  "Перевязки":  { icon: FaBandAid        },
+  "Уход":       { icon: FaHeartbeat      },
 };
 
-const DEFAULT_META = { icon: FaMedkit, color: "#0d9488", bg: "#f0fdfa" };
+const TEAL = { color: "#0d9488", bg: "#f0fdfa" };
+const DEFAULT_META = { icon: FaMedkit };
 
 export default function HomePage() {
   const router = useRouter();
@@ -141,17 +142,16 @@ export default function HomePage() {
           Object.entries(grouped)
             .sort(([a], [b]) => a.localeCompare(b, "ru"))
             .map(([category, items]) => {
-              const meta = CATEGORY_META[category] ?? DEFAULT_META;
-              const Icon = meta.icon;
+              const Icon = (CATEGORY_META[category] ?? DEFAULT_META).icon;
               return (
                 <div key={category} style={{ marginBottom: 24 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <div style={{
                       width: 28, height: 28, borderRadius: 8,
-                      background: meta.bg,
+                      background: TEAL.bg,
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
-                      <Icon size={14} color={meta.color} />
+                      <Icon size={14} color={TEAL.color} />
                     </div>
                     <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.2px" }}>
                       {category}
@@ -178,10 +178,10 @@ export default function HomePage() {
                         >
                           <div style={{
                             width: 44, height: 44, borderRadius: 12,
-                            background: meta.bg, flexShrink: 0,
+                            background: TEAL.bg, flexShrink: 0,
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}>
-                            <Icon size={20} color={meta.color} />
+                            <Icon size={20} color={TEAL.color} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>
@@ -190,7 +190,7 @@ export default function HomePage() {
                             <p style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.4, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {service.description}
                             </p>
-                            <p style={{ fontSize: 13, fontWeight: 700, color: meta.color }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: TEAL.color }}>
                               {formatPrice(service.price)} UZS
                             </p>
                           </div>
