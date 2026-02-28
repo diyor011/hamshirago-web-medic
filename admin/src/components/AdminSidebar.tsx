@@ -43,7 +43,7 @@ export function AdminSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-white/30 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950/95 backdrop-blur-md">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border dark:border-white/10 dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950/95 backdrop-blur-md">
       <SidebarContent>
         <div className="px-4 py-5">
           {!collapsed && (
@@ -51,7 +51,7 @@ export function AdminSidebar() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-teal-400 text-sidebar-primary-foreground font-bold text-sm shadow-lg">
                 H
               </div>
-              <span className="font-semibold text-sidebar-accent-foreground">HamshiraGo</span>
+              <span className="font-semibold text-sidebar-foreground">HamshiraGo</span>
             </div>
           )}
           {collapsed && (
@@ -72,7 +72,7 @@ export function AdminSidebar() {
                       to={item.url}
                       end={item.url === "/"}
                       className="hover:bg-sidebar-accent/80 rounded-md"
-                      activeClassName="bg-gradient-to-r from-cyan-500/20 to-teal-500/20 text-cyan-300 font-medium rounded-md"
+                      activeClassName="bg-gradient-to-r from-cyan-500/15 to-teal-500/15 text-teal-700 dark:text-cyan-300 font-medium rounded-md"
                     >
                       <item.icon className="h-4 w-4 mr-2" />
                       {!collapsed && <span>{item.title}</span>}
@@ -88,7 +88,7 @@ export function AdminSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleLogout} className="hover:bg-sidebar-accent/80 text-sidebar-foreground rounded-md">
+            <SidebarMenuButton onClick={handleLogout} className="hover:bg-sidebar-accent text-sidebar-foreground rounded-md">
               <LogOut className="h-4 w-4 mr-2" />
               {!collapsed && <span>Выйти</span>}
             </SidebarMenuButton>
