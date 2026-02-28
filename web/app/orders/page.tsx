@@ -291,6 +291,7 @@ export default function OrdersPage() {
                 <div className="orders-grid">
                   {orders
                     .filter((o) => !["DONE", "CANCELED"].includes(o.status))
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                     .map((o) => (
                       <OrderCard key={o.id} order={o} onClick={() => router.push(`/orders/${o.id}`)} />
                     ))}
@@ -305,6 +306,7 @@ export default function OrdersPage() {
                 <div className="orders-grid">
                   {orders
                     .filter((o) => ["DONE", "CANCELED"].includes(o.status))
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                     .map((o) => (
                       <OrderCard key={o.id} order={o} onClick={() => router.push(`/orders/${o.id}`)} />
                     ))}

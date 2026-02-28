@@ -269,8 +269,8 @@ function LocationForm() {
         )}
         {!gpsLoading && gpsAccuracy !== null && gpsAccuracy > 25 && (
           <div style={{ ...bannerStyle, background: "#ef444412", color: "#ef4444" }}>
-            <FaExclamationTriangle size={14} />
-            Слабый GPS (±{gpsAccuracy} м) — уточните адрес или подвиньте маркер
+            <FaExclamationTriangle size={14} style={{ flexShrink: 0 }} />
+            Слабый сигнал GPS (±{gpsAccuracy} м) — уточните адрес или подвиньте маркер
           </div>
         )}
         {!gpsLoading && gpsAccuracy !== null && gpsAccuracy <= 25 && (
@@ -314,6 +314,30 @@ function LocationForm() {
               <span style={{ fontSize: 12, color: "#94a3b8" }}>Медики рядом не найдены</span>
             )}
           </div>
+          <button
+            type="button"
+            onClick={getLocation}
+            disabled={gpsLoading}
+            style={{
+              flexShrink: 0,
+              background: gpsLoading ? "#94a3b8" : "#0d9488",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "5px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: gpsLoading ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              whiteSpace: "nowrap",
+              transition: "background 150ms ease",
+            }}
+          >
+            <FaCrosshairs size={11} />
+            {gpsLoading ? "Ищем..." : "Моё место"}
+          </button>
         </div>
 
         {/* ─── Ближайший медик ─── */}
