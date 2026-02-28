@@ -62,6 +62,7 @@ function LocationForm() {
   const [error, setError] = useState("");
   const [nearbyMedics, setNearbyMedics] = useState<MedicMarker[]>([]);
   const [loadingMedics, setLoadingMedics] = useState(false);
+  const [selectedMedic, setSelectedMedic] = useState<MedicMarker | null>(null);
   const medicsFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchNearbyMedics = useCallback((latitude: number, longitude: number) => {
@@ -182,7 +183,7 @@ function LocationForm() {
     if (!address.trim()) { setError("Введите адрес"); return; }
     if (!phone.trim())   { setError("Введите номер телефона"); return; }
 
-    const params = new URLSearchParams({
+    const queryParams = new URLSearchParams({
       service: serviceId,
       title:   serviceTitle,
       price:   servicePrice,
@@ -193,7 +194,12 @@ function LocationForm() {
       lat: String(lat ?? 41.2995),
       lng: String(lng ?? 69.2401),
     });
-    router.push(`/order/confirm?${params.toString()}`);
+    if (selectedMedic) {
+      queryParams.set("nurseName", selectedMedic.name);
+      if (selectedMedic.rating != null) queryParams.set("nurseRating", String(selectedMedic.rating));
+      if (selectedMedic.distanceKm != null) queryParams.set("nurseDistance", String(selectedMedic.distanceKm));
+    }
+    router.push(`/order/confirm?${queryParams.toString()}`);
   }
 
   function fieldStyle(name: string): React.CSSProperties {
@@ -301,9 +307,56 @@ function LocationForm() {
             )}
           </div>
           <span style={{ fontSize: 11, color: "#94a3b8" }}>
-            Нажмите на значок 👩‍⚕️ на карте
+            {nearbyMedics.length > 0 ? "Выберите ниже или закажите без выбора" : ""}
           </span>
         </div>
+
+        {/* ─── Список медиков ─── */}
+        {nearbyMedics.length > 0 && (
+          <div style={{ overflowX: "auto", display: "flex", gap: 10, padding: "10px 0 6px" }}>
+            {nearbyMedics.map((m) => {
+              const isSelected = selectedMedic?.id === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setSelectedMedic(isSelected ? null : m)}
+                  style={{
+                    flexShrink: 0,
+                    background: isSelected ? "#0d948818" : "#fff",
+                    border: `1.5px solid ${isSelected ? "#0d9488" : "#e2e8f0"}`,
+                    borderRadius: 12,
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    minWidth: 130,
+                    transition: "all 150ms ease",
+                  }}
+                >
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>👩‍⚕️</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>
+                    {m.name}
+                  </div>
+                  {m.rating != null && (
+                    <div style={{ fontSize: 12, color: "#f59e0b", marginTop: 3 }}>
+                      ⭐ {m.rating.toFixed(1)}
+                    </div>
+                  )}
+                  {m.distanceKm != null && (
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+                      {m.distanceKm.toFixed(1)} км
+                    </div>
+                  )}
+                  {isSelected && (
+                    <div style={{ fontSize: 10, color: "#0d9488", fontWeight: 700, marginTop: 4 }}>
+                      ✓ Выбрана
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 16 }}>
           Нажмите на карту или перетащите маркер чтобы уточнить место

@@ -16,15 +16,18 @@ function ConfirmForm() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const serviceId    = params.get("service")   ?? "";
-  const serviceTitle = params.get("title")     ?? "Услуга";
+  const serviceId    = params.get("service")      ?? "";
+  const serviceTitle = params.get("title")        ?? "Услуга";
   const price        = parseInt(params.get("price") || "0", 10);
-  const address      = params.get("address")   ?? "";
-  const floor        = params.get("floor")     ?? "";
-  const apartment    = params.get("apartment") ?? "";
-  const phone        = params.get("phone")     ?? "";
+  const address      = params.get("address")      ?? "";
+  const floor        = params.get("floor")        ?? "";
+  const apartment    = params.get("apartment")    ?? "";
+  const phone        = params.get("phone")        ?? "";
   const lat          = parseFloat(params.get("lat") || "41.2995");
   const lng          = parseFloat(params.get("lng") || "69.2401");
+  const nurseName    = params.get("nurseName")    ?? "";
+  const nurseRating  = params.get("nurseRating")  ?? "";
+  const nurseDistance = params.get("nurseDistance") ?? "";
 
   const [discount, setDiscount] = useState(0);
   const [checkingDiscount, setCheckingDiscount] = useState(true);
@@ -144,6 +147,38 @@ function ConfirmForm() {
             </div>
           </div>
         </div>
+
+        {/* ─── Медсестра (если выбрана) ─── */}
+        {nurseName && (
+          <div style={cardStyle}>
+            <h2 style={sectionTitle}>Медсестра</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: "50%",
+                background: "#0d948818",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0, fontSize: 24,
+              }}>
+                👩‍⚕️
+              </div>
+              <div>
+                <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{nurseName}</p>
+                <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                  {nurseRating && (
+                    <span style={{ fontSize: 13, color: "#f59e0b", fontWeight: 600 }}>
+                      ⭐ {parseFloat(nurseRating).toFixed(1)}
+                    </span>
+                  )}
+                  {nurseDistance && (
+                    <span style={{ fontSize: 13, color: "#64748b" }}>
+                      📍 {parseFloat(nurseDistance).toFixed(1)} км
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ─── Адрес ─── */}
         <div style={cardStyle}>
