@@ -62,7 +62,13 @@ function LocationForm() {
   const [error, setError] = useState("");
   const [nearbyMedics, setNearbyMedics] = useState<MedicMarker[]>([]);
   const [loadingMedics, setLoadingMedics] = useState(false);
+  const [closestMedic, setClosestMedic] = useState<MedicMarker | null>(null);
   const medicsFetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ETA: ~3 мин/км, минимум 3 мин
+  function etaMinutes(distanceKm?: number) {
+    return Math.max(3, Math.round((distanceKm ?? 1) * 3));
+  }
 
   const fetchNearbyMedics = useCallback((latitude: number, longitude: number) => {
     if (medicsFetchTimer.current) clearTimeout(medicsFetchTimer.current);
@@ -81,6 +87,8 @@ function LocationForm() {
             distanceKm: m.distanceKm,
           }));
         setNearbyMedics(markers);
+        // Ближайший = первый (бэкенд сортирует по расстоянию)
+        setClosestMedic(markers[0] ?? null);
       } catch {
         // не критично — просто не показываем медиков
       } finally {
@@ -182,7 +190,7 @@ function LocationForm() {
     if (!address.trim()) { setError("Введите адрес"); return; }
     if (!phone.trim())   { setError("Введите номер телефона"); return; }
 
-    const params = new URLSearchParams({
+    const queryParams = new URLSearchParams({
       service: serviceId,
       title:   serviceTitle,
       price:   servicePrice,
@@ -193,7 +201,13 @@ function LocationForm() {
       lat: String(lat ?? 41.2995),
       lng: String(lng ?? 69.2401),
     });
-    router.push(`/order/confirm?${params.toString()}`);
+    if (closestMedic) {
+      queryParams.set("nurseName", closestMedic.name);
+      if (closestMedic.rating != null) queryParams.set("nurseRating", String(closestMedic.rating));
+      if (closestMedic.distanceKm != null) queryParams.set("nurseDistance", String(closestMedic.distanceKm));
+      queryParams.set("nurseEta", String(etaMinutes(closestMedic.distanceKm)));
+    }
+    router.push(`/order/confirm?${queryParams.toString()}`);
   }
 
   function fieldStyle(name: string): React.CSSProperties {
@@ -300,10 +314,28 @@ function LocationForm() {
               <span style={{ fontSize: 12, color: "#94a3b8" }}>Медики рядом не найдены</span>
             )}
           </div>
-          <span style={{ fontSize: 11, color: "#94a3b8" }}>
-            Нажмите на значок 👩‍⚕️ на карте
-          </span>
         </div>
+
+        {/* ─── Ближайший медик ─── */}
+        {closestMedic && (
+          <div style={{
+            background: "#f0fdf9",
+            border: "1px solid #0d948830",
+            borderRadius: "0 0 12px 12px",
+            padding: "10px 14px",
+            fontSize: 13,
+            color: "#0f172a",
+            fontWeight: 500,
+            marginTop: -1,
+          }}>
+            Будет назначена:&nbsp;
+            <strong>{closestMedic.name}</strong>
+            {closestMedic.rating != null && (
+              <span style={{ color: "#f59e0b" }}>&nbsp;· {closestMedic.rating.toFixed(1)} ★</span>
+            )}
+            <span style={{ color: "#64748b" }}>&nbsp;· ~{etaMinutes(closestMedic.distanceKm)} мин</span>
+          </div>
+        )}
 
         <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", marginBottom: 16 }}>
           Нажмите на карту или перетащите маркер чтобы уточнить место
