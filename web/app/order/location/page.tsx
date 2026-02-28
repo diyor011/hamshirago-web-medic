@@ -268,15 +268,63 @@ function LocationForm() {
           </div>
         )}
         {!gpsLoading && gpsAccuracy !== null && gpsAccuracy > 25 && (
-          <div style={{ ...bannerStyle, background: "#ef444412", color: "#ef4444" }}>
-            <FaExclamationTriangle size={14} />
-            Слабый GPS (±{gpsAccuracy} м) — уточните адрес или подвиньте маркер
+          <div style={{ ...bannerStyle, background: "#ef444412", color: "#ef4444", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <FaExclamationTriangle size={14} style={{ flexShrink: 0 }} />
+              Слабый GPS (±{gpsAccuracy} м) — уточните адрес или подвиньте маркер
+            </div>
+            <button
+              type="button"
+              onClick={getLocation}
+              style={{
+                flexShrink: 0,
+                background: "#ef4444",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "5px 10px",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <FaCrosshairs size={11} />
+              Моё место
+            </button>
           </div>
         )}
         {!gpsLoading && gpsAccuracy !== null && gpsAccuracy <= 25 && (
           <div style={{ ...bannerStyle, background: "#22c55e20", color: "#16a34a" }}>
             <FaCrosshairs size={14} />
             Местоположение определено (±{gpsAccuracy} м)
+          </div>
+        )}
+        {!gpsLoading && gpsAccuracy === null && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <button
+              type="button"
+              onClick={getLocation}
+              style={{
+                background: "#0d9488",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "7px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <FaCrosshairs size={12} />
+              Моё местоположение
+            </button>
           </div>
         )}
 
