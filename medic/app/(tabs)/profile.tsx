@@ -1,6 +1,7 @@
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,8 @@ import { Theme } from '@/constants/Theme';
 import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
+const TELEGRAM_BOT_LINK = 'https://t.me/hamshirago_medic_bot?start=connect';
+
 interface OrderCount { id: string; status: string; }
 
 const VERIFICATION_CONFIG = {
@@ -26,10 +29,11 @@ const VERIFICATION_CONFIG = {
 };
 
 export default function ProfileScreen() {
-  const { medic, token, updateOnlineStatus, logout } = useAuth();
+  const { medic, token, updateOnlineStatus, refreshProfile, logout } = useAuth();
   const router = useRouter();
   const [togglingOnline, setTogglingOnline] = useState(false);
   const [completedCount, setCompletedCount] = useState<number | null>(null);
+  const [disconnectingTg, setDisconnectingTg] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -48,13 +52,16 @@ export default function ProfileScreen() {
 
       if (value) {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          latitude = loc.coords.latitude;
-          longitude = loc.coords.longitude;
+        if (status !== 'granted') {
+          Alert.alert('Нет доступа к геолокации', 'Разрешите геолокацию, чтобы перейти в онлайн.');
+          return;
         }
+
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        latitude = loc.coords.latitude;
+        longitude = loc.coords.longitude;
       }
 
       await apiFetch('/medics/location', {
@@ -75,6 +82,39 @@ export default function ProfileScreen() {
       { text: 'Отмена', style: 'cancel' },
       { text: 'Выйти', style: 'destructive', onPress: logout },
     ]);
+  };
+
+  const handleConnectTelegram = () => {
+    Linking.openURL(TELEGRAM_BOT_LINK);
+  };
+
+  const handleDisconnectTelegram = () => {
+    Alert.alert(
+      'Отключить Telegram?',
+      'Вы больше не будете получать уведомления о новых заказах в Telegram.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Отключить',
+          style: 'destructive',
+          onPress: async () => {
+            setDisconnectingTg(true);
+            try {
+              await apiFetch('/medics/telegram-chat-id', {
+                method: 'PATCH',
+                token: token ?? undefined,
+                body: JSON.stringify({ chatId: null }),
+              });
+              await refreshProfile();
+            } catch {
+              Alert.alert('Ошибка', 'Не удалось отключить Telegram');
+            } finally {
+              setDisconnectingTg(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const vStatus = (medic.verificationStatus ?? 'PENDING') as keyof typeof VERIFICATION_CONFIG;
@@ -175,6 +215,47 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      {/* Telegram */}
+      <View style={styles.card}>
+        <View style={styles.tgHeader}>
+          <View style={styles.tgIconWrap}>
+            <Text style={styles.tgIcon}>✈️</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tgTitle}>Telegram уведомления</Text>
+            <Text style={styles.tgSubtitle}>
+              {medic.telegramChatId
+                ? 'Уведомления о новых заказах включены'
+                : 'Получайте заказы даже когда приложение закрыто'}
+            </Text>
+          </View>
+          {medic.telegramChatId ? (
+            <View style={styles.tgBadge}>
+              <Text style={styles.tgBadgeText}>✓ Активно</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {medic.telegramChatId ? (
+          <Pressable
+            style={({ pressed }) => [styles.tgDisconnectBtn, pressed && { opacity: 0.8 }]}
+            onPress={handleDisconnectTelegram}
+            disabled={disconnectingTg}
+          >
+            {disconnectingTg
+              ? <ActivityIndicator color={Theme.textSecondary} size="small" />
+              : <Text style={styles.tgDisconnectText}>Отключить</Text>}
+          </Pressable>
+        ) : (
+          <Pressable
+            style={({ pressed }) => [styles.tgConnectBtn, pressed && { opacity: 0.85 }]}
+            onPress={handleConnectTelegram}
+          >
+            <Text style={styles.tgConnectText}>Подключить через Telegram</Text>
+          </Pressable>
+        )}
+      </View>
+
       {/* Logout */}
       <Pressable
         style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
@@ -257,6 +338,45 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 20, fontWeight: '700', color: Theme.primary },
   statLabel: { fontSize: 12, color: Theme.textSecondary, marginTop: 2, textAlign: 'center' },
+  tgHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14,
+  },
+  tgIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e8f4ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tgIcon: { fontSize: 20 },
+  tgTitle: { fontSize: 15, fontWeight: '700', color: Theme.text },
+  tgSubtitle: { fontSize: 12, color: Theme.textSecondary, marginTop: 2 },
+  tgBadge: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  tgBadgeText: { fontSize: 11, fontWeight: '700', color: '#16a34a' },
+  tgConnectBtn: {
+    backgroundColor: '#229ED9',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  tgConnectText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  tgDisconnectBtn: {
+    borderWidth: 1,
+    borderColor: Theme.border,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  tgDisconnectText: { fontSize: 14, fontWeight: '600', color: Theme.textSecondary },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -15,6 +15,7 @@ export interface MedicUser {
   facePhotoUrl: string | null;
   licensePhotoUrl: string | null;
   verificationRejectedReason: string | null;
+  telegramChatId: string | null;
 }
 
 interface AuthState {

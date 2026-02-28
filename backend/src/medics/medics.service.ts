@@ -95,6 +95,7 @@ export class MedicsService {
       verificationRejectedReason: medic.verificationRejectedReason,
       latitude: medic.latitude,
       longitude: medic.longitude,
+      telegramChatId: medic.telegramChatId,
     };
   }
 
@@ -175,7 +176,7 @@ export class MedicsService {
   }
 
   /** Save Telegram chat_id for the medic (called after /start in bot) */
-  async saveTelegramChatId(id: string, chatId: string): Promise<void> {
+  async saveTelegramChatId(id: string, chatId: string | null): Promise<void> {
     await this.medicRepo.update(id, { telegramChatId: chatId });
   }
 

@@ -171,9 +171,11 @@ export class MedicsController {
   @Patch('telegram-chat-id')
   @UseGuards(MedicAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async saveTelegramChatId(@MedicId() medicId: string, @Body() body: { chatId: string }) {
-    if (!body?.chatId) throw new BadRequestException('chatId is required');
-    await this.medicsService.saveTelegramChatId(medicId, String(body.chatId));
+  async saveTelegramChatId(@MedicId() medicId: string, @Body() body: { chatId: string | null }) {
+    // chatId: null disconnects Telegram
+    const chatId = body?.chatId === null ? null : body?.chatId ? String(body.chatId) : null;
+    if (chatId === undefined) throw new BadRequestException('chatId is required');
+    await this.medicsService.saveTelegramChatId(medicId, chatId);
   }
 
   // ── Web Push ──────────────────────────────────────────────────────────────
