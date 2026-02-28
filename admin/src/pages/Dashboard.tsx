@@ -279,7 +279,7 @@ const Dashboard = () => {
               <p className="text-lg font-semibold text-rose-700 dark:text-rose-300">{stats.canceledOrders}</p>
             </div>
             <div className="rounded-xl border border-white/50 dark:border-slate-700/60 bg-white/75 dark:bg-slate-900/70 p-3">
-              <p className="text-xs text-muted-foreground dark:text-slate-300">PENDING</p>
+              <p className="text-xs text-muted-foreground dark:text-slate-300">Верификация</p>
               <p className="text-lg font-semibold text-amber-700 dark:text-amber-300">{stats.pendingMedics}</p>
             </div>
           </div>
