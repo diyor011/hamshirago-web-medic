@@ -6,9 +6,24 @@ type LocationMapProps = {
   latitude: number;
   longitude: number;
   onPinChange: (coords: { latitude: number; longitude: number }) => void;
+  medics?: Array<{
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+  }>;
+  selectedMedicId?: string | null;
+  onSelectMedic?: (medicId: string) => void;
 };
 
-export function LocationMap({ latitude, longitude, onPinChange }: LocationMapProps) {
+export function LocationMap({
+  latitude,
+  longitude,
+  onPinChange,
+  medics = [],
+  selectedMedicId = null,
+  onSelectMedic,
+}: LocationMapProps) {
   return (
     <View style={styles.wrap}>
       <MapView
@@ -29,6 +44,17 @@ export function LocationMap({ latitude, longitude, onPinChange }: LocationMapPro
         showsUserLocation
         showsMyLocationButton
       >
+        {medics.map((medic) => (
+          <Marker
+            key={medic.id}
+            coordinate={{ latitude: medic.latitude, longitude: medic.longitude }}
+            title={`🩺 Медик: ${medic.name}`}
+            description="Нажмите, чтобы выбрать этого медика"
+            pinColor={selectedMedicId === medic.id ? '#ef4444' : '#0d9488'}
+            onPress={() => onSelectMedic?.(medic.id)}
+          />
+        ))}
+
         <Marker
           coordinate={{ latitude, longitude }}
           draggable

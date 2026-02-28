@@ -25,6 +25,7 @@ import { RegisterMedicDto } from './dto/register-medic.dto';
 import { LoginMedicDto } from './dto/login-medic.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { VerifyMedicDto } from './dto/verify-medic.dto';
+import { VerificationStatus } from './entities/verification-status.enum';
 import { MedicAuthGuard } from '../auth/guards/medic-auth.guard';
 import { MedicId } from '../auth/decorators/medic-id.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -137,6 +138,44 @@ export class MedicsController {
   @UseGuards(AdminGuard)
   getPendingVerifications() {
     return this.medicsService.getPendingVerifications();
+  }
+
+  @Get('admin/all')
+  @UseGuards(AdminGuard)
+  getAllMedicsAdmin(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('verificationStatus') verificationStatus?: VerificationStatus,
+    @Query('isBlocked') isBlocked?: string,
+    @Query('isOnline') isOnline?: string,
+  ) {
+    const parsedIsBlocked =
+      isBlocked == null
+        ? undefined
+        : isBlocked === 'true'
+          ? true
+          : isBlocked === 'false'
+            ? false
+            : undefined;
+
+    const parsedIsOnline =
+      isOnline == null
+        ? undefined
+        : isOnline === 'true'
+          ? true
+          : isOnline === 'false'
+            ? false
+            : undefined;
+
+    return this.medicsService.findAllAdmin(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search,
+      verificationStatus,
+      parsedIsBlocked,
+      parsedIsOnline,
+    );
   }
 
   @Patch('admin/:id/verify')

@@ -37,4 +37,46 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     await this.userRepo.update(id, { isBlocked });
   }
+
+  async findAllAdmin(
+    page = 1,
+    limit = 20,
+    search?: string,
+    isBlocked?: boolean,
+  ): Promise<{ data: Partial<User>[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(Math.max(limit, 1), 100);
+    const skip = (Math.max(page, 1) - 1) * take;
+
+    const qb = this.userRepo
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.phone',
+        'user.name',
+        'user.isBlocked',
+        'user.created_at',
+        'user.updated_at',
+      ])
+      .orderBy('user.created_at', 'DESC')
+      .take(take)
+      .skip(skip);
+
+    if (search?.trim()) {
+      qb.andWhere('(user.phone ILIKE :q OR user.name ILIKE :q)', {
+        q: `%${search.trim()}%`,
+      });
+    }
+
+    if (typeof isBlocked === 'boolean') {
+      qb.andWhere('user.isBlocked = :isBlocked', { isBlocked });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return {
+      data,
+      total,
+      page: Math.max(page, 1),
+      totalPages: Math.ceil(total / take),
+    };
+  }
 }

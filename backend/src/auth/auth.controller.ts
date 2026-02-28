@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -105,5 +106,30 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   blockUser(@Param('id') id: string, @Body() body: { isBlocked: boolean }) {
     return this.usersService.blockUser(id, body.isBlocked ?? true);
+  }
+
+  @Get('admin/users')
+  @UseGuards(AdminGuard)
+  findAllUsersAdmin(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('isBlocked') isBlocked?: string,
+  ) {
+    const parsedIsBlocked =
+      isBlocked == null
+        ? undefined
+        : isBlocked === 'true'
+          ? true
+          : isBlocked === 'false'
+            ? false
+            : undefined;
+
+    return this.usersService.findAllAdmin(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search,
+      parsedIsBlocked,
+    );
   }
 }

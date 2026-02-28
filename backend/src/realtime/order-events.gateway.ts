@@ -11,6 +11,14 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
 export type OrderStatusPayload = { orderId: string; status: string };
+export type MedicLocationPayload = {
+  orderId: string;
+  medicId: string;
+  latitude: number;
+  longitude: number;
+  updatedAt: string;
+  source?: 'socket' | 'rest';
+};
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class OrderEventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -78,5 +86,41 @@ export class OrderEventsGateway implements OnGatewayConnection, OnGatewayDisconn
   emitNewOrder(order: Record<string, unknown>) {
     this.server.to('medics_feed').emit('new_order', order);
     this.logger.log(`Emitted new_order id=${order['id']}`);
+  }
+
+  @SubscribeMessage('medic_location')
+  handleMedicLocation(
+    client: any,
+    payload: { orderId: string; latitude: number; longitude: number },
+  ) {
+    if ((client as any).role !== 'medic') return;
+    if (!payload?.orderId) return;
+    if (!Number.isFinite(payload.latitude) || !Number.isFinite(payload.longitude)) return;
+
+    this.emitMedicLocation(
+      payload.orderId,
+      (client as any).userId,
+      payload.latitude,
+      payload.longitude,
+      'socket',
+    );
+  }
+
+  emitMedicLocation(
+    orderId: string,
+    medicId: string,
+    latitude: number,
+    longitude: number,
+    source: 'socket' | 'rest' = 'socket',
+  ) {
+    const payload: MedicLocationPayload = {
+      orderId,
+      medicId,
+      latitude,
+      longitude,
+      updatedAt: new Date().toISOString(),
+      source,
+    };
+    this.server.to(`order:${orderId}`).emit('medic_location', payload);
   }
 }

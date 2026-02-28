@@ -1,6 +1,7 @@
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +32,8 @@ interface Medic {
   id: string;
   name: string;
   phone: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface Order {
@@ -46,9 +49,25 @@ interface Order {
     floor?: string | null;
     apartment?: string | null;
     phone: string;
+    latitude?: number | null;
+    longitude?: number | null;
   } | null;
   created_at: string;
 }
+
+type MedicLocationPayload = {
+  orderId: string;
+  medicId: string;
+  latitude: number;
+  longitude: number;
+  updatedAt: string;
+  source?: 'socket' | 'rest';
+};
+
+const TrackMapComponent =
+  Platform.OS === 'web'
+    ? null
+    : require('react-native-maps');
 
 // ─── Step definitions ─────────────────────────────────────────────────────────
 
@@ -77,6 +96,12 @@ export default function TrackOrderScreen() {
   const [loading, setLoading] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [medicLocation, setMedicLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    updatedAt: string;
+    source?: 'socket' | 'rest';
+  } | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -87,6 +112,14 @@ export default function TrackOrderScreen() {
         token: token ?? undefined,
       });
       setOrder(data);
+      if (data?.medic?.latitude != null && data?.medic?.longitude != null) {
+        setMedicLocation({
+          latitude: Number(data.medic.latitude),
+          longitude: Number(data.medic.longitude),
+          updatedAt: new Date().toISOString(),
+          source: 'rest',
+        });
+      }
     } catch {
       // silent – keep stale data
     }
@@ -119,6 +152,16 @@ export default function TrackOrderScreen() {
       if (payload.status === 'DONE' || payload.status === 'CANCELED') {
         socket.disconnect();
       }
+    });
+
+    socket.on('medic_location', (payload: MedicLocationPayload) => {
+      if (payload.orderId !== orderId) return;
+      setMedicLocation({
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        updatedAt: payload.updatedAt,
+        source: payload.source,
+      });
     });
 
     // Polling fallback every 20s (in case WS fails)
@@ -310,6 +353,69 @@ export default function TrackOrderScreen() {
           </View>
         </View>
       )}
+
+      {/* Live map */}
+      {order.location?.latitude != null &&
+        order.location?.longitude != null &&
+        medicLocation &&
+        TrackMapComponent && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Медик на карте</Text>
+            <View style={styles.mapWrap}>
+              <TrackMapComponent.default
+                style={styles.map}
+                initialRegion={{
+                  latitude: (Number(order.location.latitude) + medicLocation.latitude) / 2,
+                  longitude: (Number(order.location.longitude) + medicLocation.longitude) / 2,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+                region={{
+                  latitude: (Number(order.location.latitude) + medicLocation.latitude) / 2,
+                  longitude: (Number(order.location.longitude) + medicLocation.longitude) / 2,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+              >
+                <TrackMapComponent.Marker
+                  coordinate={{
+                    latitude: Number(order.location.latitude),
+                    longitude: Number(order.location.longitude),
+                  }}
+                  title="🏠 Вы здесь"
+                  description="Адрес вызова"
+                  pinColor="#2563eb"
+                />
+                <TrackMapComponent.Marker
+                  coordinate={{
+                    latitude: medicLocation.latitude,
+                    longitude: medicLocation.longitude,
+                  }}
+                  title="🩺 Медик в пути"
+                  description="Текущая позиция медика"
+                  pinColor="#dc2626"
+                />
+                <TrackMapComponent.Polyline
+                  coordinates={[
+                    {
+                      latitude: Number(order.location.latitude),
+                      longitude: Number(order.location.longitude),
+                    },
+                    {
+                      latitude: medicLocation.latitude,
+                      longitude: medicLocation.longitude,
+                    },
+                  ]}
+                  strokeColor={Theme.primary}
+                  strokeWidth={3}
+                />
+              </TrackMapComponent.default>
+            </View>
+            <Text style={styles.mapMeta}>
+              Обновлено: {new Date(medicLocation.updatedAt).toLocaleTimeString('ru-RU')}
+            </Text>
+          </View>
+        )}
 
       {/* Address */}
       {order.location && (
@@ -574,6 +680,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
     lineHeight: 20,
+  },
+  mapWrap: {
+    height: 210,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  mapMeta: {
+    fontSize: 12,
+    color: Theme.textSecondary,
   },
 
   // Canceled banner

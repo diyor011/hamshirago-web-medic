@@ -6,11 +6,16 @@ import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState, Linking } from 'react-native';
 import 'react-native-reanimated';
 
 import { apiFetch } from '@/constants/api';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import {
+  hasBackgroundLocationPermission,
+  setBackgroundLocationToken,
+  stopBackgroundLocationUpdates,
+} from '@/utils/backgroundLocation';
 import { registerPushToken } from '@/utils/registerPushToken';
 
 // Show notifications in foreground with sound
@@ -59,6 +64,7 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
   const lastLocationSyncTs = useRef(0);
+  const lastPermissionReminderTs = useRef(0);
 
   useEffect(() => {
     const inAuth = segments[0] === 'auth';
@@ -73,6 +79,40 @@ function RootLayoutNav() {
   useEffect(() => {
     if (token) registerPushToken(token);
   }, [token]);
+
+  useEffect(() => {
+    setBackgroundLocationToken(token ?? null);
+    if (!token || !medic?.isOnline) {
+      stopBackgroundLocationUpdates().catch(() => {});
+    }
+  }, [token, medic?.isOnline]);
+
+  const remindBackgroundPermission = useCallback(async () => {
+    if (!token || !medic?.isOnline) return;
+    const now = Date.now();
+    if (now - lastPermissionReminderTs.current < 5 * 60_000) return;
+
+    try {
+      const hasPermission = await hasBackgroundLocationPermission();
+      if (hasPermission) return;
+      lastPermissionReminderTs.current = now;
+      Alert.alert(
+        'Нужно разрешение "Всегда"',
+        'Чтобы клиенты видели вашу актуальную геолокацию, разрешите доступ к локации "Всегда".',
+        [
+          { text: 'Позже', style: 'cancel' },
+          {
+            text: 'Открыть настройки',
+            onPress: () => {
+              Linking.openSettings().catch(() => {});
+            },
+          },
+        ],
+      );
+    } catch {
+      // ignore
+    }
+  }, [token, medic?.isOnline]);
 
   const syncOnlineLocation = useCallback(async () => {
     if (!token || !medic?.isOnline) return;
@@ -109,11 +149,18 @@ function RootLayoutNav() {
   }, [syncOnlineLocation]);
 
   useEffect(() => {
+    remindBackgroundPermission();
+  }, [remindBackgroundPermission]);
+
+  useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') syncOnlineLocation();
+      if (state === 'active') {
+        syncOnlineLocation();
+        remindBackgroundPermission();
+      }
     });
     return () => sub.remove();
-  }, [syncOnlineLocation]);
+  }, [syncOnlineLocation, remindBackgroundPermission]);
 
   return (
     <ThemeProvider value={DefaultTheme}>

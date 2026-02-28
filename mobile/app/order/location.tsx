@@ -32,6 +32,8 @@ interface ApiMedic {
   reviewCount: number;
   experienceYears: number;
   distanceKm: number;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 function medicToNurse(m: ApiMedic): NearbyNurse {
@@ -73,6 +75,7 @@ export default function OrderLocationScreen() {
   const [autoAssign, setAutoAssign] = useState(true);
   const [selectedNurseId, setSelectedNurseId] = useState<string | null>(null);
   const [nearbyNurses, setNearbyNurses] = useState<NearbyNurse[]>(MOCK_NEARBY_NURSES);
+  const [nearbyMedics, setNearbyMedics] = useState<ApiMedic[]>([]);
 
   const isWeakGps = accuracyMeters != null && accuracyMeters > WEAK_GPS_ACCURACY_METERS;
   const displayCoords = pin ?? coords;
@@ -88,11 +91,13 @@ export default function OrderLocationScreen() {
         `/medics/nearby?latitude=${latitude}&longitude=${longitude}&limit=10`,
         { token: token ?? undefined },
       );
-      if (medics.length > 0) {
-        setNearbyNurses(medics.map(medicToNurse));
-      }
+      setNearbyMedics(
+        medics.filter((m) => m.latitude != null && m.longitude != null),
+      );
+      setNearbyNurses(medics.length > 0 ? medics.map(medicToNurse) : []);
     } catch {
       // fallback to mock on error
+      setNearbyMedics([]);
     }
   }, [token]);
 
@@ -124,6 +129,11 @@ export default function OrderLocationScreen() {
   useEffect(() => {
     fetchLocation();
   }, []);
+
+  useEffect(() => {
+    if (!displayCoords) return;
+    fetchNearbyMedics(displayCoords.latitude, displayCoords.longitude);
+  }, [displayCoords?.latitude, displayCoords?.longitude, fetchNearbyMedics]);
 
   const handleConfirm = () => {
     if (!displayCoords || !address.house?.trim() || !address.phone?.trim()) {
@@ -211,6 +221,19 @@ export default function OrderLocationScreen() {
             latitude={displayCoords.latitude}
             longitude={displayCoords.longitude}
             onPinChange={setPin}
+            medics={nearbyMedics
+              .filter((m) => m.latitude != null && m.longitude != null)
+              .map((m) => ({
+                id: m.id,
+                name: m.name,
+                latitude: Number(m.latitude),
+                longitude: Number(m.longitude),
+              }))}
+            selectedMedicId={selectedNurseId}
+            onSelectMedic={(medicId: string) => {
+              setAutoAssign(false);
+              setSelectedNurseId(medicId);
+            }}
           />
         ) : displayCoords ? (
           <View style={styles.coordsFallback}>
@@ -298,14 +321,20 @@ export default function OrderLocationScreen() {
         )}
         {!autoAssign && (
           <View style={styles.nurseList}>
-            {nearbyNurses.map((nurse) => (
-              <NurseCard
-                key={nurse.id}
-                nurse={nurse}
-                selected={selectedNurseId === nurse.id}
-                onSelect={() => setSelectedNurseId(nurse.id)}
-              />
-            ))}
+            {nearbyNurses.length > 0 ? (
+              nearbyNurses.map((nurse) => (
+                <NurseCard
+                  key={nurse.id}
+                  nurse={nurse}
+                  selected={selectedNurseId === nurse.id}
+                  onSelect={() => setSelectedNurseId(nurse.id)}
+                />
+              ))
+            ) : (
+              <Text style={styles.emptyNurseText} lightColor={Theme.textSecondary} darkColor={Theme.textSecondary}>
+                Рядом пока нет онлайн-медиков
+              </Text>
+            )}
           </View>
         )}
 
@@ -493,6 +522,11 @@ const styles = StyleSheet.create({
   nurseList: {
     gap: 8,
     marginBottom: 20,
+  },
+  emptyNurseText: {
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 14,
   },
   nurseCard: {
     flexDirection: 'row',

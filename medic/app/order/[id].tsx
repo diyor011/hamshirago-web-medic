@@ -10,10 +10,12 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Location from 'expo-location';
+import { io, Socket } from 'socket.io-client';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Theme } from '@/constants/Theme';
-import { apiFetch } from '@/constants/api';
+import { API_BASE, apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
 async function openInMaps(latitude: number, longitude: number) {
@@ -110,6 +112,12 @@ export default function OrderDetailScreen() {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [locationDeniedWarned, setLocationDeniedWarned] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [lastLocationSentAt, setLastLocationSentAt] = useState<string | null>(null);
+  const [sentLocationCount, setSentLocationCount] = useState(0);
+  const socketRef = useRef<Socket | null>(null);
+  const trackingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -127,6 +135,71 @@ export default function OrderDetailScreen() {
     setLoading(true);
     fetchOrder().finally(() => setLoading(false));
   }, [fetchOrder]);
+
+  useEffect(() => {
+    if (!token) return;
+    const socket = io(API_BASE, {
+      transports: ['websocket'],
+      auth: { token },
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+    });
+    socketRef.current = socket;
+    socket.on('connect', () => setSocketConnected(true));
+    socket.on('disconnect', () => setSocketConnected(false));
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+      setSocketConnected(false);
+    };
+  }, [token]);
+
+  const emitCurrentLocation = useCallback(async () => {
+    if (!id || !socketRef.current || !socketRef.current.connected) return;
+    const perm = await Location.getForegroundPermissionsAsync();
+    if (perm.status !== 'granted') {
+      if (!locationDeniedWarned) {
+        setLocationDeniedWarned(true);
+        Alert.alert('Нет доступа к геолокации', 'Разрешите геолокацию, чтобы клиент видел ваш путь.');
+      }
+      return;
+    }
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    socketRef.current.emit('medic_location', {
+      orderId: id,
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+    });
+    setLastLocationSentAt(new Date().toISOString());
+    setSentLocationCount((prev) => prev + 1);
+  }, [id, locationDeniedWarned]);
+
+  useEffect(() => {
+    const shouldTrack = order?.status === 'ON_THE_WAY';
+
+    if (!shouldTrack) {
+      if (trackingTimerRef.current) {
+        clearInterval(trackingTimerRef.current);
+        trackingTimerRef.current = null;
+      }
+      return;
+    }
+
+    emitCurrentLocation().catch(() => {});
+    trackingTimerRef.current = setInterval(() => {
+      emitCurrentLocation().catch(() => {});
+    }, 5000);
+
+    return () => {
+      if (trackingTimerRef.current) {
+        clearInterval(trackingTimerRef.current);
+        trackingTimerRef.current = null;
+      }
+    };
+  }, [order?.status, emitCurrentLocation]);
 
   const handleNextStatus = async () => {
     if (!order) return;
@@ -198,6 +271,22 @@ export default function OrderDetailScreen() {
           {STATUS_LABEL[order.status]}
         </Text>
       </View>
+
+      {order.status === 'ON_THE_WAY' && (
+        <View style={styles.liveTrackingCard}>
+          <View style={styles.liveTrackingRow}>
+            <View style={[styles.liveTrackingDot, { backgroundColor: socketConnected ? Theme.success : Theme.warning }]} />
+            <Text style={styles.liveTrackingText}>
+              {socketConnected ? 'Передаём геолокацию клиенту' : 'Подключаем live-трекинг...'}
+            </Text>
+          </View>
+          {lastLocationSentAt && (
+            <Text style={styles.liveTrackingMeta}>
+              Последняя отправка: {new Date(lastLocationSentAt).toLocaleTimeString('ru-RU')} · точек: {sentLocationCount}
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Service info */}
       <View style={styles.card}>
@@ -335,6 +424,22 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   statusLabel: { fontSize: 16, fontWeight: '700' },
+  liveTrackingCard: {
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: `${Theme.primary}10`,
+    borderWidth: 1,
+    borderColor: `${Theme.primary}25`,
+  },
+  liveTrackingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liveTrackingDot: { width: 8, height: 8, borderRadius: 4 },
+  liveTrackingText: { fontSize: 13, fontWeight: '600', color: Theme.text },
+  liveTrackingMeta: { marginTop: 6, fontSize: 12, color: Theme.textSecondary },
   card: {
     backgroundColor: Theme.surface,
     borderRadius: 14,

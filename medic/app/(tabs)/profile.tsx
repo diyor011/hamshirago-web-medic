@@ -9,14 +9,21 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Theme } from '@/constants/Theme';
 import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
+import {
+  hasBackgroundLocationPermission,
+  requestBackgroundLocationPermission,
+  setBackgroundLocationToken,
+  startBackgroundLocationUpdates,
+  stopBackgroundLocationUpdates,
+} from '@/utils/backgroundLocation';
 
 const TELEGRAM_BOT_LINK = 'https://t.me/hamshirago_medic_bot?start=connect';
 
@@ -34,6 +41,7 @@ export default function ProfileScreen() {
   const [togglingOnline, setTogglingOnline] = useState(false);
   const [completedCount, setCompletedCount] = useState<number | null>(null);
   const [disconnectingTg, setDisconnectingTg] = useState(false);
+  const [hasAlwaysLocation, setHasAlwaysLocation] = useState(true);
 
   useEffect(() => {
     if (!token) return;
@@ -42,6 +50,26 @@ export default function ProfileScreen() {
       .catch(() => {});
   }, [token]);
 
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (!medic?.isOnline) {
+        setHasAlwaysLocation(true);
+        return () => {};
+      }
+      hasBackgroundLocationPermission()
+        .then((ok) => {
+          if (!cancelled) setHasAlwaysLocation(ok);
+        })
+        .catch(() => {
+          if (!cancelled) setHasAlwaysLocation(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [medic?.isOnline]),
+  );
+
   if (!medic) return null;
 
   const handleToggleOnline = async (value: boolean) => {
@@ -49,6 +77,7 @@ export default function ProfileScreen() {
     try {
       let latitude: number | undefined;
       let longitude: number | undefined;
+      let shouldStopBgAfterSuccess = false;
 
       if (value) {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -62,6 +91,11 @@ export default function ProfileScreen() {
         });
         latitude = loc.coords.latitude;
         longitude = loc.coords.longitude;
+
+        setBackgroundLocationToken(token ?? null);
+        await startBackgroundLocationUpdates();
+      } else {
+        shouldStopBgAfterSuccess = true;
       }
 
       await apiFetch('/medics/location', {
@@ -69,11 +103,34 @@ export default function ProfileScreen() {
         token: token ?? undefined,
         body: JSON.stringify({ isOnline: value, latitude, longitude }),
       });
+      if (shouldStopBgAfterSuccess) {
+        await stopBackgroundLocationUpdates();
+      }
       updateOnlineStatus(value);
+      if (value) setHasAlwaysLocation(true);
     } catch (e: unknown) {
+      if (value) {
+        stopBackgroundLocationUpdates().catch(() => {});
+        setHasAlwaysLocation(false);
+      }
       Alert.alert('Ошибка', e instanceof Error ? e.message : 'Не удалось обновить статус');
     } finally {
       setTogglingOnline(false);
+    }
+  };
+
+  const handleEnableAlwaysLocation = async () => {
+    try {
+      const granted = await requestBackgroundLocationPermission();
+      setHasAlwaysLocation(granted);
+      if (!granted) {
+        Alert.alert(
+          'Разрешение не выдано',
+          'Нужно выбрать "Всегда", иначе клиент может видеть устаревшее местоположение.',
+        );
+      }
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось запросить разрешение на фоновую геолокацию');
     }
   };
 
@@ -187,6 +244,24 @@ export default function ProfileScreen() {
           )}
         </View>
       </View>
+
+      {medic.isOnline && !hasAlwaysLocation && (
+        <View style={[styles.card, styles.locationWarningCard]}>
+          <View style={styles.warningRow}>
+            <FontAwesome name="exclamation-triangle" size={16} color="#92400e" />
+            <Text style={styles.warningTitle}>Выключено "Всегда"</Text>
+          </View>
+          <Text style={styles.warningText}>
+            Чтобы клиент видел ваше актуальное местоположение, включите доступ к геолокации «Всегда».
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.warningBtn, pressed && { opacity: 0.85 }]}
+            onPress={handleEnableAlwaysLocation}
+          >
+            <Text style={styles.warningBtnText}>Разрешить всегда</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Stats */}
       <View style={styles.statsRow}>
@@ -321,6 +396,21 @@ const styles = StyleSheet.create({
   dot: { width: 12, height: 12, borderRadius: 6 },
   onlineLabel: { fontSize: 16, fontWeight: '700', color: Theme.text },
   onlineHint: { fontSize: 13, color: Theme.textSecondary, marginTop: 2 },
+  locationWarningCard: {
+    marginTop: -4,
+    backgroundColor: '#fef3c720',
+    borderColor: '#f59e0b40',
+  },
+  warningRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  warningTitle: { fontSize: 14, fontWeight: '700', color: '#92400e' },
+  warningText: { fontSize: 13, lineHeight: 18, color: '#78350f', marginBottom: 12 },
+  warningBtn: {
+    backgroundColor: '#f59e0b',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  warningBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   statsRow: {
     flexDirection: 'row',
     gap: 12,

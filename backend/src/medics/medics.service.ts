@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Medic } from './entities/medic.entity';
@@ -16,13 +16,19 @@ import { RegisterMedicDto } from './dto/register-medic.dto';
 import { LoginMedicDto } from './dto/login-medic.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { VerifyMedicDto } from './dto/verify-medic.dto';
+import { Order } from '../orders/entities/order.entity';
+import { OrderStatus } from '../orders/entities/order-status.enum';
+import { OrderEventsGateway } from '../realtime/order-events.gateway';
 
 @Injectable()
 export class MedicsService {
   constructor(
     @InjectRepository(Medic)
     private medicRepo: Repository<Medic>,
+    @InjectRepository(Order)
+    private orderRepo: Repository<Order>,
     private jwtService: JwtService,
+    private readonly orderEventsGateway: OrderEventsGateway,
   ) {}
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -145,12 +151,100 @@ export class MedicsService {
     });
   }
 
+  async findAllAdmin(
+    page = 1,
+    limit = 20,
+    search?: string,
+    verificationStatus?: VerificationStatus,
+    isBlocked?: boolean,
+    isOnline?: boolean,
+  ): Promise<{ data: Partial<Medic>[]; total: number; page: number; totalPages: number }> {
+    const take = Math.min(Math.max(limit, 1), 100);
+    const skip = (Math.max(page, 1) - 1) * take;
+
+    const qb = this.medicRepo
+      .createQueryBuilder('medic')
+      .select([
+        'medic.id',
+        'medic.phone',
+        'medic.name',
+        'medic.experienceYears',
+        'medic.rating',
+        'medic.reviewCount',
+        'medic.balance',
+        'medic.isOnline',
+        'medic.isBlocked',
+        'medic.verificationStatus',
+        'medic.facePhotoUrl',
+        'medic.licensePhotoUrl',
+        'medic.verificationRejectedReason',
+        'medic.latitude',
+        'medic.longitude',
+        'medic.created_at',
+        'medic.updated_at',
+      ])
+      .orderBy('medic.created_at', 'DESC')
+      .take(take)
+      .skip(skip);
+
+    if (search?.trim()) {
+      qb.andWhere('(medic.phone ILIKE :q OR medic.name ILIKE :q)', {
+        q: `%${search.trim()}%`,
+      });
+    }
+
+    if (verificationStatus) {
+      qb.andWhere('medic.verificationStatus = :verificationStatus', { verificationStatus });
+    }
+    if (typeof isBlocked === 'boolean') {
+      qb.andWhere('medic.isBlocked = :isBlocked', { isBlocked });
+    }
+    if (typeof isOnline === 'boolean') {
+      qb.andWhere('medic.isOnline = :isOnline', { isOnline });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return {
+      data,
+      total,
+      page: Math.max(page, 1),
+      totalPages: Math.ceil(total / take),
+    };
+  }
+
   async updateLocation(id: string, dto: UpdateLocationDto): Promise<void> {
     await this.medicRepo.update(id, {
       isOnline: dto.isOnline,
       ...(dto.latitude != null ? { latitude: dto.latitude } : {}),
       ...(dto.longitude != null ? { longitude: dto.longitude } : {}),
     });
+
+    if (dto.latitude == null || dto.longitude == null) return;
+
+    const activeOrder = await this.orderRepo.findOne({
+      where: {
+        medicId: id,
+        status: In([
+          OrderStatus.ASSIGNED,
+          OrderStatus.ACCEPTED,
+          OrderStatus.ON_THE_WAY,
+          OrderStatus.ARRIVED,
+          OrderStatus.SERVICE_STARTED,
+        ]),
+      },
+      order: { updated_at: 'DESC' },
+      select: ['id'],
+    });
+
+    if (!activeOrder) return;
+
+    this.orderEventsGateway.emitMedicLocation(
+      activeOrder.id,
+      id,
+      dto.latitude,
+      dto.longitude,
+      'rest',
+    );
   }
 
   async savePushToken(id: string, token: string): Promise<void> {
