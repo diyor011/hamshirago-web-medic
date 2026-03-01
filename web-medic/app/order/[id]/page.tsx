@@ -51,8 +51,13 @@ export default function OrderDetailPage() {
   async function loadOrder() {
     setLoading(true);
     try {
-      // Берём из списка своих заказов
-      const orders = await medicApi.orders.my();
+      const raw = await medicApi.orders.my();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = raw as any;
+      const orders: Order[] = Array.isArray(raw) ? raw
+        : Array.isArray(r?.data)  ? r.data
+        : Array.isArray(r?.items) ? r.items
+        : [];
       const found = orders.find(o => o.id === id);
       if (found) setOrder(found);
     } finally {
