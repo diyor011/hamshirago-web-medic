@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import TelegramProvider from "@/components/TelegramProvider";
 import WebPushInit from "@/components/WebPushInit";
@@ -12,6 +12,15 @@ export const metadata: Metadata = {
     description: "Медсестра на дом — быстро и надёжно",
     type: "website",
   },
+  appleWebApp: {
+    capable: true,
+    title: "HamshiraGo",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0d9488",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <link rel="apple-touch-icon" href="/icon" />
         {/* Telegram Mini App SDK — должен грузиться первым */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="https://telegram.org/js/telegram-web-app.js" />
