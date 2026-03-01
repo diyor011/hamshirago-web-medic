@@ -27,6 +27,9 @@ function ProfileContent() {
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default");
   const [tgChatId, setTgChatId] = useState("");
   const [tgConnected, setTgConnected] = useState(false);
+  const [tgInput, setTgInput] = useState("");
+  const [tgSaving, setTgSaving] = useState(false);
+  const [tgError, setTgError] = useState("");
   const [faceFile, setFaceFile] = useState<File | null>(null);
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);

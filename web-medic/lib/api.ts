@@ -137,6 +137,7 @@ export interface Medic {
   facePhotoUrl: string | null;
   licensePhotoUrl: string | null;
   verificationRejectedReason: string | null;
+  onlineDisabledReason?: 'INACTIVE_5H' | null;
 }
 
 export interface OrderLocation {
