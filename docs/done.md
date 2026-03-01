@@ -6,9 +6,16 @@
 
 ## 2026-03-01
 
-- **[mobile]** Линия “медик → клиент” на трекинге заказа теперь строится по дорогам через OSRM (fallback на прямую линию при ошибке API) (`mobile/app/order/track.tsx`)
-- **[backend]** Авто-отключение `isOnline` у медиков после 5 часов неактивности; добавлено поле `lastSeenAt` и авто-очистка stale online перед выдачей nearby/online-списков (`backend/src/medics/entities/medic.entity.ts`, `backend/src/medics/medics.service.ts`)
-- **[backend/medic]** Возвращается причина авто-оффлайна `onlineDisabledReason: INACTIVE_5H`, в приложении медика показывается предупреждение “Онлайн отключён автоматически” (`backend/src/medics/medics.service.ts`, `medic/context/AuthContext.tsx`, `medic/app/_layout.tsx`)
+- **[web]** Редизайн главной страницы — SVG-волна под шапкой, иконки по категориям, убран дублирующийся блок "Мои заказы" внизу (`web/app/page.tsx`)
+- **[web]** Сортировка заказов новые-первыми — явный `.sort()` в рендере обеих секций (активные + история) (`web/app/orders/page.tsx`)
+- **[web]** Карта трекинга медика на странице заказа — компонент `TrackingMap` (Leaflet), слушает `medic_location` Socket.IO, fallback из `order.medic.latitude/longitude` (`web/components/TrackingMap.tsx`, `web/app/orders/[id]/page.tsx`)
+- **[web-medic]** Исправлен краш `orders.find is not a function` — нормализация ответа `medicApi.orders.my()` (поддержка `{data:[]}`, `{items:[]}`, plain array) (`web-medic/app/order/[id]/page.tsx`)
+- **[admin]** Подключён `GET /medics/admin/all` — Medics страница переключена с `getPendingMedics` на `getAllMedics`, показывает всех медиков с пагинацией (`admin/src/lib/api.ts`, `admin/src/pages/Medics.tsx`)
+- **[admin]** Подключён `GET /auth/admin/users` — добавлены `getUsers()` и `blockClient()`, реализована полноценная страница Clients с таблицей, поиском и блокировкой (`admin/src/lib/api.ts`, `admin/src/pages/Clients.tsx`)
+- **[web]** Обработка истёкшего токена — при 401 ответе очищается `token` и выполняется редирект на `/auth` (`web/lib/api.ts`)
+- **[web-medic]** Обработка истёкшего токена — при 401 ответе очищается `medic_token` + `medic` и выполняется редирект на `/auth` (`web-medic/lib/api.ts`)
+- **[web]** Сплэш-скрин 2 сек — тил-градиент, иконка медицинского креста, пульсирующая анимация, плавное исчезновение (`web/components/SplashScreen.tsx`, `web/app/layout.tsx`)
+- **[web-medic]** Сплэш-скрин 2 сек — аналогично web, подзаголовок "Панель медика" (`web-medic/components/SplashScreen.tsx`, `web-medic/app/layout.tsx`)
 
 ## 2026-02-28
 

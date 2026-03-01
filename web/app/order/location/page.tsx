@@ -355,7 +355,7 @@ function LocationForm() {
             Будет назначена:&nbsp;
             <strong>{closestMedic.name}</strong>
             {closestMedic.rating != null && (
-              <span style={{ color: "#f59e0b" }}>&nbsp;· {closestMedic.rating.toFixed(1)} ★</span>
+              <span style={{ color: "#f59e0b" }}>&nbsp;· {Number(closestMedic.rating).toFixed(1)} ★</span>
             )}
             <span style={{ color: "#64748b" }}>&nbsp;· ~{etaMinutes(closestMedic.distanceKm)} мин</span>
           </div>

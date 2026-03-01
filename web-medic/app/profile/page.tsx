@@ -121,13 +121,13 @@ function ProfileContent() {
     if (notifPermission === "denied") return;
     if (notifPermission === "granted") {
       await unsubscribeWebPush();
-      if (typeof Notification !== "undefined") {
-        setNotifPermission(Notification.permission);
-      }
+      setNotifPermission(Notification.permission);
     } else {
-      await subscribeWebPush();
-      if (typeof Notification !== "undefined") {
-        setNotifPermission(Notification.permission);
+      // Запрашиваем разрешение сразу — до любых await, иначе Chrome блокирует диалог
+      const permission = await Notification.requestPermission();
+      setNotifPermission(permission);
+      if (permission === "granted") {
+        await subscribeWebPush();
       }
     }
   }

@@ -83,6 +83,29 @@ async function request<T>(
 // Medics
 export const getPendingMedics = () => request<any[]>("GET", "/medics/admin/pending");
 
+export interface MedicsResponse {
+  data: any[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export const getAllMedics = (
+  page = 1,
+  limit = 20,
+  search?: string,
+  verificationStatus?: string,
+  isBlocked?: boolean,
+  isOnline?: boolean,
+) => {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (search) params.set("search", search);
+  if (verificationStatus) params.set("verificationStatus", verificationStatus);
+  if (isBlocked != null) params.set("isBlocked", String(isBlocked));
+  if (isOnline != null) params.set("isOnline", String(isOnline));
+  return request<MedicsResponse>("GET", `/medics/admin/all?${params}`);
+};
+
 export const verifyMedic = (id: string, status: "APPROVED" | "REJECTED", reason?: string) =>
   request<any>("PATCH", `/medics/admin/${id}/verify`, { status, reason });
 
@@ -90,6 +113,20 @@ export const blockMedic = (id: string, isBlocked: boolean) =>
   request<any>("PATCH", `/medics/admin/${id}/block`, { isBlocked });
 
 // Clients
+export interface UsersResponse {
+  data: any[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export const getUsers = (page = 1, limit = 20, search?: string, isBlocked?: boolean) => {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  if (search) params.set("search", search);
+  if (isBlocked != null) params.set("isBlocked", String(isBlocked));
+  return request<UsersResponse>("GET", `/auth/admin/users?${params}`);
+};
+
 export const blockClient = (id: string, isBlocked: boolean) =>
   request<any>("PATCH", `/auth/admin/users/${id}/block`, { isBlocked });
 
