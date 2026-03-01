@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [tab, setTab] = useState<"available" | "my">("available");
   const [socketOk, setSocketOk] = useState(true);
   const [acceptError, setAcceptError] = useState("");
+  const [inactiveWarning, setInactiveWarning] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const isOnlineRef = useRef(false);
   const availableIdsRef = useRef<Set<string>>(new Set());
@@ -94,6 +95,20 @@ export default function DashboardPage() {
         localStorage.removeItem("medic");
       }
     }
+
+    // Получаем свежий профиль — проверяем авто-отключение из-за бездействия
+    medicApi.auth.me().then((profile) => {
+      setMedic(profile);
+      localStorage.setItem("medic", JSON.stringify(profile));
+      if (profile.onlineDisabledReason === 'INACTIVE_5H') {
+        setInactiveWarning(true);
+        setIsOnline(false);
+        isOnlineRef.current = false;
+      } else {
+        setIsOnline(profile.isOnline);
+        isOnlineRef.current = profile.isOnline;
+      }
+    }).catch(() => {});
 
     loadData();
     connectSocket(token);
@@ -270,6 +285,15 @@ export default function DashboardPage() {
         {!socketOk && (
           <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
             Соединение потеряно — новые заказы могут не поступать. Проверьте интернет.
+          </div>
+        )}
+        {/* Баннер авто-отключения из-за бездействия */}
+        {inactiveWarning && (
+          <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>
+              ℹ️ Вы были переведены в оффлайн из-за 5 часов бездействия. Нажмите &quot;Вы оффлайн&quot; чтобы начать работу.
+            </span>
+            <button onClick={() => setInactiveWarning(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#93c5fd", fontSize: 18, lineHeight: 1, flexShrink: 0 }}>✕</button>
           </div>
         )}
         {/* Баннер верификации */}
