@@ -86,7 +86,7 @@ export const medicApi = {
 
   orders: {
     available: () => request<Order[]>("/orders/medic/available"),
-    my: ()        => request<Order[]>("/orders/medic/my"),
+    my: ()        => request<{ data: Order[] }>("/orders/medic/my").then(r => r.data),
     accept: (id: string) =>
       request<Order>(`/orders/${id}/accept`, { method: "POST" }),
     updateStatus: (id: string, status: OrderStatus) =>

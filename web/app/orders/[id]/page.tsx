@@ -203,6 +203,7 @@ export default function OrderDetailPage() {
       setOrder(updated);
       setRating(stars);
       setRatingDone(true);
+      setTimeout(() => router.push("/"), 1500);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Ошибка при оценке");
     } finally {
