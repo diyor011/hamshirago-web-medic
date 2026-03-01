@@ -108,7 +108,7 @@ export default function DashboardPage() {
         setIsOnline(profile.isOnline);
         isOnlineRef.current = profile.isOnline;
       }
-    }).catch(() => {});
+    }).catch((err: unknown) => console.error("profile refresh failed", err));
 
     loadData();
     connectSocket(token);

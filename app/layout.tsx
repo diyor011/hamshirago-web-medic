@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import WebPushInit from "@/components/WebPushInit";
 import SplashScreen from "@/components/SplashScreen";
+import OfflineBanner from "@/components/OfflineBanner";
+import InstallPrompt from "@/components/InstallPrompt";
 
 export const metadata: Metadata = {
   title: "HamshiraGo — Медик",
@@ -25,6 +27,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icon" />
       </head>
       <body>
+        <OfflineBanner />
+        <InstallPrompt />
         <SplashScreen />
         <WebPushInit />
         {children}
