@@ -99,14 +99,7 @@ export default function OrdersPage() {
     setLoading(true);
     setError("");
     try {
-      const raw = await api.orders.list();
-      // Поддержка plain array и paginated { data: [] } / { items: [] }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const r = raw as any;
-      const data: Order[] = Array.isArray(raw) ? raw
-        : Array.isArray(r?.data)  ? r.data
-        : Array.isArray(r?.items) ? r.items
-        : [];
+      const data = await api.orders.list();
       setOrders(data.sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ));

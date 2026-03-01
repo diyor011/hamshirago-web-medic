@@ -55,7 +55,7 @@ export const api = {
   },
 
   orders: {
-    list: () => request<Order[]>("/orders"),
+    list: () => request<{ data: Order[] }>("/orders").then(r => r.data),
     get: (id: string) => request<Order>(`/orders/${id}`),
     create: (data: CreateOrderDto) =>
       request<Order>("/orders", {
