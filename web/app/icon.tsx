@@ -17,9 +17,10 @@ export default function Icon() {
           borderRadius: 40,
         }}
       >
-        <svg width="100" height="100" viewBox="0 0 24 24" fill="none">
-          <rect x="9" y="2" width="6" height="20" rx="2" fill="white" />
-          <rect x="2" y="9" width="20" height="6" rx="2" fill="white" />
+        {/* Просто большой белый крест */}
+        <svg width="130" height="130" viewBox="0 0 24 24" fill="none">
+          <rect x="9" y="1" width="6" height="22" rx="3" fill="white" />
+          <rect x="1" y="9" width="22" height="6" rx="3" fill="white" />
         </svg>
       </div>
     ),
