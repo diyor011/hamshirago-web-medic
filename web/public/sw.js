@@ -3,8 +3,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'HamshiraGo', {
       body: data.body || '',
-      icon: data.icon || '/favicon.ico',
-      badge: data.badge || '/favicon.ico',
+      icon: data.icon || '/icon',
+      badge: data.badge || '/icon',
       data: { url: data.url || '/' },
       requireInteraction: false,
     })
