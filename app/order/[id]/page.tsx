@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -22,7 +22,44 @@ export default function OrderDetailPage() {
   const [error, setError] = useState("");
   const [showNavChoice, setShowNavChoice] = useState(false);
   const [socketOk, setSocketOk] = useState(true);
+  const [medicLoc, setMedicLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [routeCoords, setRouteCoords] = useState<Array<{ lat: number; lng: number }>>([]);
   const socketRef = useRef<Socket | null>(null);
+  const lastRouteFetchRef = useRef(0);
+
+  // Получаем GPS медика каждые 30 секунд
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    function update() {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setMedicLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { enableHighAccuracy: false, timeout: 5000 },
+      );
+    }
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Запрашиваем OSRM маршрут (не чаще раз в 20 сек)
+  const fetchRoute = useCallback(async () => {
+    if (!medicLoc || !order?.location) return;
+    const now = Date.now();
+    if (now - lastRouteFetchRef.current < 20_000) return;
+    lastRouteFetchRef.current = now;
+    try {
+      const { lat: toLat, lng: toLng } = { lat: Number(order.location.latitude), lng: Number(order.location.longitude) };
+      const url = `https://router.project-osrm.org/route/v1/driving/${medicLoc.lng},${medicLoc.lat};${toLng},${toLat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json() as { routes?: Array<{ geometry?: { coordinates?: [number, number][] } }> };
+      const coords = data?.routes?.[0]?.geometry?.coordinates ?? [];
+      if (coords.length) setRouteCoords(coords.map(([lng, lat]) => ({ lat, lng })));
+    } catch { /* fallback — прямая линия */ }
+  }, [medicLoc, order?.location]);
+
+  useEffect(() => { fetchRoute(); }, [fetchRoute]);
 
   useEffect(() => {
     loadOrder();
@@ -149,10 +186,16 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        {/* Карта с локацией клиента */}
+        {/* Карта с маршрутом медика → клиент */}
         {order.location && (
-          <div style={{ borderRadius: 16, overflow: "hidden", marginBottom: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", height: 220 }}>
-            <Map lat={order.location.latitude} lng={order.location.longitude} />
+          <div style={{ borderRadius: 16, overflow: "hidden", marginBottom: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", height: 280 }}>
+            <Map
+              lat={order.location.latitude}
+              lng={order.location.longitude}
+              medicLat={medicLoc?.lat}
+              medicLng={medicLoc?.lng}
+              routeCoords={routeCoords.length > 1 ? routeCoords : undefined}
+            />
           </div>
         )}
 
