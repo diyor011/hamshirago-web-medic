@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getPendingMedics, blockMedic } from "@/lib/api";
+import { getAllMedics, blockMedic } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -26,9 +26,8 @@ const Medics = () => {
   useEffect(() => {
     async function load() {
       try {
-        // Using pending endpoint as all-medics endpoint is not yet available
-        const data = await getPendingMedics();
-        setMedics(data);
+        const res = await getAllMedics(1, 100);
+        setMedics(res.data);
       } catch (e) {
         console.error(e);
       } finally {
@@ -111,12 +110,6 @@ const Medics = () => {
           <p className="text-2xl font-semibold text-rose-900 dark:text-rose-200">{blockedCount}</p>
           <ShieldAlert className="h-4 w-4 text-rose-700 dark:text-rose-300 mt-2" />
         </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/40 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-4">
-        <p className="text-sm text-muted-foreground dark:text-slate-300">
-          ⚠️ Отображаются медики из доступного эндпоинта. Для полного списка нужен <code className="font-mono text-xs bg-muted/80 px-1 py-0.5 rounded">GET /medics/admin/all</code>
-        </p>
       </div>
 
       <div className="rounded-2xl border border-white/40 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-4">
