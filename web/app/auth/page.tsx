@@ -79,6 +79,7 @@ export default function AuthPage() {
           ? await api.auth.login(rawPhone, password)
           : await api.auth.register(name, rawPhone, password);
       localStorage.setItem("token", res.access_token);
+      localStorage.setItem("user", JSON.stringify(res.user));
       subscribeWebPush();
       notify("success");
       router.push("/");

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { getPendingMedics, verifyMedic } from "@/lib/api";
+import { getPendingMedics, verifyMedic, type AdminMedic } from "@/lib/api";
+
+/** Inject Cloudinary transformations for auto format (WebP) + auto quality */
+function cloudinaryOpt(url: string, width = 800): string {
+  if (!url.includes("res.cloudinary.com")) return url;
+  return url.replace("/image/upload/", `/image/upload/f_auto,q_auto,w_${width}/`);
+}
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -8,7 +14,7 @@ import { CheckCircle2, XCircle, Eye, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Verification = () => {
-  const [medics, setMedics] = useState<any[]>([]);
+  const [medics, setMedics] = useState<AdminMedic[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -221,7 +227,7 @@ const Verification = () => {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-lg">
-                      <img src={medic.facePhotoUrl} alt="Face" className="w-full rounded-lg" />
+                      <img src={cloudinaryOpt(medic.facePhotoUrl)} alt="Face" className="w-full rounded-lg" />
                     </DialogContent>
                   </Dialog>
                 )}
@@ -233,7 +239,7 @@ const Verification = () => {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-lg">
-                      <img src={medic.licensePhotoUrl} alt="License" className="w-full rounded-lg" />
+                      <img src={cloudinaryOpt(medic.licensePhotoUrl)} alt="License" className="w-full rounded-lg" />
                     </DialogContent>
                   </Dialog>
                 )}

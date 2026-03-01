@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToOne,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 
@@ -14,6 +15,7 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index({ unique: true })
   @Column({ type: 'varchar', length: 255 })
   phone: string;
 

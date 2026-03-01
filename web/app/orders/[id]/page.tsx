@@ -138,7 +138,7 @@ export default function OrderDetailPage() {
 
     socket.on("order_status", ({ orderId }: { orderId: string; status: OrderStatus }) => {
       if (orderId === id) {
-        api.orders.get(id).then(setOrder).catch(() => {});
+        api.orders.get(id).then(setOrder).catch((err: unknown) => console.error("order refresh failed", err));
       }
     });
 
@@ -147,7 +147,7 @@ export default function OrderDetailPage() {
       setMedicLocation({ lat: payload.latitude, lng: payload.longitude, updatedAt: payload.updatedAt });
     });
 
-    return () => { socket.disconnect(); };
+    return () => { socket.emit("unsubscribe_order", id); socket.disconnect(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -175,7 +175,7 @@ export default function OrderDetailPage() {
     if (!confirm("Подтвердить, что услуга выполнена?")) return;
     setConfirming(true);
     try {
-      const updated = await api.orders.updateStatus(id, "DONE");
+      const updated = await api.orders.confirmDone(id);
       setOrder(updated);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Ошибка при подтверждении");

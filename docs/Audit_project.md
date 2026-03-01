@@ -159,7 +159,7 @@ describe("example", () => {
 
 ## 4. KOD SIFATI KAMCHILIKLARI
 
-### 4.1 TypeScript strict mode izchil emas
+### ✅ 4.1 TypeScript strict mode izchil emas — ИСПРАВЛЕН (admin)
 
 | Loyiha | strict | noImplicitAny | strictNullChecks |
 |--------|--------|---------------|------------------|
@@ -180,7 +180,7 @@ describe("example", () => {
 - **Prettier:** Hech qayerda konfiguratsiya yo'q
 - Kod formatlash standarti yo'q
 
-### 4.3 `any` tipi keng ishlatilgan
+### ✅ 4.3 `any` tipi keng ishlatilgan — ИСПРАВЛЕН (admin)
 ```typescript
 // admin/src/lib/api.ts — barcha API javoblari `any`
 export const getPendingMedics = () => request<any[]>("GET", "/medics/admin/pending");
@@ -196,7 +196,7 @@ interface Order {
 }
 ```
 
-### 4.4 Error Boundary yo'q
+### ✅ 4.4 Error Boundary yo'q — ИСПРАВЛЕН (web, web-medic, admin)
 - Hech qanday frontend loyihada React Error Boundary ishlatilmaydi
 - Komponent xatosi butun ilovani buzadi
 - Foydalanuvchi oq ekran ko'radi, tushunarsiz holat
@@ -306,7 +306,7 @@ Ilova **O'zbekiston bozori** uchun yaratilgan, lekin:
 
 ## 7. ARXITEKTURA KAMCHILIKLARI
 
-### 7.1 API URL boshqaruvi buzilgan
+### ✅ 7.1 API URL boshqaruvi buzilgan — ИСПРАВЛЕН (web, web-medic)
 ```
 web/lib/api.ts:        const BASE_URL = "http://localhost:3000";     // Qattiq kodlangan!
 web-medic/lib/api.ts:  const BASE_URL = "http://localhost:3000";     // Qattiq kodlangan!
@@ -368,13 +368,13 @@ adminFindAll()
 
 ## 8. UI/UX KAMCHILIKLARI
 
-### 8.1 Yuklanish holatlari to'liq emas
+### ✅ 8.1 Yuklanish holatlari to'liq emas — ИСПРАВЛЕН (web, web-medic)
 - Admin: Skeleton loader bor (yaxshi)
 - Web: Spinner bor, lekin ba'zi sahifalarda yo'q
 - Web-medic: Minimal loading holati
 - Mobile: Ba'zi ekranlarda xato yutib yuboriladi (`.catch(() => {})`)
 
-### 8.2 Xato xabarlari foydalanuvchiga yetarli emas
+### ✅ 8.2 Xato xabarlari foydalanuvchiga yetarli emas — ИСПРАВЛЕН (web, web-medic)
 ```typescript
 // mobile/app/(tabs)/index.tsx
 .catch(() => {})  // Xato jimgina yutiladi — foydalanuvchi hech narsa ko'rmaydi
@@ -383,7 +383,7 @@ adminFindAll()
 .catch(() => {})  // Xuddi shunday
 ```
 
-### 8.3 Offline holat boshqarilmaydi
+### ✅ 8.3 Offline holat boshqarilmaydi — ИСПРАВЛЕН (web, web-medic)
 - Internet yo'qolganda hech qanday xabar ko'rsatilmaydi
 - Oflayn rejim yo'q
 - So'rovlar muvaffaqiyatsiz bo'lganda retry yo'q
@@ -396,7 +396,7 @@ adminFindAll()
 - Screen reader qo'llab-quvvatlanmaydi
 - ARIA atributlari kam ishlatilgan
 
-### 8.5 SEO to'liq emas (web loyihalar)
+### ✅ 8.5 SEO to'liq emas (web loyihalar) — ИСПРАВЛЕН (web)
 - `robots.txt` yo'q
 - `sitemap.xml` yo'q
 - Structured data (JSON-LD) yo'q
@@ -404,7 +404,7 @@ adminFindAll()
 - Canonical URLlar yo'q
 - OpenGraph faqat asosiy sahifada
 
-### 8.6 PWA to'liq emas
+### ✅ 8.6 PWA to'liq emas — ИСПРАВЛЕН (web, web-medic)
 - Service Worker faqat web-push uchun
 - Offline kesh yo'q
 - Install prompt yo'q
@@ -441,20 +441,20 @@ adminFindAll()
 - Bekor qilish sababi so'ralmaydi
 - Tez-tez bekor qiluvchilarga cheklov yo'q
 
-### 9.5 Moliyaviy hisobotlar yo'q
+### ✅ 9.5 Moliyaviy hisobotlar yo'q — ИСПРАВЛЕН (admin)
 - Admin panelda faqat umumiy daromad ko'rsatiladi
 - Batafsil moliyaviy hisobot yo'q
 - Mediklar uchun daromad hisoboti yo'q
 - Soliq hisoboti yo'q
 - Export (CSV, PDF) yo'q
 
-### 9.6 Foydalanuvchi profil boshqaruvi cheklangan
+### ✅ 9.6 Foydalanuvchi profil boshqaruvi cheklangan — ЧАСТИЧНО ИСПРАВЛЕН (web)
 - Mijoz parol o'zgartirishi mumkin emas
 - Mijoz profilni tahrirlashi mumkin emas
 - Medik malumotlarini yangilashi mumkin emas
 - Account o'chirish imkoniyati yo'q (GDPR/ma'lumot himoyasi)
 
-### 9.7 Izlash va filtrlash cheklangan
+### ✅ 9.7 Izlash va filtrlash cheklangan — ИСПРАВЛЕН (web, admin)
 - Xizmatlarni qidirish yo'q (faqat kategoriya)
 - Medikni nom bo'yicha qidirish yo'q (mijoz tomondan)
 - Buyurtma tarixida filtrlash yo'q
@@ -464,7 +464,7 @@ adminFindAll()
 
 ## 10. PERFORMANCE KAMCHILIKLARI
 
-### 10.1 Database indekslar yo'q
+### ✅ 10.1 Database indekslar yo'q — ИСПРАВЛЕН (backend)
 ```typescript
 // Quyidagi ustunlarda indeks bo'lishi kerak:
 User.phone       — login uchun (har safar qidiriladi)
@@ -481,13 +481,13 @@ Medic.isOnline   — mavjud mediklar qidirish
 - Buyurtmalar ro'yxatida har bir buyurtma uchun alohida query (service, medic, location)
 - `eager: true` ba'zi aloqalarda, lekin barchada emas
 
-### 10.3 Frontend caching yo'q
+### ✅ 10.3 Frontend caching yo'q — ИСПРАВЛЕН (web)
 - Web/web-medic da API javoblari keshlanmaydi
 - Har safar sahifa ochilganda barcha ma'lumotlar qayta yuklanadi
 - Stale-while-revalidate strategiyasi yo'q
 - Service worker caching yo'q
 
-### 10.4 Rasm optimizatsiyasi yo'q
+### ✅ 10.4 Rasm optimizatsiyasi yo'q — ИСПРАВЛЕН (admin)
 - `next/image` ishlatilmaydi (Next.js)
 - Lazy loading yo'q
 - WebP format konvertatsiyasi yo'q
@@ -497,7 +497,7 @@ Medic.isOnline   — mavjud mediklar qidirish
 
 ## 11. HUJJATLAR KAMCHILIKLARI
 
-### 11.1 README.md primitiv
+### ✅ 11.1 README.md primitiv — ИСПРАВЛЕН
 - Faqat boshqa hujjatlarga havolalar
 - Quick start guide yo'q
 - Arxitektura diagrammasi yo'q
@@ -514,7 +514,7 @@ Medic.isOnline   — mavjud mediklar qidirish
 - Murakkab funksiyalar izohlarsiz
 - Biznes logikasi tushuntirilmagan
 
-### 11.4 Deployment guide yo'q
+### ✅ 11.4 Deployment guide yo'q — ИСПРАВЛЕН
 - Production deployment qadamlari hujjatlashtirilmagan
 - Environment sozlamalari ro'yxati to'liq emas
 - SSL/domain sozlash ko'rsatmasi yo'q
@@ -537,7 +537,7 @@ Medic.isOnline   — mavjud mediklar qidirish
 - Conversion tracking yo'q
 - A/B testing infratuzilmasi yo'q
 
-### 12.3 Error tracking yo'q
+### ✅ 12.3 Error tracking yo'q — ИСПРАВЛЕН (web, web-medic, admin — Sentry)
 - Sentry yo'q
 - LogRocket yo'q
 - Xatolar faqat server loglarida

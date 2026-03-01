@@ -93,6 +93,7 @@ export default function OrdersPage() {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
   const [socketOk, setSocketOk]   = useState(true);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "DONE" | "CANCELED">("ALL");
   const socketRef = useRef<Socket | null>(null);
 
   async function loadOrders() {
@@ -205,6 +206,33 @@ export default function OrdersPage() {
       </div>
 
       <div className="orders-body">
+        {/* Фильтр по статусу */}
+        {!loading && !error && orders.length > 0 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            {(["ALL", "ACTIVE", "DONE", "CANCELED"] as const).map((f) => {
+              const labels: Record<string, string> = { ALL: "Все", ACTIVE: "Активные", DONE: "Завершённые", CANCELED: "Отменённые" };
+              const active = statusFilter === f;
+              return (
+                <button
+                  key={f}
+                  onClick={() => setStatusFilter(f)}
+                  style={{
+                    padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600,
+                    border: active ? "none" : "1px solid #e2e8f0",
+                    background: active ? "#0d9488" : "#fff",
+                    color: active ? "#fff" : "#64748b",
+                    cursor: "pointer",
+                    transition: "all 150ms ease",
+                    boxShadow: active ? "0 2px 8px rgba(13,148,136,0.25)" : "none",
+                  }}
+                >
+                  {labels[f]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Баннер обрыва соединения */}
         {!socketOk && (
           <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
@@ -275,39 +303,49 @@ export default function OrdersPage() {
         )}
 
         {/* Список заказов */}
-        {!loading && !error && orders.length > 0 && (
-          <>
-            {/* Активные */}
-            {orders.filter((o) => !["DONE", "CANCELED"].includes(o.status)).length > 0 && (
-              <>
-                <p style={groupLabel}>Активные</p>
-                <div className="orders-grid">
-                  {orders
-                    .filter((o) => !["DONE", "CANCELED"].includes(o.status))
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                    .map((o) => (
-                      <OrderCard key={o.id} order={o} onClick={() => router.push(`/orders/${o.id}`)} />
-                    ))}
-                </div>
-              </>
-            )}
+        {!loading && !error && orders.length > 0 && (() => {
+          const active = orders.filter((o) => !["DONE", "CANCELED"].includes(o.status));
+          const done = orders.filter((o) => o.status === "DONE");
+          const canceled = orders.filter((o) => o.status === "CANCELED");
 
-            {/* Завершённые */}
-            {orders.filter((o) => ["DONE", "CANCELED"].includes(o.status)).length > 0 && (
-              <>
-                <p style={{ ...groupLabel, marginTop: 16 }}>История</p>
-                <div className="orders-grid">
-                  {orders
-                    .filter((o) => ["DONE", "CANCELED"].includes(o.status))
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                    .map((o) => (
-                      <OrderCard key={o.id} order={o} onClick={() => router.push(`/orders/${o.id}`)} />
-                    ))}
+          const sections: { label: string; items: Order[] }[] = statusFilter === "ALL"
+            ? [
+                ...(active.length > 0 ? [{ label: "Активные", items: active }] : []),
+                ...(done.length > 0 || canceled.length > 0
+                  ? [{ label: "История", items: [...done, ...canceled] }]
+                  : []),
+              ]
+            : statusFilter === "ACTIVE"
+            ? (active.length > 0 ? [{ label: "Активные", items: active }] : [])
+            : statusFilter === "DONE"
+            ? (done.length > 0 ? [{ label: "Завершённые", items: done }] : [])
+            : (canceled.length > 0 ? [{ label: "Отменённые", items: canceled }] : []);
+
+          if (sections.length === 0) {
+            return (
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <p style={{ fontSize: 15, color: "#94a3b8" }}>Нет заказов в этой категории</p>
+              </div>
+            );
+          }
+
+          return (
+            <>
+              {sections.map((section, idx) => (
+                <div key={section.label}>
+                  <p style={{ ...groupLabel, ...(idx > 0 ? { marginTop: 16 } : {}) }}>{section.label}</p>
+                  <div className="orders-grid">
+                    {section.items
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                      .map((o) => (
+                        <OrderCard key={o.id} order={o} onClick={() => router.push(`/orders/${o.id}`)} />
+                      ))}
+                  </div>
                 </div>
-              </>
-            )}
-          </>
-        )}
+              ))}
+            </>
+          );
+        })()}
       </div>
 
       <style>{`

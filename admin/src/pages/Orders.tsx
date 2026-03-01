@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getOrders, cancelOrder, WS_URL } from "@/lib/api";
+import { getOrders, cancelOrder, WS_URL, type AdminOrder } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,7 +47,7 @@ type SortKey = "created_at" | "priceAmount" | "platformFee" | "status";
 type SortDirection = "asc" | "desc";
 
 const Orders = () => {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);

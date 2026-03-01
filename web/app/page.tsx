@@ -7,7 +7,6 @@ import {
   FaSignOutAlt, FaListAlt, FaSyringe, FaThermometerHalf,
   FaFlask, FaBandAid,
 } from "react-icons/fa";
-import { unsubscribeWebPush } from "@/lib/webPush";
 import { api, Service, formatPrice } from "@/lib/api";
 
 const CATEGORY_META: Record<string, { icon: React.ElementType }> = {
@@ -26,23 +25,49 @@ export default function HomePage() {
   const router = useRouter();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [userInitials, setUserInitials] = useState("");
+  const [search, setSearch] = useState("");
+
+  function loadServices() {
+    setLoading(true);
+    setError("");
+    api.services.list()
+      .then((data) => setServices(data.filter((s) => s.isActive)))
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Ошибка загрузки услуг");
+      })
+      .finally(() => setLoading(false));
+  }
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) { router.push("/auth"); return; }
-    api.services.list()
-      .then((data) => setServices(data.filter((s) => s.isActive)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const u = JSON.parse(stored) as { name?: string | null; phone?: string };
+        const initials = u.name
+          ? u.name.trim().split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
+          : (u.phone ?? "").slice(-2);
+        setUserInitials(initials);
+      }
+    } catch { /* ignore */ }
+    loadServices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  function handleLogout() {
-    unsubscribeWebPush();
-    localStorage.removeItem("token");
-    router.push("/auth");
-  }
+  const q = search.trim().toLowerCase();
+  const filteredServices = q
+    ? services.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.description.toLowerCase().includes(q) ||
+          s.category.toLowerCase().includes(q)
+      )
+    : services;
 
-  const grouped = services.reduce<Record<string, Service[]>>((acc, s) => {
+  const grouped = filteredServices.reduce<Record<string, Service[]>>((acc, s) => {
     (acc[s.category] = acc[s.category] || []).push(s);
     return acc;
   }, {});
@@ -80,15 +105,17 @@ export default function HomePage() {
                 <FaListAlt size={12} /> Мои заказы
               </button>
               <button
-                onClick={handleLogout}
+                onClick={() => router.push("/profile")}
+                title="Профиль"
                 style={{
-                  background: "rgba(255,255,255,0.15)", border: "none",
-                  borderRadius: 10, width: 36, height: 36,
+                  background: "rgba(255,255,255,0.2)", border: "1.5px solid rgba(255,255,255,0.4)",
+                  borderRadius: "50%", width: 36, height: 36,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", color: "rgba(255,255,255,0.85)",
+                  cursor: "pointer", color: "#fff",
+                  fontSize: 13, fontWeight: 800,
                 }}
               >
-                <FaSignOutAlt size={15} />
+                {userInitials || <FaSignOutAlt size={14} />}
               </button>
             </div>
           </div>
@@ -112,6 +139,40 @@ export default function HomePage() {
 
       {/* Контент */}
       <div className="page-wrap" style={{ padding: "20px 20px 60px" }}>
+
+        {/* Поиск услуг */}
+        <div style={{ position: "relative", marginBottom: 16 }}>
+          <svg
+            width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+          >
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск услуг..."
+            style={{
+              width: "100%", boxSizing: "border-box",
+              padding: "12px 14px 12px 42px",
+              background: "#fff", border: "1.5px solid #e2e8f0",
+              borderRadius: 14, fontSize: 15, color: "#0f172a",
+              outline: "none", boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              style={{
+                position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                background: "none", border: "none", cursor: "pointer",
+                color: "#94a3b8", fontSize: 18, lineHeight: 1, padding: 4,
+              }}
+            >×</button>
+          )}
+        </div>
 
         {/* Баннер скидки */}
         <div style={{
@@ -137,6 +198,26 @@ export default function HomePage() {
               animation: "spin 0.8s linear infinite", margin: "0 auto 12px",
             }} />
             <p style={{ fontSize: 14, color: "#94a3b8" }}>Загружаем услуги...</p>
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: "center", padding: "48px 0" }}>
+            <p style={{ fontSize: 15, color: "#ef4444", marginBottom: 16 }}>{error}</p>
+            <button
+              onClick={loadServices}
+              style={{
+                background: "#0d9488", color: "#fff", border: "none",
+                borderRadius: 12, padding: "11px 24px",
+                fontSize: 14, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Попробовать снова
+            </button>
+          </div>
+        ) : filteredServices.length === 0 && q ? (
+          <div style={{ textAlign: "center", padding: "48px 0" }}>
+            <p style={{ fontSize: 36, marginBottom: 12 }}>🔍</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>Ничего не найдено</p>
+            <p style={{ fontSize: 14, color: "#94a3b8" }}>Попробуйте другой запрос</p>
           </div>
         ) : (
           Object.entries(grouped)

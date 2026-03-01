@@ -5,6 +5,7 @@ import {
   Users,
   ClipboardList,
   Package,
+  BarChart2,
   LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -30,6 +31,7 @@ const navItems = [
   { title: "Клиенты", url: "/clients", icon: Users },
   { title: "Заказы", url: "/orders", icon: ClipboardList },
   { title: "Услуги", url: "/services", icon: Package },
+  { title: "Отчёты", url: "/reports", icon: BarChart2 },
 ];
 
 export function AdminSidebar() {

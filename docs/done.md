@@ -4,6 +4,38 @@
 
 ---
 
+## 2026-03-02
+
+- **[web, web-medic, admin]** 12.3 Sentry error tracking — добавлен `@sentry/nextjs` (web/web-medic) и `@sentry/react` (admin); `sentry.client.config.ts` + `sentry.server.config.ts` + `withSentryConfig` в `next.config.ts`; `app/error.tsx` отправляет ошибки через `captureException`; admin `ErrorBoundary.tsx` отправляет в Sentry; Sentry init в `main.tsx`; DSN через `NEXT_PUBLIC_SENTRY_DSN` / `VITE_SENTRY_DSN` (пустой = отключён); добавлен `admin/.env.example`
+
+- **[web-medic]** Применены изменения бэкенда: `lastSeenAt`, авто-оффлайн после 5ч — добавлен `onlineDisabledReason`, баннер INACTIVE_5H на дашборде (`web-medic/lib/api.ts`, `web-medic/app/page.tsx`)
+- **[web-medic]** Исправлен BUG-14: загрузка заказа заменена с `my()+find()` на прямой `GET /orders/:id` (`web-medic/app/order/[id]/page.tsx`, `web-medic/lib/api.ts`)
+- **[web-medic]** Добавлен OSRM роутинг на карте заказа медика — маршрут по дорогам с Polyline, маркеры медика и клиента, обновление каждые 30с (`web-medic/app/order/[id]/page.tsx`, `web-medic/components/Map.tsx`)
+- **[web]** Исправлен BUG-27: `orders.list()` теперь корректно извлекает `.data` из пагинированного ответа (`web/lib/api.ts`)
+- **[web]** Исправлен BUG-28: WebSocket отписка при unmount — добавлен `unsubscribe_order` перед `disconnect()` (`web/app/orders/[id]/page.tsx`)
+- **[web]** Исправлен BUG-29: `confirmDone` заменил дырявый `updateStatus` — жёстко зафиксирован статус `DONE` (`web/lib/api.ts`)
+- **[web]** Исправлен редирект после оценки заказа — клиент возвращается на `/` через 1.5с (`web/app/orders/[id]/page.tsx`)
+- **[web, web-medic]** Исправлен BUG-26: `BASE_URL` вынесен в `NEXT_PUBLIC_API_URL` env var (`web/lib/api.ts`, `web-medic/lib/api.ts`, `web/lib/webPush.ts`, `web-medic/lib/webPush.ts`)
+- **[web, web-medic]** Добавлены `.env.example` файлы (`web/.env.example`, `web-medic/.env.example`)
+- **[admin]** Исправлен BUG-30/31: выручка и график за 7 дней загружают ВСЕ страницы заказов через параллельную пагинацию (`admin/src/pages/Dashboard.tsx`)
+- **[admin]** Исправлен BUG-32: `hasAdminToken()` проверяет `exp` в JWT payload — истёкший токен больше не проходит (`admin/src/lib/api.ts`)
+- **[admin]** Исправлен BUG-33: добавлен `vercel.json` с CSP, X-Frame-Options, X-Content-Type-Options и др. security headers (`admin/vercel.json`)
+- **[admin]** Убран Lovable брендинг из `index.html` — заменён на HamshiraGo метаданные, добавлен `noindex` (`admin/index.html`)
+- **[web]** Добавлен Error Boundary (4.4) — `app/error.tsx` + `app/global-error.tsx`, кнопки "Попробовать снова" и "На главную"
+- **[web-medic]** Добавлен Error Boundary (4.4) — `app/error.tsx` + `app/global-error.tsx`
+- **[admin]** Добавлен Error Boundary (4.4) — класс-компонент `ErrorBoundary.tsx`, обёрнут в `main.tsx`
+- **[web]** Исправлен 8.5: SEO — `app/robots.ts` (disallow аутент. страниц, allow /auth), `app/sitemap.ts`, `app/auth/layout.tsx` с canonical+OG+Twitter для страницы входа, root layout обновлён с `title.template`, `metadataBase`, `twitter` тегами; `NEXT_PUBLIC_SITE_URL` в `.env.example`
+- **[web, web-medic]** Исправлен 8.3: offline баннер — компонент `OfflineBanner` в `layout.tsx` слушает `offline`/`online` события браузера, показывает фиксированную полосу "Нет подключения к интернету"
+- **[web]** Исправлены 8.1 + 8.2: loading state + обработка ошибок на главной — `.catch(() => {})` заменён, добавлен `error` state с кнопкой "Попробовать снова" (`web/app/page.tsx`); `console.error` в WS обработчике (`web/app/orders/[id]/page.tsx`); `console.error` в фоновом refresh профиля (`web-medic/app/page.tsx`) — добавлен `error` state, `.catch(() => {})` заменён на обработку ошибки с кнопкой "Попробовать снова" (`web/app/page.tsx`)
+- **[admin]** TypeScript strict mode (4.1 + 4.3) — включён `strict: true` в `tsconfig.app.json`; все `any` заменены на строгие интерфейсы `AdminMedic`, `AdminUser`, `AdminOrder`, `AdminService` в `api.ts` и всех страницах; `tsc --noEmit` проходит без ошибок
+- **[backend]** 10.1 DB индексы — добавлены `@Index()` на `User.phone` (unique), `Medic.phone` (unique), `Medic.isOnline`, `Medic.verificationStatus`, `Order.clientId`, `Order.medicId`, `Order.status`, `Order.created_at` — ускоряют логин, фильтрацию и сортировку (`user.entity.ts`, `medic.entity.ts`, `order.entity.ts`)
+- **[web]** 10.3 Кэш услуг — `api.services.list()` кэширует результат в localStorage на 5 минут; повторные загрузки страниц не делают API-запрос (`web/lib/api.ts`)
+- **[admin]** 10.4 Cloudinary оптимизация — хелпер `cloudinaryOpt()` добавляет `f_auto,q_auto,w_800` к URL; фото медика в Verification рендерятся в WebP для поддерживающих браузеров (`admin/src/pages/Verification.tsx`)
+- **[web]** Добавлен поиск и фильтрация (9.7) — текстовый поиск по услугам (название/описание/категория) с кнопкой сброса на главной (`web/app/page.tsx`); фильтр-табы «Все / Активные / Завершённые / Отменённые» в истории заказов (`web/app/orders/page.tsx`). Admin поиск/фильтры уже были реализованы.
+- **[web]** Добавлен профиль клиента (9.6) — `/profile` страница с именем, телефоном и историей заказов; аватар с инициалами в шапке главной; user-инфо сохраняется в localStorage после логина/регистрации (`web/app/profile/page.tsx`, `web/app/auth/page.tsx`, `web/app/page.tsx`). Редактирование и смена пароля заблокированы — требуют `PATCH /auth/profile` и `PATCH /auth/change-password` на бэкенде.
+- **[admin]** Добавлена страница «Финансовые отчёты» (9.5) — `/reports`: фильтр по дате, KPI (доход платформы, кол-во заказов, средний чек, скидки), бар-чарт дохода по дням, таблица дохода по услугам, кнопка «Экспорт CSV» с BOM для Excel; пункт меню «Отчёты» в сайдбаре (`admin/src/pages/Reports.tsx`, `admin/src/App.tsx`, `admin/src/components/AdminSidebar.tsx`)
+- **[web, web-medic]** Исправлен 8.6: PWA offline кэширование — `sw.js` дополнен обработчиками `install` (кэш app shell), `activate` (очистка старых кэшей), `fetch` (cache-first для `/_next/static/`, network-first для навигации); добавлен компонент `InstallPrompt` с кнопкой "Установить" и dismiss в `localStorage`
+
 ## 2026-03-01
 
 - **[web]** Редизайн главной страницы — SVG-волна под шапкой, иконки по категориям, убран дублирующийся блок "Мои заказы" внизу (`web/app/page.tsx`)

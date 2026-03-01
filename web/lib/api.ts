@@ -1,4 +1,4 @@
-const BASE_URL = "https://hamshirago-production-0a65.up.railway.app";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app";
 export const WS_URL = BASE_URL;
 
 function getToken(): string | null {
@@ -35,9 +35,37 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
+const SERVICES_CACHE_KEY = "svc_cache";
+const SERVICES_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedServices(): Service[] | null {
+  try {
+    const raw = localStorage.getItem(SERVICES_CACHE_KEY);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw) as { data: Service[]; ts: number };
+    if (Date.now() - ts > SERVICES_CACHE_TTL) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedServices(data: Service[]) {
+  try {
+    localStorage.setItem(SERVICES_CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+  } catch { /* ignore quota errors */ }
+}
+
 export const api = {
   services: {
-    list: () => request<Service[]>("/services"),
+    list: () => {
+      const cached = getCachedServices();
+      if (cached) return Promise.resolve(cached);
+      return request<Service[]>("/services").then((data) => {
+        setCachedServices(data);
+        return data;
+      });
+    },
     get: (id: string) => request<Service>(`/services/${id}`),
   },
 
@@ -64,10 +92,10 @@ export const api = {
       }),
     cancel: (id: string) =>
       request<Order>(`/orders/${id}/cancel`, { method: "POST" }),
-    updateStatus: (id: string, status: OrderStatus) =>
+    confirmDone: (id: string) =>
       request<Order>(`/orders/${id}/status`, {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: "DONE" }),
       }),
     rate: (id: string, rating: number) =>
       request<Order>(`/orders/${id}/rate`, {

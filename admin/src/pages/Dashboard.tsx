@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { KpiCard } from "@/components/KpiCard";
-import { getOrders, getPendingMedics } from "@/lib/api";
+import { getOrders, getPendingMedics, type AdminOrder } from "@/lib/api";
 import {
   ClipboardList,
   CheckCircle2,
@@ -44,14 +44,14 @@ const Dashboard = () => {
         );
         revenue = pages
           .flatMap(p => p.data)
-          .reduce((sum: number, o: any) => sum + (o.platformFee || 0), 0);
+          .reduce((sum: number, o: AdminOrder) => sum + (o.platformFee || 0), 0);
       }
 
       // Загружаем страницы пока не дойдём до заказов старше 7 дней (сортировка DESC)
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 7);
       const today = new Date().toISOString().split("T")[0];
-      const recentData: any[] = [];
+      const recentData: AdminOrder[] = [];
       let page = 1;
       while (true) {
         const res = await getOrders(page, 100);
@@ -61,14 +61,14 @@ const Dashboard = () => {
         page++;
       }
 
-      const todayCount = recentData.filter((o: any) => o.created_at?.startsWith(today)).length;
+      const todayCount = recentData.filter((o) => o.created_at?.startsWith(today)).length;
       const last7Days = new Map<string, number>();
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         last7Days.set(d.toISOString().split("T")[0], 0);
       }
-      recentData.forEach((o: any) => {
+      recentData.forEach((o) => {
         const key = String(o.created_at || "").split("T")[0];
         if (last7Days.has(key)) last7Days.set(key, (last7Days.get(key) || 0) + 1);
       });

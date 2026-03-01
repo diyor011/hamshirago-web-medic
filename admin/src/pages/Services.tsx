@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getServices, createService, updateService, deleteService } from "@/lib/api";
+import { getServices, createService, updateService, deleteService, type AdminService } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -29,7 +29,7 @@ const emptyForm = {
 };
 
 const Services = () => {
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<AdminService[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -57,7 +57,7 @@ const Services = () => {
     setDialogOpen(true);
   };
 
-  const openEdit = (s: any) => {
+  const openEdit = (s: AdminService) => {
     setEditingId(s.id);
     setForm({
       title: s.title,

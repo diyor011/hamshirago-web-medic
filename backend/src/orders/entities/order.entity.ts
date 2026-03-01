@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToOne,
+  Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Medic } from '../../medics/entities/medic.entity';
@@ -18,9 +19,11 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({ type: 'uuid' })
   clientId: string;
 
+  @Index()
   @Column({ type: 'uuid', nullable: true })
   medicId: string | null;
 
@@ -43,6 +46,7 @@ export class Order {
   @Column({ type: 'int', default: 0, nullable: true })
   platformFee: number;
 
+  @Index()
   @Column({
     type: 'enum',
     enum: OrderStatus,
@@ -54,6 +58,7 @@ export class Order {
   @Column({ type: 'smallint', nullable: true, default: null })
   clientRating: number | null;
 
+  @Index()
   @CreateDateColumn()
   created_at: Date;
 

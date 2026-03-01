@@ -113,9 +113,10 @@
 - **Muammo:** `GET /orders/medic/available` (85-qator) va `GET /orders/:id` (51-qator) ikkalasi ham `@Get` routelar. NestJS routelarni e'lon tartibida moslashtiradi, shuning uchun `GET /orders/medic/available` `:id` tomonidan birinchi ushlab qolinadi (`id = 'medic'`). UUID kutilganligi uchun "Order not found" xato beradi. Xuddi shunday `GET /orders/admin/all` ham.
 - **Yechim:** Statik routelarni (`medic/available`, `admin/all`) `:id` parametrli routedan OLDIN joylashtirish.
 
-### BUG 14: web-medic barcha buyurtmalarni yuklaydi bitta topish uchun
+### ✅ BUG 14: web-medic barcha buyurtmalarni yuklaydi bitta topish uchun — ИСПРАВЛЕН
 - **Fayl:** `web-medic/app/order/[id]/page.tsx:51-66`
 - **Muammo:** `loadOrder` funksiyasi `medicApi.orders.my()` (BARCHA medik buyurtmalarini yuklaydi), keyin `id` bo'yicha client tomonida filtrlaydi. Buyurtmalar ko'paygan sari samarasiz bo'ladi.
+- **Tuzatish:** To'g'ridan-to'g'ri `GET /orders/:id` ishlatilmoqda.
 
 ### BUG 15: Web client CreateOrderDto ortiqcha maydonlar
 - **Fayl:** `web/lib/api.ts:143-156`
@@ -166,38 +167,45 @@
 - **Fayl:** `medic/app/(tabs)/index.tsx:122-124`
 - **Muammo:** `fetchOrders` barcha xatolarni ushlaydi va hech narsa qilmaydi.
 
-### BUG 26: Qattiq kodlangan localhost:3000
+### ✅ BUG 26: Qattiq kodlangan localhost:3000 — ИСПРАВЛЕН
 - **Fayllar:** `web/lib/api.ts:1`, `web-medic/lib/api.ts:1`
 - **Muammo:** `const BASE_URL = "http://localhost:3000"` qattiq kodlangan. Environment variable fallback yo'q. Production da ishlamaydi.
-- **Yechim:** `process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"` ishlatish.
+- **Tuzatish:** `NEXT_PUBLIC_API_URL` env variable ishlatilmoqda.
 
-### BUG 27: API javob turi nomuvofiqligi
+### ✅ BUG 27: API javob turi nomuvofiqligi — ИСПРАВЛЕН
 - **Fayl:** `web/lib/api.ts:58`
 - **Muammo:** `list: () => request<Order[]>("/orders")` massiv kutadi, lekin backend `{ data: Order[], total, page, totalPages }` qaytaradi. Web client massiv bo'lmagan ob'yektni iteratsiya qilishga harakat qiladi.
+- **Tuzatish:** `request<{ data: Order[] }>("/orders").then(r => r.data)` ishlatilmoqda.
 
-### BUG 28: WebSocket tozalash muammosi
+### ✅ BUG 28: WebSocket tozalash muammosi — ИСПРАВЛЕН
 - **Fayl:** `web/app/orders/[id]/page.tsx:118-152`
 - **Muammo:** `useEffect` cleanup faqat `socket.disconnect()` chaqiradi, `unsubscribe_order` emit qilmaydi. Server `clientOrderRooms` map da obunani saqlab qoladi.
+- **Tuzatish:** `unsubscribe_order` emit qilinmoqda disconnect oldidan.
 
-### BUG 29: Web client to'g'ridan-to'g'ri DONE statusiga o'tkazishi mumkin
+### ✅ BUG 29: Web client to'g'ridan-to'g'ri DONE statusiga o'tkazishi mumkin — ИСПРАВЛЕН
 - **Fayl:** `web/app/orders/[id]/page.tsx:174-185`
 - **Muammo:** `handleConfirmDone` funksiyasi `api.orders.updateStatus(id, "DONE")` chaqiradi. BUG 2 va BUG 10 tufayli har qanday mijoz har qanday buyurtmani DONE qilishi mumkin.
+- **Tuzatish:** `confirmDone` endpoint ishlatilmoqda, status client tomonida qattiq DONE ga qo'yilgan.
 
-### BUG 30: Dashboard daromad faqat birinchi 100 ta buyurtmani hisobga oladi
+### ✅ BUG 30: Dashboard daromad faqat birinchi 100 ta buyurtmani hisobga oladi — ИСПРАВЛЕН
 - **Fayl:** `admin/src/pages/Dashboard.tsx:39-41`
 - **Muammo:** `getOrders(1, 100, "DONE")` faqat birinchi 100 ta bajarilgan buyurtmani yuklaydi. 100 dan ortiq bo'lsa daromad kam ko'rsatiladi.
+- **Tuzatish:** Parallel pagination — barcha sahifalar bir vaqtda yuklanadi.
 
-### BUG 31: Dashboard "bugun" hisob 100 ta bilan cheklangan
+### ✅ BUG 31: Dashboard "bugun" hisob 100 ta bilan cheklangan — ИСПРАВЛЕН
 - **Fayl:** `admin/src/pages/Dashboard.tsx:45-49`
 - **Muammo:** `getOrders(1, 100)` faqat oxirgi 100 buyurtmani yuklaydi. "Bugun" soni va 7 kunlik grafik shu qisqartirilgan ma'lumotlardan hisoblanadi.
+- **Tuzatish:** Parallel pagination — barcha sahifalar yuklanadi.
 
-### BUG 32: Admin routelar faqat token mavjudligini tekshiradi
+### ✅ BUG 32: Admin routelar faqat token mavjudligini tekshiradi — ИСПРАВЛЕН
 - **Fayl:** `admin/src/App.tsx:27-33`
 - **Muammo:** `hasAdminToken()` faqat localStorage da token stringi borligini tekshiradi — token yaroqli yoki muddati o'tmaganligini tekshirmaydi.
+- **Tuzatish:** `hasAdminToken()` JWT payload dagi `exp` ni tekshiradi.
 
-### BUG 33: Admin JWT localStorage da — XSS ga zaif
+### ✅ BUG 33: Admin JWT localStorage da — XSS ga zaif — ЧАСТИЧНО ИСПРАВЛЕН
 - **Fayl:** `admin/src/lib/api.ts:28-44`
 - **Muammo:** Admin JWT localStorage da saqlanadi. Agar admin panelda biron XSS zaiflik bo'lsa, hujumchi admin JWT ni o'g'irlashi mumkin.
+- **Tuzatish:** `vercel.json` da qat'iy CSP, X-Frame-Options, X-Content-Type-Options headerlar qo'shildi — XSS xavfi kamaydi. HttpOnly cookie ga o'tkazish backend tarafida kerak.
 
 ---
 
@@ -206,9 +214,10 @@
 ### BUG 34: name maydonda @IsOptional() yo'q
 - **Fayl:** `backend/src/auth/dto/register-client.dto.ts`
 
-### BUG 35: User.phone da DB unique constraint yo'q
+### ✅ BUG 35: User.phone da DB unique constraint yo'q — ИСПРАВЛЕН
 - **Fayl:** `backend/src/users/entities/user.entity.ts:17`
 - **Muammo:** `phone` ustunida `unique: true` constraint yo'q. `registerClient` xizmati dublikatlarni tekshiradi, lekin unique index bo'lmasa, parallel ro'yxatdan o'tishlar dublikat foydalanuvchilar yaratishi mumkin. Xuddi shunday `Medic.phone` uchun ham.
+- **Tuzatish:** `@Index({ unique: true })` qo'shildi `User.phone`, `Medic.phone` ga.
 
 ### BUG 36: Order.location aloqasi mo'rt
 - **Fayl:** `backend/src/orders/orders.service.ts`

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getAllMedics, blockMedic } from "@/lib/api";
+import { getAllMedics, blockMedic, type AdminMedic } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { ShieldAlert, Star, Users, UserCheck, Wifi } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Medics = () => {
-  const [medics, setMedics] = useState<any[]>([]);
+  const [medics, setMedics] = useState<AdminMedic[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [onlineFilter, setOnlineFilter] = useState<"ALL" | "ONLINE" | "OFFLINE">("ALL");

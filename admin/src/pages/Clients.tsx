@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { getUsers, blockClient } from "@/lib/api";
+import { getUsers, blockClient, type AdminUser } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +13,7 @@ import { Users, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Clients = () => {
-  const [users, setUsers]       = useState<any[]>([]);
+  const [users, setUsers]       = useState<AdminUser[]>([]);
   const [total, setTotal]       = useState(0);
   const [page, setPage]         = useState(1);
   const [totalPages, setTotalPages] = useState(1);
