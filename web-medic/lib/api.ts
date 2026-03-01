@@ -16,6 +16,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   });
+  if (res.status === 401) {
+    localStorage.removeItem("medic_token");
+    localStorage.removeItem("medic");
+    window.location.href = "/auth";
+    throw new Error("Unauthorized");
+  }
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Ошибка сервера" }));
     throw new Error(error.message || "Ошибка сервера");
