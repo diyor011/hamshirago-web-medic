@@ -34,31 +34,43 @@ const Dashboard = () => {
         getPendingMedics(),
       ]);
 
-      // Get done orders for revenue calculation
+      // Загружаем ВСЕ страницы DONE заказов параллельно для точного подсчёта дохода
       let revenue = 0;
       if (doneOrders.total > 0) {
-        const doneAll = await getOrders(1, 100, "DONE");
-        revenue = doneAll.data.reduce((sum: number, o: any) => sum + (o.platformFee || 0), 0);
+        const PAGE = 100;
+        const totalPages = Math.ceil(doneOrders.total / PAGE);
+        const pages = await Promise.all(
+          Array.from({ length: totalPages }, (_, i) => getOrders(i + 1, PAGE, "DONE"))
+        );
+        revenue = pages
+          .flatMap(p => p.data)
+          .reduce((sum: number, o: any) => sum + (o.platformFee || 0), 0);
       }
 
-      // Today's orders
+      // Загружаем страницы пока не дойдём до заказов старше 7 дней (сортировка DESC)
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 7);
       const today = new Date().toISOString().split("T")[0];
-      const recentOrders = await getOrders(1, 100);
-      const todayCount = recentOrders.data.filter(
-        (o: any) => o.created_at?.startsWith(today)
-      ).length;
+      const recentData: any[] = [];
+      let page = 1;
+      while (true) {
+        const res = await getOrders(page, 100);
+        recentData.push(...res.data);
+        const last = res.data[res.data.length - 1];
+        if (!last || new Date(last.created_at) < cutoff || page >= res.totalPages) break;
+        page++;
+      }
+
+      const todayCount = recentData.filter((o: any) => o.created_at?.startsWith(today)).length;
       const last7Days = new Map<string, number>();
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const key = d.toISOString().split("T")[0];
-        last7Days.set(key, 0);
+        last7Days.set(d.toISOString().split("T")[0], 0);
       }
-      recentOrders.data.forEach((o: any) => {
+      recentData.forEach((o: any) => {
         const key = String(o.created_at || "").split("T")[0];
-        if (last7Days.has(key)) {
-          last7Days.set(key, (last7Days.get(key) || 0) + 1);
-        }
+        if (last7Days.has(key)) last7Days.set(key, (last7Days.get(key) || 0) + 1);
       });
       const chartData = Array.from(last7Days.entries()).map(([date, orders]) => ({
         day: new Date(date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }),
