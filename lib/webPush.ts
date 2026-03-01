@@ -43,11 +43,8 @@ export async function subscribeWebPush(): Promise<void> {
       return;
     }
 
-    // 3. Запрашиваем разрешение у пользователя
-    console.log("[WebPush] запрашиваем разрешение...");
-    const permission = await Notification.requestPermission();
-    console.log("[WebPush] разрешение:", permission);
-    if (permission !== "granted") return;
+    // 3. Проверяем разрешение (диалог должен быть запрошен до вызова этой функции)
+    if (Notification.permission !== "granted") return;
 
     // 4. Подписываемся на Push через браузер
     const subscription = await registration.pushManager.subscribe({
