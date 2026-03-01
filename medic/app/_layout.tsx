@@ -65,6 +65,7 @@ function RootLayoutNav() {
   const router = useRouter();
   const lastLocationSyncTs = useRef(0);
   const lastPermissionReminderTs = useRef(0);
+  const lastAutoOfflineAlertTs = useRef(0);
 
   useEffect(() => {
     const inAuth = segments[0] === 'auth';
@@ -151,6 +152,19 @@ function RootLayoutNav() {
   useEffect(() => {
     remindBackgroundPermission();
   }, [remindBackgroundPermission]);
+
+  useEffect(() => {
+    if (!token || !medic) return;
+    if (medic.onlineDisabledReason !== 'INACTIVE_5H') return;
+    const now = Date.now();
+    if (now - lastAutoOfflineAlertTs.current < 60_000) return;
+    lastAutoOfflineAlertTs.current = now;
+    Alert.alert(
+      'Онлайн отключён автоматически',
+      'Вы были неактивны более 5 часов. Войдите заново и включите онлайн-режим.',
+      [{ text: 'Понятно' }],
+    );
+  }, [token, medic?.onlineDisabledReason]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {

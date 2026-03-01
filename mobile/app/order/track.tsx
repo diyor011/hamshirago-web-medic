@@ -68,6 +68,7 @@ const TrackMapComponent =
   Platform.OS === 'web'
     ? null
     : require('react-native-maps');
+const OSRM_ROUTE_URL = 'https://router.project-osrm.org/route/v1/driving';
 
 // ─── Step definitions ─────────────────────────────────────────────────────────
 
@@ -102,8 +103,10 @@ export default function TrackOrderScreen() {
     updatedAt: string;
     source?: 'socket' | 'rest';
   } | null>(null);
+  const [routeCoords, setRouteCoords] = useState<Array<{ latitude: number; longitude: number }>>([]);
   const socketRef = useRef<Socket | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastRouteFetchAtRef = useRef(0);
 
   // ── REST fetch ──────────────────────────────────────────────────────────────
   const fetchOrder = useCallback(async () => {
@@ -175,6 +178,40 @@ export default function TrackOrderScreen() {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [orderId, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchRoadRoute = useCallback(async () => {
+    if (!order?.location || !medicLocation) return;
+    if (order.location.latitude == null || order.location.longitude == null) return;
+
+    const now = Date.now();
+    if (now - lastRouteFetchAtRef.current < 20_000) return;
+    lastRouteFetchAtRef.current = now;
+
+    const fromLng = medicLocation.longitude;
+    const fromLat = medicLocation.latitude;
+    const toLng = Number(order.location.longitude);
+    const toLat = Number(order.location.latitude);
+
+    try {
+      const url = `${OSRM_ROUTE_URL}/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json() as {
+        routes?: Array<{ geometry?: { coordinates?: [number, number][] } }>;
+      };
+      const coordinates = data?.routes?.[0]?.geometry?.coordinates ?? [];
+      if (!coordinates.length) return;
+      setRouteCoords(
+        coordinates.map(([lng, lat]) => ({ latitude: lat, longitude: lng })),
+      );
+    } catch {
+      // Keep previous route on network/API errors
+    }
+  }, [medicLocation, order?.location]);
+
+  useEffect(() => {
+    fetchRoadRoute();
+  }, [fetchRoadRoute]);
 
   // ── Rate order ───────────────────────────────────────────────────────────────
   const handleRate = async (stars: number) => {
@@ -396,16 +433,18 @@ export default function TrackOrderScreen() {
                   pinColor="#dc2626"
                 />
                 <TrackMapComponent.Polyline
-                  coordinates={[
-                    {
-                      latitude: Number(order.location.latitude),
-                      longitude: Number(order.location.longitude),
-                    },
-                    {
-                      latitude: medicLocation.latitude,
-                      longitude: medicLocation.longitude,
-                    },
-                  ]}
+                  coordinates={routeCoords.length > 1
+                    ? routeCoords
+                    : [
+                        {
+                          latitude: Number(order.location.latitude),
+                          longitude: Number(order.location.longitude),
+                        },
+                        {
+                          latitude: medicLocation.latitude,
+                          longitude: medicLocation.longitude,
+                        },
+                      ]}
                   strokeColor={Theme.primary}
                   strokeWidth={3}
                 />

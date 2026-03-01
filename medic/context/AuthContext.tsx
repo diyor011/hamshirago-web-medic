@@ -16,6 +16,7 @@ export interface MedicUser {
   licensePhotoUrl: string | null;
   verificationRejectedReason: string | null;
   telegramChatId: string | null;
+  onlineDisabledReason?: 'INACTIVE_5H' | null;
 }
 
 interface AuthState {
@@ -60,7 +61,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateOnlineStatus = (isOnline: boolean) => {
     setState((s) => ({
       ...s,
-      medic: s.medic ? { ...s.medic, isOnline } : null,
+      medic: s.medic
+        ? {
+            ...s.medic,
+            isOnline,
+            onlineDisabledReason: isOnline ? null : s.medic.onlineDisabledReason ?? null,
+          }
+        : null,
     }));
   };
 

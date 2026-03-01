@@ -4,6 +4,12 @@
 
 ---
 
+## 2026-03-01
+
+- **[mobile]** Линия “медик → клиент” на трекинге заказа теперь строится по дорогам через OSRM (fallback на прямую линию при ошибке API) (`mobile/app/order/track.tsx`)
+- **[backend]** Авто-отключение `isOnline` у медиков после 5 часов неактивности; добавлено поле `lastSeenAt` и авто-очистка stale online перед выдачей nearby/online-списков (`backend/src/medics/entities/medic.entity.ts`, `backend/src/medics/medics.service.ts`)
+- **[backend/medic]** Возвращается причина авто-оффлайна `onlineDisabledReason: INACTIVE_5H`, в приложении медика показывается предупреждение “Онлайн отключён автоматически” (`backend/src/medics/medics.service.ts`, `medic/context/AuthContext.tsx`, `medic/app/_layout.tsx`)
+
 ## 2026-02-28
 
 - **[backend]** Добавлен `GET /medics/admin/all` (пагинация + фильтры `search`, `verificationStatus`, `isBlocked`, `isOnline`) для админки (`backend/src/medics/medics.controller.ts`, `backend/src/medics/medics.service.ts`)

@@ -78,6 +78,10 @@ export class Medic {
   @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
   longitude: number | null;
 
+  /** Last backend-seen activity timestamp (login, profile refresh, location update) */
+  @Column({ type: 'timestamp', nullable: true, default: null })
+  lastSeenAt: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -20,6 +20,8 @@ import { Order } from '../orders/entities/order.entity';
 import { OrderStatus } from '../orders/entities/order-status.enum';
 import { OrderEventsGateway } from '../realtime/order-events.gateway';
 
+const ONLINE_IDLE_LIMIT_MS = 5 * 60 * 60 * 1000; // 5 hours
+
 @Injectable()
 export class MedicsService {
   constructor(
@@ -30,6 +32,26 @@ export class MedicsService {
     private jwtService: JwtService,
     private readonly orderEventsGateway: OrderEventsGateway,
   ) {}
+
+  private onlineCutoffDate(): Date {
+    return new Date(Date.now() - ONLINE_IDLE_LIMIT_MS);
+  }
+
+  private isMedicOnlineStale(medic: Medic): boolean {
+    if (!medic.isOnline) return false;
+    if (!medic.lastSeenAt) return true;
+    return new Date(medic.lastSeenAt).getTime() < this.onlineCutoffDate().getTime();
+  }
+
+  private async autoDisableStaleOnlineMedics(): Promise<void> {
+    await this.medicRepo
+      .createQueryBuilder()
+      .update(Medic)
+      .set({ isOnline: false })
+      .where('isOnline = :isOnline', { isOnline: true })
+      .andWhere('(lastSeenAt IS NULL OR lastSeenAt < :cutoff)', { cutoff: this.onlineCutoffDate() })
+      .execute();
+  }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +64,7 @@ export class MedicsService {
       name: dto.name,
       passwordHash,
       experienceYears: dto.experienceYears ?? 0,
+      lastSeenAt: new Date(),
     });
     const saved = await this.medicRepo.save(medic);
     return this.toAuthResponse(saved);
@@ -53,10 +76,21 @@ export class MedicsService {
     const ok = await bcrypt.compare(dto.password, medic.passwordHash);
     if (!ok) throw new UnauthorizedException('Invalid phone or password');
     if (medic.isBlocked) throw new ForbiddenException('Your account has been blocked. Contact support.');
-    return this.toAuthResponse(medic);
+
+    let onlineDisabledReason: 'INACTIVE_5H' | null = null;
+    if (this.isMedicOnlineStale(medic)) {
+      await this.medicRepo.update(medic.id, { isOnline: false });
+      medic.isOnline = false;
+      onlineDisabledReason = 'INACTIVE_5H';
+    }
+
+    medic.lastSeenAt = new Date();
+    await this.medicRepo.update(medic.id, { lastSeenAt: medic.lastSeenAt });
+
+    return this.toAuthResponse(medic, onlineDisabledReason);
   }
 
-  private toAuthResponse(medic: Medic) {
+  private toAuthResponse(medic: Medic, onlineDisabledReason: 'INACTIVE_5H' | null = null) {
     const access_token = this.jwtService.sign({ sub: medic.id, role: 'medic' });
     return {
       access_token,
@@ -72,6 +106,7 @@ export class MedicsService {
         facePhotoUrl: medic.facePhotoUrl,
         licensePhotoUrl: medic.licensePhotoUrl,
         verificationRejectedReason: medic.verificationRejectedReason,
+        onlineDisabledReason,
       },
     };
   }
@@ -85,6 +120,17 @@ export class MedicsService {
   async getProfile(id: string) {
     const medic = await this.findById(id);
     if (!medic) throw new UnauthorizedException();
+
+    let onlineDisabledReason: 'INACTIVE_5H' | null = null;
+    if (this.isMedicOnlineStale(medic)) {
+      await this.medicRepo.update(id, { isOnline: false });
+      medic.isOnline = false;
+      onlineDisabledReason = 'INACTIVE_5H';
+    }
+
+    medic.lastSeenAt = new Date();
+    await this.medicRepo.update(id, { lastSeenAt: medic.lastSeenAt });
+
     return {
       id: medic.id,
       phone: medic.phone,
@@ -102,6 +148,7 @@ export class MedicsService {
       latitude: medic.latitude,
       longitude: medic.longitude,
       telegramChatId: medic.telegramChatId,
+      onlineDisabledReason,
     };
   }
 
@@ -217,6 +264,7 @@ export class MedicsService {
       isOnline: dto.isOnline,
       ...(dto.latitude != null ? { latitude: dto.latitude } : {}),
       ...(dto.longitude != null ? { longitude: dto.longitude } : {}),
+      lastSeenAt: new Date(),
     });
 
     if (dto.latitude == null || dto.longitude == null) return;
@@ -260,6 +308,7 @@ export class MedicsService {
   }
 
   async getOnlinePushTokens(): Promise<string[]> {
+    await this.autoDisableStaleOnlineMedics();
     const medics = await this.medicRepo.find({
       where: { isOnline: true },
       select: ['pushToken'],
@@ -276,6 +325,7 @@ export class MedicsService {
 
   /** Returns chat_ids of all online medics (for new order broadcast) */
   async getOnlineTelegramChatIds(): Promise<string[]> {
+    await this.autoDisableStaleOnlineMedics();
     const medics = await this.medicRepo.find({
       where: { isOnline: true },
       select: ['telegramChatId'],
@@ -302,6 +352,7 @@ export class MedicsService {
   }
 
   async findNearby(latitude: number, longitude: number, limit = 10): Promise<Medic[]> {
+    await this.autoDisableStaleOnlineMedics();
     const medics = await this.medicRepo.find({
       where: { isOnline: true },
       select: ['id', 'name', 'rating', 'reviewCount', 'experienceYears', 'latitude', 'longitude'],
