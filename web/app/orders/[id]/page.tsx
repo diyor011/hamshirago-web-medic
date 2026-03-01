@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
+import dynamic from "next/dynamic";
+
+const TrackingMap = dynamic(() => import("@/components/TrackingMap"), { ssr: false });
 import {
   FaArrowLeft,
   FaMapMarker,
@@ -109,6 +112,7 @@ export default function OrderDetailPage() {
   const [ratingLoading, setRatingLoading] = useState(false);
   const [ratingDone, setRatingDone] = useState(false);
   const [socketOk, setSocketOk] = useState(true);
+  const [medicLocation, setMedicLocation] = useState<{ lat: number; lng: number; updatedAt: string } | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
@@ -138,6 +142,11 @@ export default function OrderDetailPage() {
       }
     });
 
+    socket.on("medic_location", (payload: { orderId: string; latitude: number; longitude: number; updatedAt: string }) => {
+      if (payload.orderId !== id) return;
+      setMedicLocation({ lat: payload.latitude, lng: payload.longitude, updatedAt: payload.updatedAt });
+    });
+
     return () => { socket.disconnect(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -148,6 +157,13 @@ export default function OrderDetailPage() {
     try {
       const data = await api.orders.get(id);
       setOrder(data);
+      if (data.medic?.latitude != null && data.medic?.longitude != null) {
+        setMedicLocation((prev) => prev ?? {
+          lat: Number(data.medic!.latitude),
+          lng: Number(data.medic!.longitude),
+          updatedAt: new Date().toISOString(),
+        });
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки");
     } finally {
@@ -304,6 +320,30 @@ export default function OrderDetailPage() {
             <p style={{ fontSize: 13, color: "#64748b" }}>Обычно это занимает 2–5 минут</p>
           </div>
         ) : null}
+
+        {/* Карта медика */}
+        {medicLocation &&
+          order.location?.latitude != null &&
+          order.location?.longitude != null &&
+          ["ASSIGNED", "ACCEPTED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED"].includes(order.status) && (
+          <div style={{ background: "#fff", borderRadius: 16, marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.04)", overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <p style={sectionLabel}>Медик на карте</p>
+              <span style={{ fontSize: 11, color: "#64748b" }}>
+                обновлено {new Date(medicLocation.updatedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            </div>
+            <div style={{ height: 240 }}>
+              <TrackingMap
+                clientLat={order.location.latitude}
+                clientLng={order.location.longitude}
+                medicLat={medicLocation.lat}
+                medicLng={medicLocation.lng}
+                medicName={order.medic?.name ?? "Медик"}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Адрес */}
         {order.location && (
