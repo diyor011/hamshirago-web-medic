@@ -90,6 +90,8 @@ export const medicApi = {
     get: (id: string) => request<Order>(`/orders/${id}`),
     accept: (id: string) =>
       request<Order>(`/orders/${id}/accept`, { method: "POST" }),
+    decline: (id: string) =>
+      request<void>(`/orders/${id}/decline`, { method: "POST" }),
     updateStatus: (id: string, status: OrderStatus) =>
       request<Order>(`/orders/${id}/medic-status`, {
         method: "PATCH",

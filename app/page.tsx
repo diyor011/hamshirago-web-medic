@@ -1,6 +1,24 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+
+interface DispatchInvitePayload {
+  orderId: string;
+  order: {
+    serviceTitle: string;
+    priceAmount: number;
+    discountAmount: number;
+    location: {
+      house: string;
+      floor: string | null;
+      apartment: string | null;
+      phone: string;
+      latitude: number;
+      longitude: number;
+    } | null;
+  };
+  expiresAt: string;
+}
 import { useRouter } from "next/navigation";
 import { FaMedkit, FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle } from "react-icons/fa";
 import { medicApi, WS_URL, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
@@ -52,6 +70,10 @@ export default function DashboardPage() {
   const isOnlineRef = useRef(false);
   const availableIdsRef = useRef<Set<string>>(new Set());
   const titleBlinkRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [invite, setInvite] = useState<DispatchInvitePayload | null>(null);
+  const [inviteSecondsLeft, setInviteSecondsLeft] = useState(60);
+  const inviteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [inviteLoading, setInviteLoading] = useState<"accept" | "decline" | null>(null);
 
   const notifyNewOrder = useCallback((order?: Order) => {
     playOrderAlert();
@@ -139,6 +161,7 @@ export default function DashboardPage() {
       clearInterval(locationInterval);
       clearInterval(pollInterval);
       if (titleBlinkRef.current) clearInterval(titleBlinkRef.current);
+      if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
       socketRef.current?.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,6 +187,28 @@ export default function DashboardPage() {
         return [order, ...prev];
       });
       setTab("available");
+    });
+
+    socket.on("dispatch_invite", (payload: DispatchInvitePayload) => {
+      if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
+      const updateCountdown = () => {
+        const ms = new Date(payload.expiresAt).getTime() - Date.now();
+        setInviteSecondsLeft(Math.max(0, Math.ceil(ms / 1000)));
+      };
+      updateCountdown();
+      inviteTimerRef.current = setInterval(updateCountdown, 500);
+      setInvite(payload);
+      playOrderAlert();
+    });
+
+    socket.on("dispatch_invite_expired", ({ orderId }: { orderId: string }) => {
+      setInvite((prev) => {
+        if (prev?.orderId === orderId) {
+          if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
+          return null;
+        }
+        return prev;
+      });
     });
   }
 
@@ -233,6 +278,33 @@ export default function DashboardPage() {
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     router.push("/auth");
+  }
+
+  async function acceptInvite() {
+    if (!invite) return;
+    setInviteLoading("accept");
+    try {
+      await medicApi.orders.accept(invite.orderId);
+      if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
+      setInvite(null);
+      router.push(`/order/${invite.orderId}`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Не удалось принять заказ");
+      setInviteLoading(null);
+    }
+  }
+
+  async function declineInvite() {
+    if (!invite) return;
+    setInviteLoading("decline");
+    try {
+      await medicApi.orders.decline(invite.orderId);
+      if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
+      setInvite(null);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Не удалось отклонить заказ");
+      setInviteLoading(null);
+    }
   }
 
   const activeOrders = myOrders.filter(o => !["DONE", "CANCELED"].includes(o.status));
@@ -504,6 +576,121 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      </div>
+
+      {/* ─── Dispatch Invite Overlay ─── */}
+      {invite && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 16,
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: 20, maxWidth: 480, width: "100%",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            overflow: "hidden",
+          }}>
+            {/* Шапка с таймером */}
+            <div style={{
+              background: inviteSecondsLeft === 0 ? "#64748b" : inviteSecondsLeft <= 15 ? "#d97706" : "#0d9488",
+              padding: "20px 24px",
+              display: "flex", alignItems: "center", gap: 16,
+              transition: "background 0.5s ease",
+            }}>
+              <div style={{
+                width: 68, height: 68, borderRadius: "50%",
+                background: "rgba(255,255,255,0.2)",
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1 }}>
+                  {inviteSecondsLeft}
+                </span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 600 }}>сек</span>
+              </div>
+              <div>
+                <p style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>
+                  {inviteSecondsLeft === 0 ? "Время истекло" : "🚨 Новый заказ!"}
+                </p>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 3 }}>
+                  {inviteSecondsLeft === 0
+                    ? "Заказ передан другому медику"
+                    : `Ответьте в течение ${inviteSecondsLeft} секунд`}
+                </p>
+              </div>
+            </div>
+
+            {/* Детали заказа */}
+            <div style={{ padding: "20px 24px" }}>
+              <p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>
+                {invite.order.serviceTitle}
+              </p>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 14, color: "#64748b" }}>Стоимость</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#0d9488" }}>
+                    {((invite.order.priceAmount ?? 0) - (invite.order.discountAmount ?? 0)).toLocaleString("ru-RU")} UZS
+                  </span>
+                </div>
+                {invite.order.location && (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <span style={{ fontSize: 14, color: "#64748b", flexShrink: 0 }}>Адрес</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", textAlign: "right" }}>
+                        {[
+                          invite.order.location.house,
+                          invite.order.location.floor ? `эт. ${invite.order.location.floor}` : null,
+                          invite.order.location.apartment ? `кв. ${invite.order.location.apartment}` : null,
+                        ].filter(Boolean).join(", ")}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 14, color: "#64748b" }}>Телефон</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
+                        {invite.order.location.phone}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={acceptInvite}
+                disabled={inviteLoading !== null || inviteSecondsLeft === 0}
+                style={{
+                  width: "100%", background: "#0d9488", color: "#fff",
+                  fontSize: 17, fontWeight: 700, border: "none",
+                  borderRadius: 14, padding: "16px",
+                  cursor: (inviteLoading !== null || inviteSecondsLeft === 0) ? "not-allowed" : "pointer",
+                  opacity: (inviteLoading !== null || inviteSecondsLeft === 0) ? 0.5 : 1,
+                  marginBottom: 10,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  transition: "opacity 150ms ease",
+                }}
+              >
+                {inviteLoading === "accept" ? "Принимаем..." : "✓ Принять заказ"}
+              </button>
+              <button
+                onClick={declineInvite}
+                disabled={inviteLoading !== null || inviteSecondsLeft === 0}
+                style={{
+                  width: "100%", background: "#fff", color: "#ef4444",
+                  fontSize: 15, fontWeight: 600,
+                  border: "1.5px solid #ef4444", borderRadius: 14, padding: "14px",
+                  cursor: (inviteLoading !== null || inviteSecondsLeft === 0) ? "not-allowed" : "pointer",
+                  opacity: (inviteLoading !== null || inviteSecondsLeft === 0) ? 0.4 : 1,
+                  transition: "opacity 150ms ease",
+                }}
+              >
+                {inviteLoading === "decline" ? "Отклоняем..." : "✕ Отклонить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
