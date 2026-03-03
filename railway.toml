@@ -1,0 +1,6 @@
+[build]
+buildCommand = "npm install --legacy-peer-deps && npm run build"
+
+[deploy]
+startCommand = "node .next/standalone/server.js"
+restartPolicyType = "ON_FAILURE"

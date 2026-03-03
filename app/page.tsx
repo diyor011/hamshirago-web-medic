@@ -383,7 +383,7 @@ export default function DashboardPage() {
         )}
         <div className="dash-columns">
 
-          {/* ─── Левая колонка (статус + инфо) ─── */}
+          {/\* \1 \*/}
           <div>
             {/* Online toggle */}
             <button onClick={toggleOnline} disabled={togglingOnline}
@@ -430,7 +430,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* ─── Правая колонка (заказы) ─── */}
+          {/\* \1 \*/}
           <div>
             {/* Табы */}
             <div style={{ background: "#f1f5f9", borderRadius: 12, padding: 4, display: "flex", marginBottom: 16 }}>
@@ -576,9 +576,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-      </div>
 
-      {/* ─── Dispatch Invite Overlay ─── */}
+      {/\* \1 \*/}
       {invite && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9999,
