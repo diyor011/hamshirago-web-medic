@@ -1,6 +1,7 @@
 [build]
-buildCommand = "npm install --legacy-peer-deps && npm run build"
+builder = "DOCKERFILE"
+dockerfilePath = "./Dockerfile"
 
 [deploy]
-startCommand = "node .next/standalone/server.js"
+startCommand = "node server.js"
 restartPolicyType = "ON_FAILURE"
