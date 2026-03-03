@@ -576,7 +576,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-      </div>
 
       {/* ─── Dispatch Invite Overlay ─── */}
       {invite && (
