@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const APP_URL = "https://hamshirago-web-medic.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://web-medic-production.up.railway.app";
 
 export async function POST(req: NextRequest) {
   const token = process.env.TG_BOT_TOKEN;
