@@ -4,17 +4,19 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  FaChevronLeft, FaMapMarker, FaPhone, FaUser,
+  FaChevronLeft, FaMapMarker, FaPhone,
   FaYandex, FaLocationArrow, FaCheckCircle,
 } from "react-icons/fa";
 import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
+import { useTranslation } from "react-i18next";
 
 const Map = dynamic(() => import("@/components/Map"), { ssr: false });
 
 export default function OrderDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+  const { t } = useTranslation();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,6 @@ export default function OrderDetailPage() {
   const socketRef = useRef<Socket | null>(null);
   const lastRouteFetchRef = useRef(0);
 
-  // Получаем GPS медика каждые 30 секунд
   useEffect(() => {
     if (!navigator.geolocation) return;
     function update() {
@@ -42,7 +43,6 @@ export default function OrderDetailPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Запрашиваем OSRM маршрут (не чаще раз в 20 сек)
   const fetchRoute = useCallback(async () => {
     if (!medicLoc || !order?.location) return;
     const now = Date.now();
@@ -56,7 +56,7 @@ export default function OrderDetailPage() {
       const data = await res.json() as { routes?: Array<{ geometry?: { coordinates?: [number, number][] } }> };
       const coords = data?.routes?.[0]?.geometry?.coordinates ?? [];
       if (coords.length) setRouteCoords(coords.map(([lng, lat]) => ({ lat, lng })));
-    } catch { /* fallback — прямая линия */ }
+    } catch { /* fallback */ }
   }, [medicLoc, order?.location]);
 
   useEffect(() => { fetchRoute(); }, [fetchRoute]);
@@ -91,7 +91,7 @@ export default function OrderDetailPage() {
       const found = await medicApi.orders.get(id);
       setOrder(found);
     } catch {
-      // заказ не найден или нет доступа
+      // order not found or no access
     } finally {
       setLoading(false);
     }
@@ -106,18 +106,16 @@ export default function OrderDetailPage() {
     try {
       const updated = await medicApi.orders.updateStatus(id, next.status);
       setOrder(updated);
-      // Если завершён — возвращаемся на главную через 2 сек
       if (next.status === "DONE") {
         setTimeout(() => router.push("/"), 2000);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Ошибка обновления");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setUpdating(false);
     }
   }
 
-  // Открыть навигатор
   function openNavigation(app: "yandex" | "google" | "2gis") {
     if (!order?.location) return;
     const { latitude: lat, longitude: lng } = order.location;
@@ -140,19 +138,19 @@ export default function OrderDetailPage() {
   if (!order) return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ textAlign: "center" }}>
-        <p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Заказ не найден</p>
-        <button onClick={() => router.push("/")} style={primaryBtn}>На главную</button>
+        <p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>{t("order.notFound")}</p>
+        <button onClick={() => router.push("/")} style={primaryBtn}>{t("order.home")}</button>
       </div>
     </div>
   );
 
-  const { text: statusText, bg: statusBg } = ORDER_STATUS_COLOR[order.status];
+  const { text: statusText } = ORDER_STATUS_COLOR[order.status];
   const nextAction = NEXT_STATUS[order.status];
   const isDone = order.status === "DONE" || order.status === "CANCELED";
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      {/* Шапка */}
+      {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "16px 24px 24px", display: "flex", alignItems: "center", gap: 12 }}>
         <button onClick={() => router.push("/")}
@@ -174,14 +172,14 @@ export default function OrderDetailPage() {
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "16px 24px 100px" }}>
 
-        {/* Баннер обрыва соединения */}
+        {/* Connection lost banner */}
         {!socketOk && (
           <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
-            Соединение потеряно — статус может не обновляться.
+            {t("order.connectionLost")}
           </div>
         )}
 
-        {/* Карта с маршрутом медика → клиент */}
+        {/* Map */}
         {order.location && (
           <div style={{ borderRadius: 16, overflow: "hidden", marginBottom: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.08)", height: 280 }}>
             <Map
@@ -194,21 +192,21 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        {/* Кнопка навигации */}
+        {/* Navigation button */}
         {order.location && !isDone && (
           <div style={{ marginBottom: 12, position: "relative" }}>
             <button onClick={() => setShowNavChoice(v => !v)}
               style={{ width: "100%", background: "#0f172a", color: "#fff", fontSize: 15, fontWeight: 700, borderRadius: 12, padding: "14px", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <FaLocationArrow size={14} />
-              Открыть навигацию
+              {t("order.openNavigation")}
             </button>
 
             {showNavChoice && (
               <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, background: "#fff", borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", overflow: "hidden", zIndex: 10 }}>
                 {[
-                  { key: "yandex", label: "Яндекс Карты", color: "#fc3f1d", icon: <FaYandex size={18} /> },
-                  { key: "google", label: "Google Maps",  color: "#4285f4", icon: <FaMapMarker size={16} /> },
-                  { key: "2gis",   label: "2ГИС",         color: "#1db248", icon: <FaMapMarker size={16} /> },
+                  { key: "yandex", label: t("order.openYandex"), color: "#fc3f1d", icon: <FaYandex size={18} /> },
+                  { key: "google", label: t("order.openGoogle"), color: "#4285f4", icon: <FaMapMarker size={16} /> },
+                  { key: "2gis",   label: t("order.open2GIS"),   color: "#1db248", icon: <FaMapMarker size={16} /> },
                 ].map(({ key, label, color, icon }) => (
                   <button key={key} onClick={() => openNavigation(key as "yandex" | "google" | "2gis")}
                     style={{ width: "100%", background: "#fff", border: "none", borderBottom: "1px solid #f1f5f9", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}>
@@ -220,23 +218,23 @@ export default function OrderDetailPage() {
                 ))}
                 <button onClick={() => setShowNavChoice(false)}
                   style={{ width: "100%", background: "#f8fafc", border: "none", padding: "12px", cursor: "pointer", fontSize: 14, color: "#64748b", fontWeight: 600 }}>
-                  Отмена
+                  {t("order.cancelNav")}
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* Адрес клиента */}
+        {/* Client address */}
         <div style={cardStyle}>
-          <h2 style={sectionTitle}>Адрес клиента</h2>
+          <h2 style={sectionTitle}>{t("order.clientAddress")}</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <FaMapMarker size={14} color="#0d9488" style={{ marginTop: 2, flexShrink: 0 }} />
               <span style={{ fontSize: 15, color: "#0f172a", fontWeight: 500 }}>
                 {order.location?.house}
-                {order.location?.floor ? `, этаж ${order.location.floor}` : ""}
-                {order.location?.apartment ? `, кв. ${order.location.apartment}` : ""}
+                {order.location?.floor ? `, ${t("order.floor")} ${order.location.floor}` : ""}
+                {order.location?.apartment ? `, ${t("order.apt")} ${order.location.apartment}` : ""}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -249,33 +247,33 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        {/* Информация об услуге */}
+        {/* Order details */}
         <div style={cardStyle}>
-          <h2 style={sectionTitle}>Детали заказа</h2>
+          <h2 style={sectionTitle}>{t("order.details")}</h2>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 14, color: "#64748b" }}>Услуга</span>
+            <span style={{ fontSize: 14, color: "#64748b" }}>{t("order.service")}</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{order.serviceTitle}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 14, color: "#64748b" }}>Стоимость</span>
+            <span style={{ fontSize: 14, color: "#64748b" }}>{t("order.price")}</span>
             <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{formatPrice(order.priceAmount)} UZS</span>
           </div>
           {order.discountAmount > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 14, color: "#22c55e" }}>Скидка</span>
+              <span style={{ fontSize: 14, color: "#22c55e" }}>{t("order.discount")}</span>
               <span style={{ fontSize: 14, fontWeight: 600, color: "#22c55e" }}>−{formatPrice(order.discountAmount)} UZS</span>
             </div>
           )}
           <div style={{ height: 1, background: "#e2e8f0", margin: "8px 0" }} />
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Итого</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{t("order.total")}</span>
             <span style={{ fontSize: 17, fontWeight: 800, color: "#0d9488" }}>{formatPrice(order.priceAmount - order.discountAmount)} UZS</span>
           </div>
         </div>
 
-        {/* Статус флоу */}
+        {/* Status flow */}
         <div style={cardStyle}>
-          <h2 style={sectionTitle}>Статус заказа</h2>
+          <h2 style={sectionTitle}>{t("order.navigate")}</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {(["ASSIGNED", "ACCEPTED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE"] as OrderStatus[]).map((s, i) => {
               const statuses: OrderStatus[] = ["ASSIGNED", "ACCEPTED", "ON_THE_WAY", "ARRIVED", "SERVICE_STARTED", "DONE"];
@@ -292,35 +290,35 @@ export default function OrderDetailPage() {
                   <span style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: active ? text : done ? "#64748b" : "#94a3b8" }}>
                     {ORDER_STATUS_LABEL[s]}
                   </span>
-                  {active && <span style={{ marginLeft: "auto", fontSize: 11, background: bg, color: text, padding: "2px 8px", borderRadius: 20, fontWeight: 700 }}>Текущий</span>}
+                  {active && <span style={{ marginLeft: "auto", fontSize: 11, background: bg, color: text, padding: "2px 8px", borderRadius: 20, fontWeight: 700 }}>{t("order.currentStatus")}</span>}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Ошибка */}
+        {/* Error */}
         {error && (
           <div style={{ background: "#ef444412", borderRadius: 10, padding: "12px 14px", marginBottom: 12, color: "#ef4444", fontSize: 13, fontWeight: 500 }}>
             {error}
           </div>
         )}
 
-        {/* Кнопка следующего статуса */}
+        {/* Next status button */}
         {nextAction && !isDone && (
           <button onClick={handleNextStatus} disabled={updating}
             style={{ width: "100%", background: nextAction.color, color: "#fff", fontSize: 17, fontWeight: 700, borderRadius: 12, padding: "16px 24px", border: "none", cursor: updating ? "not-allowed" : "pointer", opacity: updating ? 0.75 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, transition: "opacity 150ms ease" }}>
             {updating && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg>}
-            {updating ? "Обновляем..." : nextAction.label}
+            {updating ? t("order.updating") : nextAction.label}
           </button>
         )}
 
         {order.status === "DONE" && (
           <div style={{ background: "#22c55e20", borderRadius: 16, padding: 20, textAlign: "center" }}>
             <FaCheckCircle size={36} color="#22c55e" style={{ margin: "0 auto 12px", display: "block" }} />
-            <p style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Заказ выполнен!</p>
-            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>Спасибо за работу</p>
-            <button onClick={() => router.push("/")} style={primaryBtn}>На главную</button>
+            <p style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("order.orderDone")}</p>
+            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>{t("order.orderDoneText")}</p>
+            <button onClick={() => router.push("/")} style={primaryBtn}>{t("order.home")}</button>
           </div>
         )}
       </div>

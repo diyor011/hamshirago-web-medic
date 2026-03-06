@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 interface DispatchInvitePayload {
   orderId: string;
@@ -56,6 +57,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [medic, setMedic] = useState<Medic | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [available, setAvailable] = useState<Order[]>([]);
@@ -77,7 +79,6 @@ export default function DashboardPage() {
 
   const notifyNewOrder = useCallback((order?: Order) => {
     playOrderAlert();
-    // Мигание заголовка вкладки
     if (titleBlinkRef.current) clearInterval(titleBlinkRef.current);
     let on = true;
     titleBlinkRef.current = setInterval(() => {
@@ -88,7 +89,6 @@ export default function DashboardPage() {
       if (titleBlinkRef.current) { clearInterval(titleBlinkRef.current); titleBlinkRef.current = null; }
       document.title = "HamshiraGo Медик";
     }, 30000);
-    // Telegram уведомление
     const chatId = localStorage.getItem("tg_chat_id");
     if (chatId) {
       const text = order
@@ -118,7 +118,6 @@ export default function DashboardPage() {
       }
     }
 
-    // Получаем свежий профиль — проверяем авто-отключение из-за бездействия
     medicApi.auth.me().then((profile) => {
       setMedic(profile);
       localStorage.setItem("medic", JSON.stringify(profile));
@@ -135,7 +134,6 @@ export default function DashboardPage() {
     loadData();
     connectSocket(token);
 
-    // Обновляем координаты каждые 30 секунд если онлайн
     const locationInterval = setInterval(() => {
       if (isOnlineRef.current && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
@@ -144,11 +142,9 @@ export default function DashboardPage() {
       }
     }, 30000);
 
-    // Поллинг доступных заказов каждые 15 секунд (fallback если WebSocket пропустил)
     const pollInterval = setInterval(() => {
       if (isOnlineRef.current) {
         medicApi.orders.available().then((avail) => {
-          // Проверяем появились ли новые заказы
           const hasNew = avail.some((o) => !availableIdsRef.current.has(o.id));
           if (hasNew) notifyNewOrder();
           availableIdsRef.current = new Set(avail.map((o) => o.id));
@@ -267,7 +263,7 @@ export default function DashboardPage() {
       socketRef.current?.emit("subscribe_order", orderId);
       router.push(`/order/${orderId}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Ошибка";
+      const msg = err instanceof Error ? err.message : t("common.error");
       setAcceptError(msg);
       setTimeout(() => setAcceptError(""), 5000);
     }
@@ -289,7 +285,7 @@ export default function DashboardPage() {
       setInvite(null);
       router.push(`/order/${invite.orderId}`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Не удалось принять заказ");
+      alert(err instanceof Error ? err.message : t("common.error"));
       setInviteLoading(null);
     }
   }
@@ -302,7 +298,7 @@ export default function DashboardPage() {
       if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
       setInvite(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Не удалось отклонить заказ");
+      alert(err instanceof Error ? err.message : t("common.error"));
       setInviteLoading(null);
     }
   }
@@ -324,7 +320,7 @@ export default function DashboardPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
-      {/* Шапка */}
+      {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
         <div className="dash-header-inner">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -333,7 +329,7 @@ export default function DashboardPage() {
                 <FaMedkit size={20} color="#fff" />
               </div>
               <div>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>Медик</p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>{t("home.medicLabel")}</p>
                 <p style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{medic?.name ?? "..."}</p>
               </div>
             </div>
@@ -353,37 +349,36 @@ export default function DashboardPage() {
       </div>
 
       <div className="dash-body">
-        {/* Баннер обрыва соединения */}
+        {/* Connection lost banner */}
         {!socketOk && (
           <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
-            Соединение потеряно — новые заказы могут не поступать. Проверьте интернет.
+            {t("home.connectionLost")}
           </div>
         )}
-        {/* Баннер авто-отключения из-за бездействия */}
+        {/* Inactive warning banner */}
         {inactiveWarning && (
           <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#1d4ed8" }}>
-              ℹ️ Вы были переведены в оффлайн из-за 5 часов бездействия. Нажмите &quot;Вы оффлайн&quot; чтобы начать работу.
+              ℹ️ {t("home.inactiveWarning")}
             </span>
             <button onClick={() => setInactiveWarning(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#93c5fd", fontSize: 18, lineHeight: 1, flexShrink: 0 }}>✕</button>
           </div>
         )}
-        {/* Баннер верификации */}
+        {/* Verification banner */}
         {medic && medic.verificationStatus !== "APPROVED" && (
           <div style={{ background: medic.verificationStatus === "REJECTED" ? "#fef2f2" : "#fef3c7", border: `1px solid ${medic.verificationStatus === "REJECTED" ? "#fca5a5" : "#fbbf24"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: medic.verificationStatus === "REJECTED" ? "#dc2626" : "#92400e" }}>
               {medic.verificationStatus === "REJECTED"
-                ? "❌ Верификация отклонена — загрузите документы заново"
-                : "⏳ Аккаунт ожидает верификации — вы не можете принимать заказы"}
+                ? `❌ ${t("home.verificationRejected")}`
+                : `⏳ ${t("home.verificationPending")}`}
             </span>
             <button onClick={() => router.push("/profile")} style={{ background: medic.verificationStatus === "REJECTED" ? "#dc2626" : "#92400e", color: "#fff", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
-              Профиль
+              {t("home.profileBtn")}
             </button>
           </div>
         )}
         <div className="dash-columns">
 
-          
           <div>
             {/* Online toggle */}
             <button onClick={toggleOnline} disabled={togglingOnline}
@@ -398,10 +393,10 @@ export default function DashboardPage() {
               } as React.CSSProperties}>
               <div>
                 <p style={{ fontSize: 16, fontWeight: 700, color: isOnline ? "#fff" : "#0f172a" }}>
-                  {isOnline ? "Вы онлайн" : "Вы оффлайн"}
+                  {isOnline ? t("home.isOnline") : t("home.isOffline")}
                 </p>
                 <p style={{ fontSize: 13, color: isOnline ? "rgba(255,255,255,0.85)" : "#94a3b8", marginTop: 3 }}>
-                  {isOnline ? "Вам поступают заказы" : "Нажмите чтобы начать работу"}
+                  {isOnline ? t("home.ordersReceiving") : t("home.tapToStart")}
                 </p>
               </div>
               {isOnline
@@ -409,32 +404,31 @@ export default function DashboardPage() {
                 : <FaToggleOff size={40} color="#cbd5e1" />}
             </button>
 
-            {/* Статистика */}
+            {/* Stats */}
             {medic && (
               <div style={{ background: "#fff", borderRadius: 16, padding: 16, marginTop: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 <div style={{ textAlign: "center" }}>
                   <p style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>
                     {medic.rating !== null ? Number(medic.rating).toFixed(1) : "—"}
                   </p>
-                  <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 2 }}>Рейтинг</p>
+                  <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 2 }}>{t("home.statsRating")}</p>
                 </div>
                 <div style={{ textAlign: "center", borderLeft: "1px solid #f1f5f9", borderRight: "1px solid #f1f5f9" }}>
                   <p style={{ fontSize: 18, fontWeight: 800, color: "#0d9488" }}>{formatPrice(medic.balance)}</p>
-                  <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 2 }}>Баланс UZS</p>
+                  <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 2 }}>{t("home.statsBalance")}</p>
                 </div>
                 <div style={{ textAlign: "center" }}>
                   <p style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>{medic.experienceYears}</p>
-                  <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 2 }}>Лет опыта</p>
+                  <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 2 }}>{t("home.statsExp")}</p>
                 </div>
               </div>
             )}
           </div>
 
-          
           <div>
-            {/* Табы */}
+            {/* Tabs */}
             <div style={{ background: "#f1f5f9", borderRadius: 12, padding: 4, display: "flex", marginBottom: 16 }}>
-              {([["available", "Доступные"], ["my", "Мои заказы"]] as const).map(([key, label]) => (
+              {([["available", t("home.tabAvailable")], ["my", t("home.myOrders")]] as const).map(([key, label]) => (
                 <button key={key} onClick={() => setTab(key)}
                   style={{
                     flex: 1, padding: "10px", borderRadius: 9, border: "none", cursor: "pointer",
@@ -457,24 +451,24 @@ export default function DashboardPage() {
             {loading && (
               <div style={{ textAlign: "center", padding: "48px 0" }}>
                 <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #e2e8f0", borderTopColor: "#0d9488", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-                <p style={{ fontSize: 14, color: "#64748b" }}>Загружаем данные...</p>
+                <p style={{ fontSize: 14, color: "#64748b" }}>{t("home.loadingData")}</p>
               </div>
             )}
 
-            {/* Доступные заказы */}
+            {/* Available orders */}
             {!loading && tab === "available" && (
               <>
                 {!isOnline ? (
                   <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                     <FaToggleOff size={48} color="#e2e8f0" style={{ margin: "0 auto 16px", display: "block" }} />
-                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Вы оффлайн</p>
-                    <p style={{ fontSize: 14, color: "#64748b" }}>Включите онлайн чтобы получать заказы</p>
+                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{t("home.offlineState")}</p>
+                    <p style={{ fontSize: 14, color: "#64748b" }}>{t("home.enableOnline")}</p>
                   </div>
                 ) : available.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                     <FaClock size={40} color="#e2e8f0" style={{ margin: "0 auto 16px", display: "block" }} />
-                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Новых заказов нет</p>
-                    <p style={{ fontSize: 14, color: "#64748b" }}>Ожидайте — заказы появятся здесь</p>
+                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{t("home.noNewOrders")}</p>
+                    <p style={{ fontSize: 14, color: "#64748b" }}>{t("home.waitOrders")}</p>
                   </div>
                 ) : (
                   <>
@@ -482,12 +476,12 @@ export default function DashboardPage() {
                       <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 12, color: "#dc2626", fontSize: 14, fontWeight: 600 }}>
                         {(acceptError.includes("not yet verified") || acceptError.includes("не верифицирован")) ? (
                           <div>
-                            <p style={{ marginBottom: 8 }}>Аккаунт не верифицирован. Загрузите документы в профиле.</p>
+                            <p style={{ marginBottom: 8 }}>{t("home.notVerified")}</p>
                             <button
                               onClick={() => router.push("/profile")}
                               style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                             >
-                              Перейти в профиль
+                              {t("home.goToProfile")}
                             </button>
                           </div>
                         ) : acceptError}
@@ -505,14 +499,14 @@ export default function DashboardPage() {
                             <FaMapMarker size={13} color="#94a3b8" style={{ marginTop: 2, flexShrink: 0 }} />
                             <span style={{ fontSize: 13, color: "#64748b" }}>
                               {order.location.house}
-                              {order.location.floor ? `, эт. ${order.location.floor}` : ""}
-                              {order.location.apartment ? `, кв. ${order.location.apartment}` : ""}
+                              {order.location.floor ? `, ${t("home.floor")} ${order.location.floor}` : ""}
+                              {order.location.apartment ? `, ${t("home.apt")} ${order.location.apartment}` : ""}
                             </span>
                           </div>
                         )}
                         <button onClick={() => acceptOrder(order.id)}
                           style={{ width: "100%", background: "#0d9488", color: "#fff", fontSize: 15, fontWeight: 700, borderRadius: 12, padding: "13px", border: "none", cursor: "pointer" }}>
-                          Принять заказ
+                          {t("home.acceptOrder")}
                         </button>
                       </div>
                     ))}
@@ -522,12 +516,12 @@ export default function DashboardPage() {
               </>
             )}
 
-            {/* Мои заказы */}
+            {/* My orders */}
             {!loading && tab === "my" && (
               <>
                 {activeOrders.length > 0 && (
                   <>
-                    <p style={groupLabel}>Активные</p>
+                    <p style={groupLabel}>{t("home.active")}</p>
                     <div className="orders-grid-2">
                       {activeOrders.map(order => (
                         <button key={order.id} onClick={() => router.push(`/order/${order.id}`)}
@@ -549,7 +543,7 @@ export default function DashboardPage() {
                 )}
                 {historyOrders.length > 0 && (
                   <>
-                    <p style={{ ...groupLabel, marginTop: 16 }}>История</p>
+                    <p style={{ ...groupLabel, marginTop: 16 }}>{t("home.history")}</p>
                     <div className="orders-grid-2">
                       {historyOrders.slice(0, 20).map(order => (
                         <div key={order.id} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 16, opacity: 0.85 }}>
@@ -567,8 +561,8 @@ export default function DashboardPage() {
                 )}
                 {myOrders.length === 0 && (
                   <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Заказов пока нет</p>
-                    <p style={{ fontSize: 14, color: "#64748b" }}>Перейдите во вкладку &quot;Доступные&quot;</p>
+                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{t("home.noOrdersYet")}</p>
+                    <p style={{ fontSize: 14, color: "#64748b" }}>{t("home.goToAvailable")}</p>
                   </div>
                 )}
               </>
@@ -577,7 +571,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      
+      {/* Dispatch invite modal */}
       {invite && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9999,
@@ -590,7 +584,7 @@ export default function DashboardPage() {
             boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
             overflow: "hidden",
           }}>
-            {/* Шапка с таймером */}
+            {/* Timer header */}
             <div style={{
               background: inviteSecondsLeft === 0 ? "#64748b" : inviteSecondsLeft <= 15 ? "#d97706" : "#0d9488",
               padding: "20px 24px",
@@ -607,21 +601,21 @@ export default function DashboardPage() {
                 <span style={{ fontSize: 26, fontWeight: 800, color: "#fff", lineHeight: 1 }}>
                   {inviteSecondsLeft}
                 </span>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 600 }}>сек</span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 600 }}>{t("home.inviteSec")}</span>
               </div>
               <div>
                 <p style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>
-                  {inviteSecondsLeft === 0 ? "Время истекло" : "🚨 Новый заказ!"}
+                  {inviteSecondsLeft === 0 ? t("home.inviteExpired") : `🚨 ${t("home.inviteNewOrder")}`}
                 </p>
                 <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 3 }}>
                   {inviteSecondsLeft === 0
-                    ? "Заказ передан другому медику"
-                    : `Ответьте в течение ${inviteSecondsLeft} секунд`}
+                    ? t("home.inviteExpiredDesc")
+                    : t("home.inviteRespondSec", { sec: inviteSecondsLeft })}
                 </p>
               </div>
             </div>
 
-            {/* Детали заказа */}
+            {/* Order details */}
             <div style={{ padding: "20px 24px" }}>
               <p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>
                 {invite.order.serviceTitle}
@@ -629,7 +623,7 @@ export default function DashboardPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 14, color: "#64748b" }}>Стоимость</span>
+                  <span style={{ fontSize: 14, color: "#64748b" }}>{t("home.invitePrice")}</span>
                   <span style={{ fontSize: 15, fontWeight: 700, color: "#0d9488" }}>
                     {((invite.order.priceAmount ?? 0) - (invite.order.discountAmount ?? 0)).toLocaleString("ru-RU")} UZS
                   </span>
@@ -637,17 +631,17 @@ export default function DashboardPage() {
                 {invite.order.location && (
                   <>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <span style={{ fontSize: 14, color: "#64748b", flexShrink: 0 }}>Адрес</span>
+                      <span style={{ fontSize: 14, color: "#64748b", flexShrink: 0 }}>{t("home.inviteAddress")}</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", textAlign: "right" }}>
                         {[
                           invite.order.location.house,
-                          invite.order.location.floor ? `эт. ${invite.order.location.floor}` : null,
-                          invite.order.location.apartment ? `кв. ${invite.order.location.apartment}` : null,
+                          invite.order.location.floor ? `${t("home.floor")} ${invite.order.location.floor}` : null,
+                          invite.order.location.apartment ? `${t("home.apt")} ${invite.order.location.apartment}` : null,
                         ].filter(Boolean).join(", ")}
                       </span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 14, color: "#64748b" }}>Телефон</span>
+                      <span style={{ fontSize: 14, color: "#64748b" }}>{t("home.invitePhone")}</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
                         {invite.order.location.phone}
                       </span>
@@ -670,7 +664,7 @@ export default function DashboardPage() {
                   transition: "opacity 150ms ease",
                 }}
               >
-                {inviteLoading === "accept" ? "Принимаем..." : "✓ Принять заказ"}
+                {inviteLoading === "accept" ? t("home.inviteAccepting") : `✓ ${t("home.inviteAccept")}`}
               </button>
               <button
                 onClick={declineInvite}
@@ -684,7 +678,7 @@ export default function DashboardPage() {
                   transition: "opacity 150ms ease",
                 }}
               >
-                {inviteLoading === "decline" ? "Отклоняем..." : "✕ Отклонить"}
+                {inviteLoading === "decline" ? t("home.inviteDeclining") : `✕ ${t("home.inviteDecline")}`}
               </button>
             </div>
           </div>

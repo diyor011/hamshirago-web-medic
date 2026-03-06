@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { FaMedkit, FaPhone, FaLock, FaUser, FaEye, FaEyeSlash, FaExclamationCircle } from "react-icons/fa";
 import { medicApi } from "@/lib/api";
 import { subscribeWebPush } from "@/lib/webPush";
+import { useTranslation } from "react-i18next";
+import { useLanguage } from "@/context/LanguageContext";
 
 type Mode = "login" | "register";
 
@@ -22,6 +24,8 @@ function formatPhone(raw: string) {
 
 export default function AuthPage() {
   const router = useRouter();
+  const { t } = useTranslation();
+  const { language, setLanguage } = useLanguage();
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -46,7 +50,7 @@ export default function AuthPage() {
       subscribeWebPush();
       router.push("/");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Ошибка входа");
+      setError(err instanceof Error ? err.message : t("auth.errorGeneral"));
     } finally {
       setLoading(false);
     }
@@ -66,11 +70,28 @@ export default function AuthPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", flexDirection: "column" }}>
-      {/* Шапка */}
+      {/* Header */}
       <div style={{
         background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
-        padding: "52px 24px 72px", textAlign: "center",
+        padding: "52px 24px 72px", textAlign: "center", position: "relative",
       }}>
+        {/* Language switcher */}
+        <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 4 }}>
+          {(["ru", "uz"] as const).map((lang) => (
+            <button
+              key={lang}
+              onClick={() => setLanguage(lang)}
+              style={{
+                padding: "4px 8px", borderRadius: 6, cursor: "pointer",
+                border: `1px solid ${language === lang ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.25)"}`,
+                background: language === lang ? "rgba(255,255,255,0.25)" : "transparent",
+                color: "#fff", fontSize: 11, fontWeight: 700,
+              }}
+            >
+              {lang.toUpperCase()}
+            </button>
+          ))}
+        </div>
         <div style={{
           width: 72, height: 72, borderRadius: "50%",
           background: "rgba(255,255,255,0.15)",
@@ -80,7 +101,7 @@ export default function AuthPage() {
           <FaMedkit size={32} color="#fff" />
         </div>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 4 }}>HamshiraGo</h1>
-        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)" }}>Панель медика</p>
+        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)" }}>{t("auth.medicPanel")}</p>
       </div>
 
       <div style={{ padding: "0 16px 32px", marginTop: -28, flex: 1 }}>
@@ -99,7 +120,7 @@ export default function AuthPage() {
                   color: mode === m ? "#0d9488" : "#94a3b8",
                   boxShadow: mode === m ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                 }}>
-                {m === "login" ? "Войти" : "Регистрация"}
+                {m === "login" ? t("auth.login") : t("auth.register")}
               </button>
             ))}
           </div>
@@ -108,17 +129,17 @@ export default function AuthPage() {
             {mode === "register" && (
               <>
                 <div>
-                  <label style={labelStyle}>Имя</label>
+                  <label style={labelStyle}>{t("auth.name")}</label>
                   <div style={{ position: "relative" }}>
                     <FaUser size={15} color={focused === "name" ? "#0d9488" : "#94a3b8"}
                       style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)" }} />
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                       onFocus={() => setFocused("name")} onBlur={() => setFocused(null)}
-                      placeholder="Ваше имя" required style={fieldStyle("name")} />
+                      placeholder={t("auth.namePlaceholder")} required style={fieldStyle("name")} />
                   </div>
                 </div>
                 <div>
-                  <label style={labelStyle}>Опыт работы (лет)</label>
+                  <label style={labelStyle}>{t("auth.experienceLabel")}</label>
                   <div style={{ position: "relative" }}>
                     <span style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)", color: focused === "exp" ? "#0d9488" : "#94a3b8", fontSize: 15, fontWeight: 700 }}>★</span>
                     <input type="number" min="0" max="50" value={experience} onChange={(e) => setExperience(e.target.value)}
@@ -130,7 +151,7 @@ export default function AuthPage() {
             )}
 
             <div>
-              <label style={labelStyle}>Телефон</label>
+              <label style={labelStyle}>{t("auth.phone")}</label>
               <div style={{ position: "relative" }}>
                 <FaPhone size={14} color={focused === "phone" ? "#0d9488" : "#94a3b8"}
                   style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)" }} />
@@ -138,12 +159,12 @@ export default function AuthPage() {
                   onChange={(e) => setPhone(formatPhone(e.target.value.replace(/\D/g, "")))}
                   onFocus={() => { setFocused("phone"); if (!phone) setPhone("+998 "); }}
                   onBlur={() => { setFocused(null); if (phone === "+998 ") setPhone(""); }}
-                  placeholder="+998 90 123 45 67" required style={fieldStyle("phone")} />
+                  placeholder={t("auth.phonePlaceholder")} required style={fieldStyle("phone")} />
               </div>
             </div>
 
             <div>
-              <label style={labelStyle}>Пароль</label>
+              <label style={labelStyle}>{t("auth.password")}</label>
               <div style={{ position: "relative" }}>
                 <FaLock size={14} color={focused === "pass" ? "#0d9488" : "#94a3b8"}
                   style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)" }} />
@@ -173,15 +194,15 @@ export default function AuthPage() {
               marginTop: 4, display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
             }}>
               {loading && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg>}
-              {loading ? "Подождите..." : mode === "login" ? "Войти" : "Зарегистрироваться"}
+              {loading ? t("auth.wait") : mode === "login" ? t("auth.login") : t("auth.register")}
             </button>
           </form>
 
           <p style={{ textAlign: "center", marginTop: 20, fontSize: 14, color: "#64748b" }}>
-            {mode === "login" ? "Нет аккаунта? " : "Уже есть аккаунт? "}
+            {mode === "login" ? t("auth.noAccount") : t("auth.hasAccount")}{" "}
             <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
               style={{ background: "none", border: "none", color: "#0d9488", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-              {mode === "login" ? "Зарегистрироваться" : "Войти"}
+              {mode === "login" ? t("auth.register") : t("auth.login")}
             </button>
           </p>
         </div>

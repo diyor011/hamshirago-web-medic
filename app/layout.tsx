@@ -4,6 +4,7 @@ import WebPushInit from "@/components/WebPushInit";
 import SplashScreen from "@/components/SplashScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import InstallPrompt from "@/components/InstallPrompt";
+import { LanguageProvider } from "@/context/LanguageContext";
 
 export const metadata: Metadata = {
   title: "HamshiraGo — Медик",
@@ -27,11 +28,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="apple-touch-icon" href="/icon" />
       </head>
       <body>
-        <OfflineBanner />
-        <InstallPrompt />
-        <SplashScreen />
-        <WebPushInit />
-        {children}
+        <LanguageProvider>
+          <OfflineBanner />
+          <InstallPrompt />
+          <SplashScreen />
+          <WebPushInit />
+          {children}
+        </LanguageProvider>
       </body>
     </html>
   );
