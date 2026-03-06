@@ -43,7 +43,6 @@ function playOrderAlert() {
       osc.stop(ctx.currentTime + t + 0.28);
     });
   } catch { /* ignore */ }
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
 }
 
 function StatusBadge({ status }: { status: OrderStatus }) {
@@ -165,7 +164,7 @@ export default function DashboardPage() {
 
   function connectSocket(token: string) {
     const socket = io(WS_URL, {
-      auth: { token }, transports: ["websocket"], reconnection: true,
+      auth: { token }, transports: ["websocket"], reconnection: true, reconnectionAttempts: 5,
     });
     socketRef.current = socket;
     socket.on("connect", () => setSocketOk(true));

@@ -90,8 +90,9 @@ export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapPr
   // Обновление позиции медика
   useEffect(() => {
     if (!mapRef.current) return;
+    let cancelled = false;
     import("leaflet").then((L) => {
-      if (!mapRef.current) return;
+      if (cancelled || !mapRef.current) return;
       if (medicLat == null || medicLng == null) return;
       if (medicMarkerRef.current) {
         medicMarkerRef.current.setLatLng([medicLat, medicLng]);
@@ -104,25 +105,30 @@ export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapPr
         });
         medicMarkerRef.current = L.marker([medicLat, medicLng], { icon: medicIcon }).addTo(mapRef.current);
       }
-      const bounds = L.latLngBounds([[lat, lng], [medicLat, medicLng]]);
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      try {
+        const bounds = L.latLngBounds([[lat, lng], [medicLat, medicLng]]);
+        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      } catch { /* map unmounted during animation */ }
     });
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [medicLat, medicLng]);
 
   // Обновление маршрута
   useEffect(() => {
     if (!mapRef.current || !routeCoords?.length) return;
+    let cancelled = false;
     import("leaflet").then((L) => {
-      if (!mapRef.current) return;
+      if (cancelled || !mapRef.current) return;
       if (routeLayerRef.current) {
-        mapRef.current.removeLayer(routeLayerRef.current);
+        try { mapRef.current.removeLayer(routeLayerRef.current); } catch { /* ignore */ }
       }
       routeLayerRef.current = L.polyline(
         routeCoords.map((c) => [c.lat, c.lng] as [number, number]),
         { color: "#0d9488", weight: 4, opacity: 0.8 }
       ).addTo(mapRef.current);
     });
+    return () => { cancelled = true; };
   }, [routeCoords]);
 
   return (

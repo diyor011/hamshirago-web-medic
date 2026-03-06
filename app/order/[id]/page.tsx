@@ -66,7 +66,7 @@ export default function OrderDetailPage() {
     const token = localStorage.getItem("medic_token");
     if (token) {
       const socket = io(WS_URL, {
-        auth: { token }, transports: ["websocket"], reconnection: true,
+        auth: { token }, transports: ["websocket"], reconnection: true, reconnectionAttempts: 5,
       });
       socketRef.current = socket;
       socket.on("connect", () => {
