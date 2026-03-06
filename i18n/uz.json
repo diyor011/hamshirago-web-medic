@@ -20,6 +20,7 @@
     "errorBlocked": "Hisobingiz bloklangan.",
     "errorDuplicate": "Bu raqam bilan hamshira allaqachon ro'yxatdan o'tgan",
     "errorGeneral": "Xatolik. Ma'lumotlarni tekshiring.",
+    "tooManyAttempts": "Ko'p urinish. 15 daqiqadan so'ng urinib ko'ring.",
     "wait": "Kuting...",
     "noAccount": "Hisobingiz yo'qmi?",
     "hasAccount": "Hisobingiz bormi?",
