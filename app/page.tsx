@@ -21,7 +21,7 @@ interface DispatchInvitePayload {
   expiresAt: string;
 }
 import { useRouter } from "next/navigation";
-import { FaMedkit, FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle } from "react-icons/fa";
+import { FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle } from "react-icons/fa";
 import { medicApi, WS_URL, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { unsubscribeWebPush } from "@/lib/webPush";
@@ -47,9 +47,10 @@ function playOrderAlert() {
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   const { text, bg } = ORDER_STATUS_COLOR[status];
+  const { t } = useTranslation();
   return (
     <span style={{ padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, color: text, background: bg, whiteSpace: "nowrap" }}>
-      {ORDER_STATUS_LABEL[status]}
+      {t(`order.status.${status}`)}
     </span>
   );
 }
@@ -335,9 +336,7 @@ export default function DashboardPage() {
         <div className="dash-header-inner">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <FaMedkit size={20} color="#fff" />
-              </div>
+              <img src="/logo.png" alt="HamshiraGo" style={{ width: 50, height: 50, borderRadius: 15, objectFit: "cover" }} />
               <div>
                 <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>{t("home.medicLabel")}</p>
                 <p style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{medic?.name ?? "..."}</p>

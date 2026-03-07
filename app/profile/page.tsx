@@ -157,11 +157,7 @@ function ProfileContent() {
     );
   }
 
-  const expLabel = medic.experienceYears === 1
-    ? "год"
-    : medic.experienceYears < 5
-      ? "года"
-      : t("profile.years");
+  const expLabel = t("profile.years");
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>

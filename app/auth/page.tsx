@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaMedkit, FaPhone, FaLock, FaUser, FaEye, FaEyeSlash, FaExclamationCircle } from "react-icons/fa";
+import { FaPhone, FaLock, FaUser, FaEye, FaEyeSlash, FaExclamationCircle } from "react-icons/fa";
 import { medicApi } from "@/lib/api";
 import { subscribeWebPush } from "@/lib/webPush";
 import { useTranslation } from "react-i18next";
@@ -93,14 +93,12 @@ export default function AuthPage() {
             </button>
           ))}
         </div>
-        <div style={{
-          width: 72, height: 72, borderRadius: "50%",
-          background: "rgba(255,255,255,0.15)",
-          display: "flex", alignItems: "center", justifyContent: "center",
+        <img src="/logo.png" alt="HamshiraGo" style={{
+          width: 90, height: 90, borderRadius: 24,
+          objectFit: "cover",
           margin: "0 auto 16px",
-        }}>
-          <FaMedkit size={32} color="#fff" />
-        </div>
+          display: "block",
+        }} />
         <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 4 }}>HamshiraGo</h1>
         <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)" }}>{t("auth.medicPanel")}</p>
       </div>

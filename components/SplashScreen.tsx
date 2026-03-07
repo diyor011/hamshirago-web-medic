@@ -55,19 +55,11 @@ export default function SplashScreen() {
         pointerEvents: fading ? "none" : "all",
       }}>
         {/* Иконка */}
-        <div className="splash-logo" style={{
-          width: 80, height: 80, borderRadius: 22,
-          background: "rgba(255,255,255,0.18)",
-          border: "2px solid rgba(255,255,255,0.3)",
-          display: "flex", alignItems: "center", justifyContent: "center",
+        <img className="splash-logo" src="/logo.png" alt="HamshiraGo" style={{
+          width: 100, height: 100, borderRadius: 26,
+          objectFit: "cover",
           marginBottom: 20,
-          backdropFilter: "blur(8px)",
-        }}>
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
-            <rect x="9" y="2" width="6" height="20" rx="2" fill="white" />
-            <rect x="2" y="9" width="20" height="6" rx="2" fill="white" />
-          </svg>
-        </div>
+        }} />
 
         {/* Название */}
         <p className="splash-text" style={{
