@@ -23,6 +23,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error("Unauthorized");
   }
   if (res.status === 429) throw new Error("TOO_MANY_REQUESTS");
+  if (res.status === 402) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error("INSUFFICIENT_WALLET") as Error & { required: number; current: number };
+    err.required = body.required ?? 0;
+    err.current = body.current ?? 0;
+    throw err;
+  }
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Ошибка сервера" }));
     throw new Error(error.message || "Ошибка сервера");

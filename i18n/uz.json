@@ -172,6 +172,14 @@
     "logoutAccount": "Hisobdan chiqish",
     "chooseFile": "Fayl tanlash uchun bosing"
   },
+  "wallet": {
+    "insufficientTitle": "Mablag' yetarli emas",
+    "insufficientDesc": "Buyurtmani qabul qilish uchun hamyoningizda yetarli mablag' yo'q. Balansni administrator orqali to'ldiring.",
+    "current": "Balansingiz",
+    "required": "Kerakli",
+    "contactAdmin": "Administrator bilan bog'lanish",
+    "close": "Yopish"
+  },
   "language": { "title": "Язык / Til" },
   "common": {
     "loading": "Yuklanmoqda...",
