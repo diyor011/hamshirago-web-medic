@@ -107,6 +107,25 @@ export const medicApi = {
       }),
   },
 
+  photo: {
+    upload: (file: File) => {
+      const token = getToken();
+      const form = new FormData();
+      form.append("photo", file);
+      return fetch(`${BASE_URL}/medics/profile-photo`, {
+        method: "POST",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: form,
+      }).then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: "Ошибка загрузки" }));
+          throw new Error(err.message || "Ошибка загрузки");
+        }
+        return res.json() as Promise<Medic>;
+      });
+    },
+  },
+
   telegram: {
     saveChatId: (chatId: string) =>
       request<void>("/medics/telegram-chat-id", {
@@ -142,9 +161,11 @@ export interface Medic {
   isOnline: boolean;
   isBlocked: boolean;
   balance: number;
+  earnings: number;
   latitude: number | null;
   longitude: number | null;
   verificationStatus: VerificationStatus;
+  profilePhotoUrl: string | null;
   facePhotoUrl: string | null;
   licensePhotoUrl: string | null;
   verificationRejectedReason: string | null;
@@ -169,6 +190,7 @@ export interface Order {
   serviceTitle: string;
   priceAmount: number;
   discountAmount: number;
+  platformFee?: number;
   status: OrderStatus;
   created_at: string;
   updated_at: string;
@@ -218,4 +240,18 @@ export const NEXT_STATUS: Partial<Record<OrderStatus, { status: OrderStatus; lab
 
 export function formatPrice(n: number): string {
   return n.toLocaleString("ru-RU");
+}
+
+export function reportClientError(message: string, stack?: string): void {
+  const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app";
+  fetch(`${BASE}/client-errors`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      stack,
+      url: typeof window !== "undefined" ? window.location.href : undefined,
+      userAgent: typeof window !== "undefined" ? navigator.userAgent : undefined,
+    }),
+  }).catch(() => {}); // fire-and-forget, никогда не бросаем ошибку
 }

@@ -77,6 +77,7 @@ export default function DashboardPage() {
   const [inviteSecondsLeft, setInviteSecondsLeft] = useState(60);
   const inviteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [inviteLoading, setInviteLoading] = useState<"accept" | "decline" | null>(null);
+  const [expiredToast, setExpiredToast] = useState(false);
 
   const notifyNewOrder = useCallback((order?: Order) => {
     playOrderAlert();
@@ -206,6 +207,10 @@ export default function DashboardPage() {
         }
         return prev;
       });
+      setAvailable((prev) => prev.filter((o) => o.id !== orderId));
+      availableIdsRef.current.delete(orderId);
+      setExpiredToast(true);
+      setTimeout(() => setExpiredToast(false), 3000);
     });
   }
 
@@ -691,6 +696,21 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Dispatch invite expired toast */}
+      {expiredToast && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          zIndex: 10000, background: "#d97706", color: "#fff",
+          borderRadius: 12, padding: "12px 22px",
+          fontSize: 14, fontWeight: 700,
+          boxShadow: "0 4px 20px rgba(217,119,6,0.45)",
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+        }}>
+          Предложение заказа истекло
         </div>
       )}
 

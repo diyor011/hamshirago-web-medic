@@ -36,6 +36,7 @@ function ProfileContent() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("medic_token");
@@ -182,9 +183,40 @@ function ProfileContent() {
 
         {/* Avatar */}
         <div style={{ textAlign: "center" }}>
-          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.2)", border: "3px solid rgba(255,255,255,0.45)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-            <FaUserNurse size={36} color="#fff" />
-          </div>
+          <label style={{ cursor: "pointer", display: "inline-block", position: "relative", margin: "0 auto 12px" }}>
+            <div style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.2)", border: "3px solid rgba(255,255,255,0.45)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {medic.profilePhotoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={medic.profilePhotoUrl} alt={medic.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <FaUserNurse size={36} color="#fff" />
+              )}
+            </div>
+            <div style={{ position: "absolute", bottom: 0, right: 0, width: 24, height: 24, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }}>
+              {photoUploading ? (
+                <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid #e2e8f0", borderTopColor: "#0d9488", animation: "spin 0.8s linear infinite" }} />
+              ) : (
+                <span style={{ fontSize: 12 }}>📷</span>
+              )}
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              disabled={photoUploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setPhotoUploading(true);
+                try {
+                  const updated = await medicApi.photo.upload(file);
+                  setMedic(updated);
+                  try { localStorage.setItem("medic", JSON.stringify(updated)); } catch { /* ignore */ }
+                } catch { /* ignore */ }
+                finally { setPhotoUploading(false); }
+              }}
+            />
+          </label>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 8 }}>{medic.name}</h1>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
