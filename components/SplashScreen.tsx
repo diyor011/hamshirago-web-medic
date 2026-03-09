@@ -72,9 +72,17 @@ export default function SplashScreen() {
         {/* Подзаголовок */}
         <p className="splash-sub" style={{
           fontSize: 15, color: "rgba(255,255,255,0.75)",
-          fontWeight: 500, marginBottom: 36,
+          fontWeight: 500, marginBottom: 8,
         }}>
           Панель медика
+        </p>
+
+        {/* by tezcode.ai */}
+        <p className="splash-sub" style={{
+          fontSize: 12, color: "rgba(255,255,255,0.45)",
+          fontWeight: 500, marginBottom: 36, letterSpacing: "0.02em",
+        }}>
+          by tezcode.ai
         </p>
 
         {/* Точки загрузки */}
