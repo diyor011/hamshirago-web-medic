@@ -51,6 +51,7 @@
     "enableOnline": "Buyurtma olish uchun onlaynni yoqing",
     "noNewOrders": "Yangi buyurtmalar yo'q",
     "waitOrders": "Kuting — buyurtmalar shu yerda ko'rinadi",
+    "waitingDispatch": "Tibbiy xodim tayinlanishini kutmoqda",
     "notVerified": "Hisob tasdiqlanmagan. Profilga hujjat yuklang.",
     "goToProfile": "Profilga o'tish",
     "acceptOrder": "Buyurtmani qabul qilish",

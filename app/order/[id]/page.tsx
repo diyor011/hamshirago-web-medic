@@ -50,7 +50,8 @@ export default function OrderDetailPage() {
     lastRouteFetchRef.current = now;
     try {
       const { lat: toLat, lng: toLng } = { lat: Number(order.location.latitude), lng: Number(order.location.longitude) };
-      const url = `https://router.project-osrm.org/route/v1/driving/${medicLoc.lng},${medicLoc.lat};${toLng},${toLat}?overview=full&geometries=geojson`;
+      const osrmBase = (process.env.NEXT_PUBLIC_OSRM_URL ?? 'https://router.project-osrm.org/route/v1/driving').replace(/\/$/, '');
+      const url = `${osrmBase}/${medicLoc.lng},${medicLoc.lat};${toLng},${toLat}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json() as { routes?: Array<{ geometry?: { coordinates?: [number, number][] } }> };

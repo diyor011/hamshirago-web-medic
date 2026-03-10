@@ -394,7 +394,7 @@ function ProfileContent() {
                 {t("profile.telegramHint")}
               </p>
               <a
-                href="https://t.me/hamshirago_medic_bot?start=connect"
+                href={`https://t.me/hamshirago_medic_bot?start=${medic.id}`}
                 target="_blank"
                 rel="noreferrer"
                 style={{

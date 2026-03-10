@@ -60,18 +60,14 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const [medic, setMedic] = useState<Medic | null>(null);
   const [isOnline, setIsOnline] = useState(false);
-  const [available, setAvailable] = useState<Order[]>([]);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingOnline, setTogglingOnline] = useState(false);
-  const [tab, setTab] = useState<"available" | "my">("available");
   const [socketOk, setSocketOk] = useState(true);
-  const [acceptError, setAcceptError] = useState("");
   const [walletModal, setWalletModal] = useState<{ required: number; current: number } | null>(null);
   const [inactiveWarning, setInactiveWarning] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const isOnlineRef = useRef(false);
-  const availableIdsRef = useRef<Set<string>>(new Set());
   const titleBlinkRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [invite, setInvite] = useState<DispatchInvitePayload | null>(null);
   const [inviteSecondsLeft, setInviteSecondsLeft] = useState(60);
@@ -144,20 +140,8 @@ export default function DashboardPage() {
       }
     }, 30000);
 
-    const pollInterval = setInterval(() => {
-      if (isOnlineRef.current) {
-        medicApi.orders.available().then((avail) => {
-          const hasNew = avail.some((o) => !availableIdsRef.current.has(o.id));
-          if (hasNew) notifyNewOrder();
-          availableIdsRef.current = new Set(avail.map((o) => o.id));
-          setAvailable(avail);
-        }).catch(() => {});
-      }
-    }, 15000);
-
     return () => {
       clearInterval(locationInterval);
-      clearInterval(pollInterval);
       if (titleBlinkRef.current) clearInterval(titleBlinkRef.current);
       if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
       socketRef.current?.disconnect();
@@ -170,21 +154,33 @@ export default function DashboardPage() {
       auth: { token }, transports: ["websocket"], reconnection: true, reconnectionAttempts: 5,
     });
     socketRef.current = socket;
-    socket.on("connect", () => setSocketOk(true));
+    socket.on("connect", () => {
+      setSocketOk(true);
+      // If invite was active before disconnect — clear it if already expired.
+      // Backend marks it TIMEOUT on restart, so accepting would fail with
+      // "No active dispatch invite". Let the new invite arrive via dispatch_invite event.
+      setInvite((prev) => {
+        if (prev && new Date(prev.expiresAt) <= new Date()) {
+          if (inviteTimerRef.current) { clearInterval(inviteTimerRef.current); inviteTimerRef.current = null; }
+          return null;
+        }
+        return prev;
+      });
+    });
     socket.on("disconnect", () => setSocketOk(false));
     socket.on("connect_error", () => setSocketOk(false));
     socket.on("order_status", ({ orderId, status }: { orderId: string; status: OrderStatus }) => {
       setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-      setAvailable(prev => prev.filter(o => o.id !== orderId));
-    });
-    socket.on("new_order", (order: Order) => {
-      setAvailable(prev => {
-        if (prev.some(o => o.id === order.id)) return prev;
-        notifyNewOrder(order);
-        availableIdsRef.current.add(order.id);
-        return [order, ...prev];
-      });
-      setTab("available");
+      // If order was cancelled while invite popup was open — close it
+      if (status === "CANCELED") {
+        setInvite((prev) => {
+          if (prev?.orderId === orderId) {
+            if (inviteTimerRef.current) { clearInterval(inviteTimerRef.current); inviteTimerRef.current = null; }
+            return null;
+          }
+          return prev;
+        });
+      }
     });
 
     socket.on("dispatch_invite", (payload: DispatchInvitePayload) => {
@@ -207,8 +203,6 @@ export default function DashboardPage() {
         }
         return prev;
       });
-      setAvailable((prev) => prev.filter((o) => o.id !== orderId));
-      availableIdsRef.current.delete(orderId);
       setExpiredToast(true);
       setTimeout(() => setExpiredToast(false), 3000);
     });
@@ -217,14 +211,8 @@ export default function DashboardPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const [avail, my] = await Promise.all([
-        medicApi.orders.available().catch(() => [] as Order[]),
-        medicApi.orders.my().catch(() => [] as Order[]),
-      ]);
-      const availArr = Array.isArray(avail) ? avail : [];
+      const my = await medicApi.orders.my().catch(() => [] as Order[]);
       const myArr = Array.isArray(my) ? my : [];
-      availableIdsRef.current = new Set(availArr.map((o) => o.id));
-      setAvailable(availArr);
       setMyOrders(myArr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
     } finally {
       setLoading(false);
@@ -258,24 +246,6 @@ export default function DashboardPage() {
       if (!isOnline) loadData();
     } finally {
       setTogglingOnline(false);
-    }
-  }
-
-  async function acceptOrder(orderId: string) {
-    try {
-      const order = await medicApi.orders.accept(orderId);
-      setAvailable(prev => prev.filter(o => o.id !== orderId));
-      setMyOrders(prev => [order, ...prev]);
-      socketRef.current?.emit("subscribe_order", orderId);
-      router.push(`/order/${orderId}`);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message === "INSUFFICIENT_WALLET") {
-        setWalletModal({ required: (err as any).required, current: (err as any).current });
-        return;
-      }
-      const msg = err instanceof Error ? err.message : t("common.error");
-      setAcceptError(msg);
-      setTimeout(() => setAcceptError(""), 5000);
     }
   }
 
@@ -440,27 +410,7 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            {/* Tabs */}
-            <div style={{ background: "#f1f5f9", borderRadius: 12, padding: 4, display: "flex", marginBottom: 16 }}>
-              {([["available", t("home.tabAvailable")], ["my", t("home.myOrders")]] as const).map(([key, label]) => (
-                <button key={key} onClick={() => setTab(key)}
-                  style={{
-                    flex: 1, padding: "10px", borderRadius: 9, border: "none", cursor: "pointer",
-                    fontSize: 14, fontWeight: 700, transition: "all 150ms ease",
-                    background: tab === key ? "#fff" : "transparent",
-                    color: tab === key ? "#0d9488" : "#94a3b8",
-                    boxShadow: tab === key ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
-                  }}>
-                  {label}
-                  {key === "available" && available.length > 0 && (
-                    <span style={{ marginLeft: 6, background: "#0d9488", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{available.length}</span>
-                  )}
-                  {key === "my" && activeOrders.length > 0 && (
-                    <span style={{ marginLeft: 6, background: "#3b82f6", color: "#fff", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{activeOrders.length}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>{t("home.myOrders")}</p>
 
             {loading && (
               <div style={{ textAlign: "center", padding: "48px 0" }}>
@@ -469,69 +419,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Available orders */}
-            {!loading && tab === "available" && (
-              <>
-                {!isOnline ? (
-                  <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <FaToggleOff size={48} color="#e2e8f0" style={{ margin: "0 auto 16px", display: "block" }} />
-                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{t("home.offlineState")}</p>
-                    <p style={{ fontSize: 14, color: "#64748b" }}>{t("home.enableOnline")}</p>
-                  </div>
-                ) : available.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <FaClock size={40} color="#e2e8f0" style={{ margin: "0 auto 16px", display: "block" }} />
-                    <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{t("home.noNewOrders")}</p>
-                    <p style={{ fontSize: 14, color: "#64748b" }}>{t("home.waitOrders")}</p>
-                  </div>
-                ) : (
-                  <>
-                    {acceptError && (
-                      <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 12, color: "#dc2626", fontSize: 14, fontWeight: 600 }}>
-                        {(acceptError.includes("not yet verified") || acceptError.includes("не верифицирован")) ? (
-                          <div>
-                            <p style={{ marginBottom: 8 }}>{t("home.notVerified")}</p>
-                            <button
-                              onClick={() => router.push("/profile")}
-                              style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-                            >
-                              {t("home.goToProfile")}
-                            </button>
-                          </div>
-                        ) : acceptError}
-                      </div>
-                    )}
-                  <div className="orders-grid-2">
-                    {available.map(order => (
-                      <div key={order.id} style={{ background: "#fff", borderRadius: 16, padding: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                          <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{order.serviceTitle}</p>
-                          <span style={{ fontSize: 15, fontWeight: 800, color: "#0d9488", whiteSpace: "nowrap", marginLeft: 8 }}>{formatPrice(order.priceAmount - order.discountAmount)} UZS</span>
-                        </div>
-                        {order.location && (
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 14 }}>
-                            <FaMapMarker size={13} color="#94a3b8" style={{ marginTop: 2, flexShrink: 0 }} />
-                            <span style={{ fontSize: 13, color: "#64748b" }}>
-                              {order.location.house}
-                              {order.location.floor ? `, ${t("home.floor")} ${order.location.floor}` : ""}
-                              {order.location.apartment ? `, ${t("home.apt")} ${order.location.apartment}` : ""}
-                            </span>
-                          </div>
-                        )}
-                        <button onClick={() => acceptOrder(order.id)}
-                          style={{ width: "100%", background: "#0d9488", color: "#fff", fontSize: 15, fontWeight: 700, borderRadius: 12, padding: "13px", border: "none", cursor: "pointer" }}>
-                          {t("home.acceptOrder")}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  </>
-                )}
-              </>
-            )}
-
-            {/* My orders */}
-            {!loading && tab === "my" && (
+            {!loading && (
               <>
                 {activeOrders.length > 0 && (
                   <>
@@ -575,8 +463,9 @@ export default function DashboardPage() {
                 )}
                 {myOrders.length === 0 && (
                   <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+                    <FaClock size={40} color="#e2e8f0" style={{ margin: "0 auto 16px", display: "block" }} />
                     <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{t("home.noOrdersYet")}</p>
-                    <p style={{ fontSize: 14, color: "#64748b" }}>{t("home.goToAvailable")}</p>
+                    <p style={{ fontSize: 14, color: "#64748b" }}>{isOnline ? t("home.waitOrders") : t("home.enableOnline")}</p>
                   </div>
                 )}
               </>
