@@ -39,14 +39,14 @@ export default function OrderDetailPage() {
       );
     }
     update();
-    const interval = setInterval(update, 30000);
+    const interval = setInterval(update, 5000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchRoute = useCallback(async () => {
     if (!medicLoc || !order?.location) return;
     const now = Date.now();
-    if (now - lastRouteFetchRef.current < 20_000) return;
+    if (now - lastRouteFetchRef.current < 5_000) return;
     lastRouteFetchRef.current = now;
     try {
       const { lat: toLat, lng: toLng } = { lat: Number(order.location.latitude), lng: Number(order.location.longitude) };
