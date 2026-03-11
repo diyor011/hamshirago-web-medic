@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 interface MapProps {
   lat: number;
@@ -20,6 +20,19 @@ export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapPr
   const medicMarkerRef = useRef<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const routeLayerRef = useRef<any>(null);
+
+  const recenter = useCallback(() => {
+    if (!mapRef.current) return;
+    if (routeLayerRef.current) {
+      try { mapRef.current.fitBounds(routeLayerRef.current.getBounds(), { padding: [50, 50] }); return; } catch { /* ignore */ }
+    }
+    if (medicLat != null && medicLng != null) {
+      try {
+        const L = (window as any).L;
+        if (L) mapRef.current.fitBounds(L.latLngBounds([[lat, lng], [medicLat, medicLng]]), { padding: [50, 50] });
+      } catch { /* ignore */ }
+    }
+  }, [lat, lng, medicLat, medicLng]);
 
   // Инициализация карты
   useEffect(() => {
@@ -104,11 +117,12 @@ export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapPr
           className: "",
         });
         medicMarkerRef.current = L.marker([medicLat, medicLng], { icon: medicIcon }).addTo(mapRef.current);
+        // fitBounds только при первом появлении медика на карте
+        try {
+          const bounds = L.latLngBounds([[lat, lng], [medicLat, medicLng]]);
+          mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+        } catch { /* ignore */ }
       }
-      try {
-        const bounds = L.latLngBounds([[lat, lng], [medicLat, medicLng]]);
-        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-      } catch { /* map unmounted during animation */ }
     });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,7 +148,23 @@ export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapPr
   return (
     <>
       <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <div ref={containerRef} style={{ width: "100%", height: "100%", borderRadius: "inherit" }} />
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <div ref={containerRef} style={{ width: "100%", height: "100%", borderRadius: "inherit" }} />
+        <button
+          onClick={recenter}
+          title="Вернуть к маршруту"
+          style={{
+            position: "absolute", top: 10, right: 10, zIndex: 1000,
+            width: 36, height: 36,
+            background: "#fff", border: "none", borderRadius: 8,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            cursor: "pointer", fontSize: 18,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          🎯
+        </button>
+      </div>
     </>
   );
 }

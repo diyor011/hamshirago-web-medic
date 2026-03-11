@@ -26,6 +26,7 @@ export default function OrderDetailPage() {
   const [socketOk, setSocketOk] = useState(true);
   const [medicLoc, setMedicLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [routeCoords, setRouteCoords] = useState<Array<{ lat: number; lng: number }>>([]);
+  const [eta, setEta] = useState<{ minutes: number; distanceKm: number } | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const lastRouteFetchRef = useRef(0);
 
@@ -45,7 +46,7 @@ export default function OrderDetailPage() {
           }
         },
         () => {},
-        { enableHighAccuracy: false, timeout: 5000 },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 },
       );
     }
     update();
@@ -64,9 +65,16 @@ export default function OrderDetailPage() {
       const url = `${osrmBase}/${medicLoc.lng},${medicLoc.lat};${toLng},${toLat}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       if (!res.ok) return;
-      const data = await res.json() as { routes?: Array<{ geometry?: { coordinates?: [number, number][] } }> };
-      const coords = data?.routes?.[0]?.geometry?.coordinates ?? [];
+      const data = await res.json() as { routes?: Array<{ geometry?: { coordinates?: [number, number][] }; duration?: number; distance?: number }> };
+      const route = data?.routes?.[0];
+      const coords = route?.geometry?.coordinates ?? [];
       if (coords.length) setRouteCoords(coords.map(([lng, lat]) => ({ lat, lng })));
+      if (route?.duration != null && route?.distance != null) {
+        setEta({
+          minutes: Math.ceil(route.duration / 60),
+          distanceKm: Math.round(route.distance / 100) / 10,
+        });
+      }
     } catch { /* fallback */ }
   }, [medicLoc, order?.location]);
 
@@ -187,6 +195,21 @@ export default function OrderDetailPage() {
         {!socketOk && (
           <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
             {t("order.connectionLost")}
+          </div>
+        )}
+
+        {/* ETA */}
+        {eta && !isDone && (
+          <div style={{ background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ textAlign: "center", flex: 1 }}>
+              <p style={{ fontSize: 22, fontWeight: 800, color: "#0d9488", lineHeight: 1 }}>{eta.minutes} мин</p>
+              <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 3 }}>ВРЕМЯ В ПУТИ</p>
+            </div>
+            <div style={{ width: 1, height: 36, background: "#f1f5f9" }} />
+            <div style={{ textAlign: "center", flex: 1 }}>
+              <p style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{eta.distanceKm} км</p>
+              <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginTop: 3 }}>РАССТОЯНИЕ</p>
+            </div>
           </div>
         )}
 
