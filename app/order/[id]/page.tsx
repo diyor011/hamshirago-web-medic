@@ -29,11 +29,21 @@ export default function OrderDetailPage() {
   const socketRef = useRef<Socket | null>(null);
   const lastRouteFetchRef = useRef(0);
 
+  const lastLocationSentRef = useRef(0);
+
   useEffect(() => {
     if (!navigator.geolocation) return;
     function update() {
       navigator.geolocation.getCurrentPosition(
-        (pos) => setMedicLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (pos) => {
+          setMedicLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          // Send location to backend every 10 sec so client tracking map updates
+          const now = Date.now();
+          if (now - lastLocationSentRef.current >= 10_000) {
+            lastLocationSentRef.current = now;
+            medicApi.location.update(true, pos.coords.latitude, pos.coords.longitude).catch(() => {});
+          }
+        },
         () => {},
         { enableHighAccuracy: false, timeout: 5000 },
       );
