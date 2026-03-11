@@ -444,6 +444,12 @@ export default function DashboardPage() {
 
             {!loading && (
               <>
+                {activeOrders.length === 0 && historyOrders.length > 0 && (
+                  <div style={{ background: "#fff", borderRadius: 12, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.04)", color: "#94a3b8", fontSize: 14, fontWeight: 500 }}>
+                    {t("home.noMyOrders")}
+                  </div>
+                )}
+
                 {activeOrders.length > 0 && (
                   <>
                     <p style={groupLabel}>{t("home.active")}</p>
