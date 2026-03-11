@@ -322,6 +322,18 @@ export default function OrderDetailPage() {
             <button onClick={() => router.push("/")} style={primaryBtn}>{t("order.home")}</button>
           </div>
         )}
+
+        {order.status === "CANCELED" && (
+          <div style={{ background: "#ef444412", borderRadius: 16, padding: 20, textAlign: "center" }}>
+            <p style={{ fontSize: 16, fontWeight: 800, color: "#ef4444", marginBottom: order.cancelReason ? 8 : 16 }}>
+              {ORDER_STATUS_LABEL["CANCELED"]}
+            </p>
+            {order.cancelReason && (
+              <p style={{ fontSize: 14, color: "#ef4444", opacity: 0.8, marginBottom: 16 }}>{order.cancelReason}</p>
+            )}
+            <button onClick={() => router.push("/")} style={primaryBtn}>{t("order.home")}</button>
+          </div>
+        )}
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

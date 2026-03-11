@@ -271,6 +271,19 @@ export default function DashboardPage() {
         setInviteLoading(null);
         return;
       }
+      // Invite expired on backend (clock skew or backend restart) — close gracefully
+      if (err instanceof Error && (
+        err.message.includes("No active dispatch invite") ||
+        err.message.includes("Dispatch invite has expired") ||
+        err.message.includes("no longer available")
+      )) {
+        if (inviteTimerRef.current) { clearInterval(inviteTimerRef.current); inviteTimerRef.current = null; }
+        setInvite(null);
+        setExpiredToast(true);
+        setTimeout(() => setExpiredToast(false), 3000);
+        setInviteLoading(null);
+        return;
+      }
       alert(err instanceof Error ? err.message : t("common.error"));
       setInviteLoading(null);
     }
@@ -284,6 +297,16 @@ export default function DashboardPage() {
       if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
       setInvite(null);
     } catch (err: unknown) {
+      // Already expired or consumed — close gracefully
+      if (err instanceof Error && (
+        err.message.includes("No active dispatch invite") ||
+        err.message.includes("Dispatch invite has expired")
+      )) {
+        if (inviteTimerRef.current) { clearInterval(inviteTimerRef.current); inviteTimerRef.current = null; }
+        setInvite(null);
+        setInviteLoading(null);
+        return;
+      }
       alert(err instanceof Error ? err.message : t("common.error"));
       setInviteLoading(null);
     }
