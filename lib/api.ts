@@ -232,7 +232,6 @@ export const ORDER_STATUS_COLOR: Record<OrderStatus, { text: string; bg: string 
 
 // Следующий статус по флоу для медика
 export const NEXT_STATUS: Partial<Record<OrderStatus, { status: OrderStatus; label: string; color: string }>> = {
-  ASSIGNED:        { status: "ACCEPTED",         label: "Подтвердить принятие", color: "#eab308" },
   ACCEPTED:        { status: "ON_THE_WAY",        label: "Выехал к клиенту",    color: "#3b82f6" },
   ON_THE_WAY:      { status: "ARRIVED",           label: "Прибыл на место",      color: "#0d9488" },
   ARRIVED:         { status: "SERVICE_STARTED",   label: "Начать услугу",        color: "#14b8a6" },

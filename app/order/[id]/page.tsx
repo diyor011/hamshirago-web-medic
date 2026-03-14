@@ -24,7 +24,9 @@ export default function OrderDetailPage() {
   const [error, setError] = useState("");
   const [showNavChoice, setShowNavChoice] = useState(false);
   const [socketOk, setSocketOk] = useState(true);
-  const [medicLoc, setMedicLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [medicLoc, setMedicLoc] = useState<{ lat: number; lng: number; heading?: number | null } | null>(null);
+  const [selfName, setSelfName] = useState("");
+  const [selfPhoto, setSelfPhoto] = useState<string | null>(null);
   const [routeCoords, setRouteCoords] = useState<Array<{ lat: number; lng: number }>>([]);
   const [eta, setEta] = useState<{ minutes: number; distanceKm: number } | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -33,11 +35,19 @@ export default function OrderDetailPage() {
   const lastLocationSentRef = useRef(0);
 
   useEffect(() => {
+    try {
+      const m = JSON.parse(localStorage.getItem("medic") ?? "null");
+      if (m?.name) setSelfName(m.name);
+      if (m?.profilePhotoUrl) setSelfPhoto(m.profilePhotoUrl);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
     if (!navigator.geolocation) return;
     function update() {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setMedicLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setMedicLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude, heading: pos.coords.heading });
           // Send location to backend every 10 sec so client tracking map updates
           const now = Date.now();
           if (now - lastLocationSentRef.current >= 10_000) {
@@ -62,7 +72,11 @@ export default function OrderDetailPage() {
     try {
       const { lat: toLat, lng: toLng } = { lat: Number(order.location.latitude), lng: Number(order.location.longitude) };
       const osrmBase = (process.env.NEXT_PUBLIC_OSRM_URL ?? 'https://router.project-osrm.org/route/v1/driving').replace(/\/$/, '');
-      const url = `${osrmBase}/${medicLoc.lng},${medicLoc.lat};${toLng},${toLat}?overview=full&geometries=geojson`;
+      const heading = medicLoc.heading;
+      const bearingsParam = heading != null && !isNaN(heading)
+        ? `&bearings=${Math.round(heading)},45;`
+        : "";
+      const url = `${osrmBase}/${medicLoc.lng},${medicLoc.lat};${toLng},${toLat}?overview=full&geometries=geojson&radiuses=25;${bearingsParam}`;
       const res = await fetch(url);
       if (!res.ok) return;
       const data = await res.json() as { routes?: Array<{ geometry?: { coordinates?: [number, number][] }; duration?: number; distance?: number }> };
@@ -222,6 +236,8 @@ export default function OrderDetailPage() {
               medicLat={medicLoc?.lat}
               medicLng={medicLoc?.lng}
               routeCoords={routeCoords.length > 1 ? routeCoords : undefined}
+              medicName={selfName || undefined}
+              medicPhotoUrl={selfPhoto}
             />
           </div>
         )}

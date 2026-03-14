@@ -8,9 +8,20 @@ interface MapProps {
   medicLat?: number | null;
   medicLng?: number | null;
   routeCoords?: Array<{ lat: number; lng: number }>;
+  medicName?: string;
+  medicPhotoUrl?: string | null;
 }
 
-export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapProps) {
+function buildMedicIconHtml(medicName?: string, medicPhotoUrl?: string | null): string {
+  const inner = medicPhotoUrl
+    ? `<img src="${medicPhotoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />`
+    : medicName
+      ? `<span style="font-size:16px;font-weight:700;color:#0d9488;line-height:1;">${medicName.charAt(0).toUpperCase()}</span>`
+      : `<span style="font-size:18px;line-height:1;">▲</span>`;
+  return `<div style="width:38px;height:38px;background:#fff;border:3px solid #0d9488;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(13,148,136,0.35);overflow:hidden;">${inner}</div>`;
+}
+
+export default function Map({ lat, lng, medicLat, medicLng, routeCoords, medicName, medicPhotoUrl }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
@@ -68,9 +79,9 @@ export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapPr
       // Маркер медика (бирюзовый)
       if (medicLat != null && medicLng != null) {
         const medicIcon = L.divIcon({
-          html: `<div style="width:34px;height:34px;background:#0d9488;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px">🏥</div>`,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
+          html: buildMedicIconHtml(medicName, medicPhotoUrl),
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
           className: "",
         });
         medicMarkerRef.current = L.marker([medicLat, medicLng], { icon: medicIcon }).addTo(map);
@@ -111,9 +122,9 @@ export default function Map({ lat, lng, medicLat, medicLng, routeCoords }: MapPr
         medicMarkerRef.current.setLatLng([medicLat, medicLng]);
       } else {
         const medicIcon = L.divIcon({
-          html: `<div style="width:34px;height:34px;background:#0d9488;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:16px">🏥</div>`,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
+          html: buildMedicIconHtml(medicName, medicPhotoUrl),
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
           className: "",
         });
         medicMarkerRef.current = L.marker([medicLat, medicLng], { icon: medicIcon }).addTo(mapRef.current);
