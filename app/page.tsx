@@ -2,6 +2,21 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import dynamic from "next/dynamic";
+
+const InviteMap = dynamic(() => import("@/components/Map"), { ssr: false });
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 interface DispatchInvitePayload {
   orderId: string;
@@ -74,6 +89,7 @@ export default function DashboardPage() {
   const inviteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [inviteLoading, setInviteLoading] = useState<"accept" | "decline" | null>(null);
   const [expiredToast, setExpiredToast] = useState(false);
+  const [medicPos, setMedicPos] = useState<{ lat: number; lng: number } | null>(null);
 
   const notifyNewOrder = useCallback((order?: Order) => {
     playOrderAlert();
@@ -193,6 +209,14 @@ export default function DashboardPage() {
       inviteTimerRef.current = setInterval(updateCountdown, 500);
       setInvite(payload);
       playOrderAlert();
+      // Get medic's location for map + distance
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => setMedicPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => {},
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      }
     });
 
     socket.on("dispatch_invite_expired", ({ orderId }: { orderId: string }) => {
@@ -263,6 +287,7 @@ export default function DashboardPage() {
       await medicApi.orders.accept(invite.orderId);
       if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
       setInvite(null);
+      setMedicPos(null);
       router.push(`/order/${invite.orderId}`);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "INSUFFICIENT_WALLET") {
@@ -296,6 +321,7 @@ export default function DashboardPage() {
       await medicApi.orders.decline(invite.orderId);
       if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
       setInvite(null);
+      setMedicPos(null);
     } catch (err: unknown) {
       // Already expired or consumed — close gracefully
       if (err instanceof Error && (
@@ -578,9 +604,32 @@ export default function DashboardPage() {
                         {invite.order.location.phone}
                       </span>
                     </div>
+                    {medicPos && (
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 14, color: "#64748b" }}>{t("home.inviteDistance") || "Расстояние"}</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: "#0d9488" }}>
+                          {(() => {
+                            const km = haversineKm(medicPos.lat, medicPos.lng, invite.order.location!.latitude, invite.order.location!.longitude);
+                            return km < 1 ? `~${Math.round(km * 1000)} м` : `~${km.toFixed(1)} км`;
+                          })()}
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
+
+              {/* Mini map: client + medic positions */}
+              {invite.order.location && (
+                <div style={{ height: 200, borderRadius: 12, overflow: "hidden", marginBottom: 16, border: "1px solid #e2e8f0" }}>
+                  <InviteMap
+                    lat={invite.order.location.latitude}
+                    lng={invite.order.location.longitude}
+                    medicLat={medicPos?.lat ?? null}
+                    medicLng={medicPos?.lng ?? null}
+                  />
+                </div>
+              )}
 
               <button
                 onClick={acceptInvite}
