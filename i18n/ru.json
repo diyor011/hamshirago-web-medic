@@ -121,7 +121,14 @@
     "currentStatus": "Текущий",
     "updating": "Обновляем...",
     "orderDone": "Заказ выполнен!",
-    "orderDoneText": "Спасибо за работу"
+    "orderDoneText": "Спасибо за работу",
+    "medicalCard": {
+      "title": "Медкарта клиента",
+      "bloodType": "Группа крови",
+      "allergies": "Аллергии",
+      "chronicDiseases": "Хронические болезни",
+      "notes": "Заметки"
+    }
   },
   "profile": {
     "title": "Профиль",

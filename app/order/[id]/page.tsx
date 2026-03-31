@@ -5,9 +5,9 @@ import { useRouter, useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   FaChevronLeft, FaMapMarker, FaPhone,
-  FaYandex, FaLocationArrow, FaCheckCircle,
+  FaYandex, FaLocationArrow, FaCheckCircle, FaHeartbeat,
 } from "react-icons/fa";
-import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice } from "@/lib/api";
+import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice, MedicalCard } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 
@@ -29,6 +29,7 @@ export default function OrderDetailPage() {
   const [selfPhoto, setSelfPhoto] = useState<string | null>(null);
   const [routeCoords, setRouteCoords] = useState<Array<{ lat: number; lng: number }>>([]);
   const [eta, setEta] = useState<{ minutes: number; distanceKm: number } | null>(null);
+  const [medicalCard, setMedicalCard] = useState<MedicalCard | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const lastRouteFetchRef = useRef(0);
 
@@ -129,6 +130,13 @@ export default function OrderDetailPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!order?.clientId) return;
+    medicApi.medicalCard.getByClient(order.clientId)
+      .then(card => setMedicalCard(card))
+      .catch(() => setMedicalCard(null));
+  }, [order?.clientId]);
 
   async function handleNextStatus() {
     if (!order) return;
@@ -320,6 +328,42 @@ export default function OrderDetailPage() {
             <span style={{ fontSize: 17, fontWeight: 800, color: "#0d9488" }}>{formatPrice(order.priceAmount - order.discountAmount)} UZS</span>
           </div>
         </div>
+
+        {/* Medical card */}
+        {medicalCard && (medicalCard.bloodType || medicalCard.allergies || medicalCard.chronicDiseases || medicalCard.notes) && (
+          <div style={{ ...cardStyle, borderLeft: "3px solid #0d9488" }}>
+            <h2 style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: 6 }}>
+              <FaHeartbeat size={12} color="#0d9488" />
+              {t("order.medicalCard.title")}
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {medicalCard.bloodType && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 13, color: "#64748b", flexShrink: 0, marginRight: 12 }}>{t("order.medicalCard.bloodType")}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", textAlign: "right" }}>{medicalCard.bloodType}</span>
+                </div>
+              )}
+              {medicalCard.allergies && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 13, color: "#64748b", flexShrink: 0, marginRight: 12 }}>{t("order.medicalCard.allergies")}</span>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: "#ef4444", textAlign: "right", maxWidth: "60%" }}>{medicalCard.allergies}</span>
+                </div>
+              )}
+              {medicalCard.chronicDiseases && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 13, color: "#64748b", flexShrink: 0, marginRight: 12 }}>{t("order.medicalCard.chronicDiseases")}</span>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: "#0f172a", textAlign: "right", maxWidth: "60%" }}>{medicalCard.chronicDiseases}</span>
+                </div>
+              )}
+              {medicalCard.notes && (
+                <div>
+                  <span style={{ fontSize: 13, color: "#64748b", display: "block", marginBottom: 4 }}>{t("order.medicalCard.notes")}</span>
+                  <span style={{ fontSize: 14, fontWeight: 400, color: "#334155", lineHeight: 1.5 }}>{medicalCard.notes}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Status flow */}
         <div style={cardStyle}>

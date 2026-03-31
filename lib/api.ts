@@ -107,6 +107,11 @@ export const medicApi = {
       }),
   },
 
+  medicalCard: {
+    getByClient: (clientId: string) =>
+      request<MedicalCard>(`/medical-card/client/${clientId}`),
+  },
+
   photo: {
     upload: (file: File) => {
       const token = getToken();
@@ -136,6 +141,15 @@ export const medicApi = {
 };
 
 // ─── Types ───────────────────────────────────────────────
+
+export interface MedicalCard {
+  id: string;
+  clientId: string;
+  bloodType: string | null;
+  allergies: string | null;
+  chronicDiseases: string | null;
+  notes: string | null;
+}
 
 export interface MedicAuthResponse {
   access_token: string;

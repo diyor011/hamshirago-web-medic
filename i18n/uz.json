@@ -121,7 +121,14 @@
     "currentStatus": "Joriy",
     "updating": "Yangilanmoqda...",
     "orderDone": "Buyurtma bajarildi!",
-    "orderDoneText": "Mehnat uchun rahmat"
+    "orderDoneText": "Mehnat uchun rahmat",
+    "medicalCard": {
+      "title": "Mijoz tibbiy kartasi",
+      "bloodType": "Qon guruhi",
+      "allergies": "Allergiyalar",
+      "chronicDiseases": "Surunkali kasalliklar",
+      "notes": "Izohlar"
+    }
   },
   "profile": {
     "title": "Profil",
