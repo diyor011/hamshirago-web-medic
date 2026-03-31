@@ -128,7 +128,15 @@
       "allergies": "Allergiyalar",
       "chronicDiseases": "Surunkali kasalliklar",
       "notes": "Izohlar"
-    }
+    },
+    "rateClient": "Mijozni baholash",
+    "rateClientHint": "Baholash uchun yulduzni bosing",
+    "rateClientComment": "Izoh (ixtiyoriy)",
+    "rateClientCommentPlaceholder": "Mijoz haqida aytib bering...",
+    "rateClientSubmit": "Baholashni yuborish",
+    "rateClientSkip": "O'tkazib yuborish",
+    "rateClientThanks": "Baholash uchun rahmat!",
+    "rateClientSelectFirst": "Baholashni tanlang"
   },
   "profile": {
     "title": "Profil",
@@ -187,6 +195,30 @@
     "required": "Kerakli",
     "contactAdmin": "Administrator bilan bog'lanish",
     "close": "Yopish"
+  },
+  "workZone": {
+    "title": "Ish zonasi",
+    "infoTitle": "Ish zonasini cheklash",
+    "infoDesc": "Markaz va radius belgilang — siz faqat shu zona ichidagi buyurtmalarni olasiz.",
+    "centerCoords": "Zona markazi koordinatalari",
+    "latitude": "Kenglik (Latitude)",
+    "latPlaceholder": "Masalan: 41.2995",
+    "longitude": "Uzunlik (Longitude)",
+    "lngPlaceholder": "Masalan: 69.2401",
+    "radiusSection": "Zona radiusi",
+    "radius": "Radius",
+    "km": "km",
+    "saveZone": "Zonani saqlash",
+    "saving": "Saqlanmoqda...",
+    "clearZone": "Cheklashni olib tashlash",
+    "clearing": "Olib tashlanmoqda...",
+    "zoneActive": "Zona faol",
+    "noZone": "Cheklovsiz",
+    "saved": "✅ Zona saqlandi",
+    "cleared": "✅ Cheklash olib tashlandi",
+    "errorCoords": "To'g'ri koordinatalarni kiriting",
+    "errorLatRange": "Kenglik -90 dan 90 gacha bo'lishi kerak",
+    "errorLngRange": "Uzunlik -180 dan 180 gacha bo'lishi kerak"
   },
   "language": { "title": "Язык / Til" },
   "common": {

@@ -138,6 +138,28 @@ export const medicApi = {
         body: JSON.stringify({ chatId }),
       }),
   },
+
+  workZone: {
+    set: (lat: number, lng: number, radius: number) =>
+      request<void>("/medics/work-zone", {
+        method: "PATCH",
+        body: JSON.stringify({ lat, lng, radius }),
+      }),
+    clear: () =>
+      request<void>("/medics/work-zone", {
+        method: "DELETE",
+      }),
+  },
+
+  reviews: {
+    create: (orderId: string, rating: number, comment?: string, targetRole: string = "client") =>
+      request<Review>("/reviews", {
+        method: "POST",
+        body: JSON.stringify({ orderId, rating, comment, targetRole }),
+      }),
+    getByOrder: (orderId: string) =>
+      request<Review[]>(`/reviews/order/${orderId}`),
+  },
 };
 
 // ─── Types ───────────────────────────────────────────────
@@ -184,6 +206,9 @@ export interface Medic {
   licensePhotoUrl: string | null;
   verificationRejectedReason: string | null;
   onlineDisabledReason?: 'INACTIVE_5H' | null;
+  workZoneLat?: number | null;
+  workZoneLng?: number | null;
+  workZoneRadius?: number | null;
 }
 
 export interface OrderLocation {
@@ -251,6 +276,18 @@ export const NEXT_STATUS: Partial<Record<OrderStatus, { status: OrderStatus; lab
   ARRIVED:         { status: "SERVICE_STARTED",   label: "Начать услугу",        color: "#14b8a6" },
   SERVICE_STARTED: { status: "DONE",              label: "Завершить услугу",     color: "#22c55e" },
 };
+
+export interface Review {
+  id: string;
+  orderId: string;
+  authorId: string;
+  authorRole: string;
+  targetId: string;
+  targetRole: string;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+}
 
 export function formatPrice(n: number): string {
   return n.toLocaleString("ru-RU");

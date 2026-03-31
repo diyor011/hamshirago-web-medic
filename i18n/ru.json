@@ -128,7 +128,15 @@
       "allergies": "Аллергии",
       "chronicDiseases": "Хронические болезни",
       "notes": "Заметки"
-    }
+    },
+    "rateClient": "Оценить клиента",
+    "rateClientHint": "Нажмите на звезду для оценки",
+    "rateClientComment": "Комментарий (необязательно)",
+    "rateClientCommentPlaceholder": "Расскажите о клиенте...",
+    "rateClientSubmit": "Отправить оценку",
+    "rateClientSkip": "Пропустить",
+    "rateClientThanks": "Спасибо за оценку!",
+    "rateClientSelectFirst": "Выберите оценку"
   },
   "profile": {
     "title": "Профиль",
@@ -187,6 +195,30 @@
     "required": "Необходимо",
     "contactAdmin": "Связаться с администратором",
     "close": "Закрыть"
+  },
+  "workZone": {
+    "title": "Рабочая зона",
+    "infoTitle": "Ограничение зоны работы",
+    "infoDesc": "Задайте центр и радиус — вы будете получать заказы только внутри этой зоны.",
+    "centerCoords": "Координаты центра зоны",
+    "latitude": "Широта (Latitude)",
+    "latPlaceholder": "Например: 41.2995",
+    "longitude": "Долгота (Longitude)",
+    "lngPlaceholder": "Например: 69.2401",
+    "radiusSection": "Радиус зоны",
+    "radius": "Радиус",
+    "km": "км",
+    "saveZone": "Сохранить зону",
+    "saving": "Сохраняем...",
+    "clearZone": "Убрать ограничение",
+    "clearing": "Убираем...",
+    "zoneActive": "Зона активна",
+    "noZone": "Без ограничений",
+    "saved": "✅ Зона сохранена",
+    "cleared": "✅ Ограничение снято",
+    "errorCoords": "Введите корректные координаты",
+    "errorLatRange": "Широта должна быть от -90 до 90",
+    "errorLngRange": "Долгота должна быть от -180 до 180"
   },
   "language": { "title": "Язык / Til" },
   "common": {

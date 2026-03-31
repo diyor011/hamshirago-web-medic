@@ -7,7 +7,7 @@ import {
   FaChevronLeft, FaMapMarker, FaPhone,
   FaYandex, FaLocationArrow, FaCheckCircle, FaHeartbeat,
 } from "react-icons/fa";
-import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice, MedicalCard } from "@/lib/api";
+import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice, MedicalCard, Review } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 
@@ -30,6 +30,12 @@ export default function OrderDetailPage() {
   const [routeCoords, setRouteCoords] = useState<Array<{ lat: number; lng: number }>>([]);
   const [eta, setEta] = useState<{ minutes: number; distanceKm: number } | null>(null);
   const [medicalCard, setMedicalCard] = useState<MedicalCard | null>(null);
+  const [showRating, setShowRating] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [ratingHover, setRatingHover] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const lastRouteFetchRef = useRef(0);
 
@@ -138,6 +144,24 @@ export default function OrderDetailPage() {
       .catch(() => setMedicalCard(null));
   }, [order?.clientId]);
 
+  useEffect(() => {
+    if (order?.status !== "DONE") return;
+    medicApi.reviews.getByOrder(order.id)
+      .then((reviews: Review[]) => {
+        const alreadyReviewed = reviews.some(r => r.authorRole === "medic");
+        if (alreadyReviewed) {
+          setShowRating(false);
+          setRatingDone(true);
+        } else {
+          setShowRating(true);
+        }
+      })
+      .catch(() => {
+        setShowRating(true);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.status, order?.id]);
+
   async function handleNextStatus() {
     if (!order) return;
     const next = NEXT_STATUS[order.status];
@@ -155,6 +179,22 @@ export default function OrderDetailPage() {
     } finally {
       setUpdating(false);
     }
+  }
+
+  async function handleRatingSubmit() {
+    if (ratingStars === 0) return;
+    setRatingSubmitting(true);
+    try {
+      await medicApi.reviews.create(id, ratingStars, ratingComment.trim() || undefined, "client");
+    } catch { /* ignore */ }
+    setShowRating(false);
+    setRatingDone(true);
+    setRatingSubmitting(false);
+  }
+
+  function handleRatingSkip() {
+    setShowRating(false);
+    setRatingDone(true);
   }
 
   function openNavigation(app: "yandex" | "google" | "2gis") {
@@ -405,6 +445,61 @@ export default function OrderDetailPage() {
             {updating && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg>}
             {updating ? t("order.updating") : nextAction.label}
           </button>
+        )}
+
+        {/* Client rating block */}
+        {order.status === "DONE" && showRating && !ratingDone && (
+          <div style={cardStyle}>
+            <h2 style={sectionTitle}>{t("order.rateClient")}</h2>
+            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 12 }}>{t("order.rateClientHint")}</p>
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  onClick={() => setRatingStars(star)}
+                  onMouseEnter={() => setRatingHover(star)}
+                  onMouseLeave={() => setRatingHover(0)}
+                  disabled={ratingSubmitting}
+                  style={{ background: "none", border: "none", cursor: ratingSubmitting ? "not-allowed" : "pointer", padding: "4px", fontSize: 36, lineHeight: 1, color: star <= (ratingHover || ratingStars) ? "#f59e0b" : "#d1d5db", transition: "color 150ms ease" }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={ratingComment}
+              onChange={e => setRatingComment(e.target.value)}
+              placeholder={t("order.rateClientCommentPlaceholder")}
+              disabled={ratingSubmitting}
+              maxLength={1000}
+              rows={3}
+              style={{ width: "100%", borderRadius: 10, border: "1px solid #e2e8f0", padding: "10px 12px", fontSize: 14, color: "#0f172a", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", outline: "none" }}
+            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+              <button
+                onClick={handleRatingSubmit}
+                disabled={ratingSubmitting || ratingStars === 0}
+                style={{ width: "100%", background: ratingStars === 0 ? "#d1d5db" : "#0d9488", color: "#fff", fontSize: 15, fontWeight: 700, borderRadius: 12, padding: "13px", border: "none", cursor: ratingSubmitting || ratingStars === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                {ratingSubmitting && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite" }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg>}
+                {ratingStars === 0 ? t("order.rateClientSelectFirst") : t("order.rateClientSubmit")}
+              </button>
+              <button
+                onClick={handleRatingSkip}
+                disabled={ratingSubmitting}
+                style={{ width: "100%", background: "none", color: "#64748b", fontSize: 14, fontWeight: 600, borderRadius: 12, padding: "10px", border: "none", cursor: ratingSubmitting ? "not-allowed" : "pointer" }}
+              >
+                {t("order.rateClientSkip")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Thanks message after rating */}
+        {order.status === "DONE" && ratingDone && (
+          <div style={{ background: "#0d948812", borderRadius: 12, padding: "12px 16px", marginBottom: 12, textAlign: "center", fontSize: 14, fontWeight: 600, color: "#0d9488" }}>
+            {t("order.rateClientThanks")}
+          </div>
         )}
 
         {order.status === "DONE" && (
