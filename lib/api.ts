@@ -139,6 +139,19 @@ export const medicApi = {
       }),
   },
 
+  webPush: {
+    subscribe: (subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+      request<void>("/medics/web-push-subscription", {
+        method: "POST",
+        body: JSON.stringify(subscription),
+      }),
+    unsubscribe: (endpoint: string) =>
+      request<void>("/medics/web-push-subscription", {
+        method: "DELETE",
+        body: JSON.stringify({ endpoint }),
+      }),
+  },
+
   workZone: {
     set: (lat: number, lng: number, radius: number) =>
       request<void>("/medics/work-zone", {
