@@ -216,6 +216,7 @@
     "noZone": "Cheklovsiz",
     "saved": "✅ Zona saqlandi",
     "cleared": "✅ Cheklash olib tashlandi",
+    "tapToSetCenter": "Zona markazini belgilash uchun xaritaga bosing",
     "errorCoords": "To'g'ri koordinatalarni kiriting",
     "errorLatRange": "Kenglik -90 dan 90 gacha bo'lishi kerak",
     "errorLngRange": "Uzunlik -180 dan 180 gacha bo'lishi kerak"

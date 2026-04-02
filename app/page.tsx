@@ -18,6 +18,19 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+const SERVICE_TITLE_UZ: Record<string, string> = {
+  "Внутримышечный укол": "Mushak ichiga ukol",
+  "Внутривенный укол": "Vena ichiga ukol",
+  "Капельница (1 флакон)": "Tomchilatgich (1 shisha)",
+  "Капельница (2 флакона)": "Tomchilatgich (2 shisha)",
+  "Забор крови из вены": "Venadan qon olish",
+  "Забор крови из пальца": "Barmoqdan qon olish",
+  "Перевязка": "Bog'lam almashtirish",
+  "Измерение давления и пульса": "Bosim va puls o'lchash",
+  "ЭКГ на дому": "Uyda EKG",
+  "Уход за лежачим пациентом (1 час)": "Yotgan bemor parvarishi (1 soat)",
+};
+
 interface DispatchInvitePayload {
   orderId: string;
   order: {
@@ -38,6 +51,7 @@ interface DispatchInvitePayload {
 import { useRouter } from "next/navigation";
 import { FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle } from "react-icons/fa";
 import { medicApi, WS_URL, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
+import { useLanguage } from "@/context/LanguageContext";
 import { io, Socket } from "socket.io-client";
 import { unsubscribeWebPush } from "@/lib/webPush";
 
@@ -73,6 +87,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 export default function DashboardPage() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { language, setLanguage } = useLanguage();
   const [medic, setMedic] = useState<Medic | null>(null);
   const [isOnline, setIsOnline] = useState(false);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
@@ -366,7 +381,24 @@ export default function DashboardPage() {
                 <p style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{medic?.name ?? "..."}</p>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {/* Language switcher */}
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["ru", "uz"] as const).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => setLanguage(lang)}
+                    style={{
+                      padding: "4px 8px", borderRadius: 6, cursor: "pointer",
+                      border: `1px solid ${language === lang ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.25)"}`,
+                      background: language === lang ? "rgba(255,255,255,0.25)" : "transparent",
+                      color: "#fff", fontSize: 11, fontWeight: 700,
+                    }}
+                  >
+                    {lang.toUpperCase()}
+                  </button>
+                ))}
+              </div>
               <button onClick={loadData} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}>
                 <FaRedo size={14} />
               </button>
@@ -484,7 +516,7 @@ export default function DashboardPage() {
                         <button key={order.id} onClick={() => router.push(`/order/${order.id}`)}
                           style={{ width: "100%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 16, cursor: "pointer", textAlign: "left", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{order.serviceTitle}</span>
+                            <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>{language === "uz" ? (SERVICE_TITLE_UZ[order.serviceTitle] ?? order.serviceTitle) : order.serviceTitle}</span>
                             <StatusBadge status={order.status} />
                           </div>
                           {order.location && (
@@ -505,7 +537,7 @@ export default function DashboardPage() {
                       {historyOrders.slice(0, 20).map(order => (
                         <div key={order.id} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 16, opacity: 0.85 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{order.serviceTitle}</span>
+                            <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{language === "uz" ? (SERVICE_TITLE_UZ[order.serviceTitle] ?? order.serviceTitle) : order.serviceTitle}</span>
                             <StatusBadge status={order.status} />
                           </div>
                           <p style={{ fontSize: 14, fontWeight: 700, color: "#0d9488", marginTop: 6 }}>
@@ -576,7 +608,7 @@ export default function DashboardPage() {
             {/* Order details */}
             <div style={{ padding: "20px 24px" }}>
               <p style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>
-                {invite.order.serviceTitle}
+                {language === "uz" ? (SERVICE_TITLE_UZ[invite.order.serviceTitle] ?? invite.order.serviceTitle) : invite.order.serviceTitle}
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
