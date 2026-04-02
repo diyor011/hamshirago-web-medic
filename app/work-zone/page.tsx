@@ -53,7 +53,7 @@ export default function WorkZonePage() {
 
     medicApi.auth.me()
       .then((medic) => {
-        setMedicPhoto(medic.facePhotoUrl ?? null);
+        setMedicPhoto(medic.profilePhotoUrl ?? medic.facePhotoUrl ?? null);
         setMedicName(medic.name ?? "");
         if (
           medic.workZoneLat != null &&
