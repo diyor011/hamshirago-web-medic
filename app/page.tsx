@@ -49,7 +49,7 @@ interface DispatchInvitePayload {
   expiresAt: string;
 }
 import { useRouter } from "next/navigation";
-import { FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle } from "react-icons/fa";
+import { FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle, FaChevronRight } from "react-icons/fa";
 import { medicApi, WS_URL, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { io, Socket } from "socket.io-client";
@@ -491,7 +491,12 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 12 }}>{t("home.myOrders")}</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>{t("home.myOrders")}</p>
+              <button onClick={() => router.push("/orders")} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#0d9488", fontWeight: 600 }}>
+                Вся история <FaChevronRight size={10} />
+              </button>
+            </div>
 
             {loading && (
               <div style={{ textAlign: "center", padding: "48px 0" }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FaPhone, FaLock, FaUser, FaEye, FaEyeSlash, FaExclamationCircle } from "react-icons/fa";
 import { medicApi } from "@/lib/api";
@@ -34,6 +34,12 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem("medic_onboarding_completed")) {
+      router.push("/onboarding");
+    }
+  }, [router]);
   const [focused, setFocused] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {

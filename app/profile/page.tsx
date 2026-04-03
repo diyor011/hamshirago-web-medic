@@ -15,6 +15,7 @@ import {
   FaSignOutAlt,
   FaBell,
   FaMapMarkerAlt,
+  FaCommentAlt,
 } from "react-icons/fa";
 import { medicApi, Medic, formatPrice, VerificationStatus } from "@/lib/api";
 import { subscribeWebPush, unsubscribeWebPush } from "@/lib/webPush";
@@ -410,6 +411,54 @@ function ProfileContent() {
               </a>
             </div>
           )}
+        </div>
+
+        {/* Wallet */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <button
+            onClick={() => router.push("/wallet")}
+            style={{
+              width: "100%", background: "#f0fdf9",
+              color: "#0d9488", border: "1.5px solid #99f6e4",
+              borderRadius: 12, padding: "13px 16px",
+              fontSize: 15, fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12,
+            }}
+          >
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#0d9488", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <FaWallet size={16} color="#fff" />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#0d9488", marginBottom: 2 }}>Кошелёк</p>
+              <p style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                Баланс: {medic.balance != null ? `${formatPrice(Number(medic.balance))} сум` : "—"}
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {/* Reviews */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <button
+            onClick={() => router.push("/reviews")}
+            style={{
+              width: "100%", background: "#f0fdf9",
+              color: "#0d9488", border: "1.5px solid #99f6e4",
+              borderRadius: 12, padding: "13px 16px",
+              fontSize: 15, fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12,
+            }}
+          >
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#0d9488", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <FaCommentAlt size={16} color="#fff" />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#0d9488", marginBottom: 2 }}>Мои отзывы</p>
+              <p style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                {medic.reviewCount ? `${medic.reviewCount} отзывов · рейтинг ${medic.rating?.toFixed(1) ?? "—"}` : "Отзывов пока нет"}
+              </p>
+            </div>
+          </button>
         </div>
 
         {/* Work Zone */}

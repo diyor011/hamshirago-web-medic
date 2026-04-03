@@ -172,6 +172,10 @@ export const medicApi = {
       }),
     getByOrder: (orderId: string) =>
       request<Review[]>(`/reviews/order/${orderId}`),
+    getByMedic: (medicId: string, page = 1) =>
+      request<{ data: Review[]; total: number; page: number; totalPages: number }>(
+        `/reviews/medic/${medicId}?page=${page}&limit=20`,
+      ),
   },
 };
 
@@ -243,6 +247,8 @@ export interface Order {
   priceAmount: number;
   discountAmount: number;
   platformFee?: number;
+  urgentFee?: number;
+  isUrgent?: boolean;
   status: OrderStatus;
   cancelReason?: string | null;
   created_at: string;
