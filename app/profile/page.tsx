@@ -16,6 +16,10 @@ import {
   FaBell,
   FaMapMarkerAlt,
   FaCommentAlt,
+  FaPen,
+  FaCheck,
+  FaTimes,
+  FaIdCard,
 } from "react-icons/fa";
 import { medicApi, Medic, formatPrice, VerificationStatus } from "@/lib/api";
 import { subscribeWebPush, unsubscribeWebPush } from "@/lib/webPush";
@@ -39,6 +43,11 @@ function ProfileContent() {
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [doneCount, setDoneCount] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [nameLoading, setNameLoading] = useState(false);
+  const [nameError, setNameError] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("medic_token");
@@ -59,6 +68,11 @@ function ProfileContent() {
         setError(err instanceof Error && err.message ? err.message : t("profile.loadProfileError"));
       })
       .finally(() => { if (active) setLoading(false); });
+
+    medicApi.orders.my().then((orders) => {
+      if (!active) return;
+      setDoneCount(orders.filter((o) => o.status === "DONE").length);
+    }).catch(() => {});
 
     if (typeof Notification !== "undefined") {
       setNotifPermission(Notification.permission);
@@ -90,6 +104,23 @@ function ProfileContent() {
       setError(err instanceof Error && err.message ? err.message : t("profile.loadProfileError"));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSaveName() {
+    if (!editName.trim()) return;
+    setNameLoading(true);
+    setNameError("");
+    try {
+      const updated = await medicApi.auth.updateProfile(editName.trim());
+      const newMedic = { ...medic!, name: updated.name };
+      setMedic(newMedic);
+      try { localStorage.setItem("medic", JSON.stringify(newMedic)); } catch {}
+      setEditingName(false);
+    } catch (e: unknown) {
+      setNameError(e instanceof Error ? e.message : "Ошибка сохранения");
+    } finally {
+      setNameLoading(false);
     }
   }
 
@@ -219,7 +250,49 @@ function ProfileContent() {
               }}
             />
           </label>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 8 }}>{medic.name}</h1>
+          {editingName ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") await handleSaveName();
+                  if (e.key === "Escape") { setEditingName(false); setNameError(""); }
+                }}
+                autoFocus
+                maxLength={60}
+                style={{
+                  background: "rgba(255,255,255,0.15)", border: "1.5px solid rgba(255,255,255,0.5)",
+                  borderRadius: 10, padding: "6px 12px", fontSize: 18, fontWeight: 700,
+                  color: "#fff", outline: "none", width: 180,
+                }}
+              />
+              <button
+                onClick={handleSaveName}
+                disabled={nameLoading}
+                style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}
+              >
+                <FaCheck size={13} />
+              </button>
+              <button
+                onClick={() => { setEditingName(false); setNameError(""); }}
+                style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}
+              >
+                <FaTimes size={13} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{medic.name}</h1>
+              <button
+                onClick={() => { setEditName(medic.name); setEditingName(true); setNameError(""); }}
+                style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}
+              >
+                <FaPen size={11} />
+              </button>
+            </div>
+          )}
+          {nameError && <p style={{ fontSize: 12, color: "#fca5a5", marginBottom: 4 }}>{nameError}</p>}
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             background: medic.isOnline ? "rgba(34,197,94,0.25)" : "rgba(255,255,255,0.15)",
@@ -239,7 +312,7 @@ function ProfileContent() {
       <div style={{ maxWidth: 720, margin: "-20px auto 0", padding: "0 24px 80px" }}>
         {/* Stats */}
         <div style={{ background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0 }}>
             <div style={{ textAlign: "center", padding: "4px 0" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 4 }}>
                 <FaStar size={14} color="#eab308" />
@@ -252,6 +325,12 @@ function ProfileContent() {
             <div style={{ textAlign: "center", padding: "4px 0", borderLeft: "1px solid #f1f5f9", borderRight: "1px solid #f1f5f9" }}>
               <p style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{medic.reviewCount ?? 0}</p>
               <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px" }}>{t("profile.statsReviews")}</p>
+            </div>
+            <div style={{ textAlign: "center", padding: "4px 0", borderRight: "1px solid #f1f5f9" }}>
+              <p style={{ fontSize: 20, fontWeight: 800, color: "#22c55e", marginBottom: 4 }}>
+                {doneCount !== null ? doneCount : "—"}
+              </p>
+              <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px" }}>Выполнено</p>
             </div>
             <div style={{ textAlign: "center", padding: "4px 0" }}>
               <p style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{medic.experienceYears ?? 0}</p>
@@ -411,6 +490,30 @@ function ProfileContent() {
               </a>
             </div>
           )}
+        </div>
+
+        {/* Verification */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: 16, marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <button
+            onClick={() => router.push("/verification")}
+            style={{
+              width: "100%", background: "#f0fdf9",
+              color: "#0d9488", border: "1.5px solid #99f6e4",
+              borderRadius: 12, padding: "13px 16px",
+              fontSize: 15, fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12,
+            }}
+          >
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: medic.verificationStatus === "APPROVED" ? "#16a34a" : medic.verificationStatus === "REJECTED" ? "#ef4444" : "#d97706", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <FaIdCard size={16} color="#fff" />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#0d9488", marginBottom: 2 }}>Верификация</p>
+              <p style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                {medic.verificationStatus === "APPROVED" ? "✅ Верифицирован" : medic.verificationStatus === "REJECTED" ? "❌ Отклонено — загрузите новые фото" : "⏳ На рассмотрении"}
+              </p>
+            </div>
+          </button>
         </div>
 
         {/* Wallet */}

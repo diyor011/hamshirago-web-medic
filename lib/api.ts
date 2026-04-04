@@ -56,6 +56,11 @@ export const medicApi = {
         body: JSON.stringify(data),
       }),
     me: () => request<Medic>(`/medics/me?_=${Date.now()}`),
+    updateProfile: (name: string) =>
+      request<Medic>("/medics/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      }),
   },
 
   location: {
@@ -161,6 +166,16 @@ export const medicApi = {
     clear: () =>
       request<void>("/medics/work-zone", {
         method: "DELETE",
+      }),
+  },
+
+  chat: {
+    getMessages: (orderId: string) =>
+      request<ChatMessage[]>(`/orders/${orderId}/messages`),
+    sendMessage: (orderId: string, content: string) =>
+      request<ChatMessage>(`/orders/${orderId}/medic-messages`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
       }),
   },
 
@@ -295,6 +310,14 @@ export const NEXT_STATUS: Partial<Record<OrderStatus, { status: OrderStatus; lab
   ARRIVED:         { status: "SERVICE_STARTED",   label: "Начать услугу",        color: "#14b8a6" },
   SERVICE_STARTED: { status: "DONE",              label: "Завершить услугу",     color: "#22c55e" },
 };
+
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  role: "user" | "doctor" | "assistant";
+  content: string;
+  createdAt: string;
+}
 
 export interface Review {
   id: string;

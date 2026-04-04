@@ -6,8 +6,9 @@ import dynamic from "next/dynamic";
 import {
   FaChevronLeft, FaMapMarker, FaPhone,
   FaYandex, FaLocationArrow, FaCheckCircle, FaHeartbeat,
+  FaComments, FaPaperPlane, FaTimes,
 } from "react-icons/fa";
-import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice, MedicalCard, Review } from "@/lib/api";
+import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice, MedicalCard, Review, ChatMessage } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 
@@ -38,6 +39,12 @@ export default function OrderDetailPage() {
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const lastRouteFetchRef = useRef(0);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [sendingMsg, setSendingMsg] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const myMedicId = useRef<string>("");
 
   const lastLocationSentRef = useRef(0);
 
@@ -120,10 +127,37 @@ export default function OrderDetailPage() {
           loadOrder();
         }
       });
+      socket.on("order_message", (payload: { orderId: string; message: ChatMessage }) => {
+        if (payload.orderId !== id) return;
+        setMessages((prev) => prev.find((m) => m.id === payload.message.id) ? prev : [...prev, payload.message]);
+      });
+      try {
+        const m = JSON.parse(localStorage.getItem("medic") ?? "{}");
+        if (m?.id) myMedicId.current = m.id;
+      } catch {}
     }
     return () => { socketRef.current?.disconnect(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!chatOpen) return;
+    medicApi.chat.getMessages(id).then(setMessages).catch(() => {});
+  }, [chatOpen, id]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMsg = useCallback(async () => {
+    if (!chatInput.trim() || sendingMsg) return;
+    setSendingMsg(true);
+    try {
+      await medicApi.chat.sendMessage(id, chatInput.trim());
+      setChatInput("");
+    } catch {}
+    finally { setSendingMsg(false); }
+  }, [chatInput, id, sendingMsg]);
 
   async function loadOrder() {
     setLoading(true);
@@ -502,6 +536,22 @@ export default function OrderDetailPage() {
           </div>
         )}
 
+        {/* Chat button */}
+        {order.status !== "CANCELED" && order.clientId && (
+          <button
+            onClick={() => setChatOpen(true)}
+            style={{
+              width: "100%", background: "#f0fdf9", color: "#0d9488",
+              border: "1.5px solid #99f6e4", borderRadius: 14, padding: "14px 16px",
+              fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 12,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}
+          >
+            <FaComments size={15} />
+            Чат с клиентом
+          </button>
+        )}
+
         {order.status === "DONE" && (
           <div style={{ background: "#22c55e20", borderRadius: 16, padding: 20, textAlign: "center" }}>
             <FaCheckCircle size={36} color="#22c55e" style={{ margin: "0 auto 12px", display: "block" }} />
@@ -523,6 +573,70 @@ export default function OrderDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Chat panel */}
+      {chatOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, background: "rgba(0,0,0,0.3)" }} onClick={() => setChatOpen(false)} />
+          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", height: "70vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #f1f5f9" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <FaComments size={16} color="#0d9488" />
+                <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Чат с клиентом</span>
+              </div>
+              <button onClick={() => setChatOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
+                <FaTimes size={18} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {messages.length === 0 && (
+                <p style={{ textAlign: "center", color: "#94a3b8", fontSize: 14, marginTop: 40 }}>Сообщений пока нет</p>
+              )}
+              {messages.map((msg) => {
+                const isMe = msg.userId === myMedicId.current || msg.role === "doctor";
+                return (
+                  <div key={msg.id} style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start" }}>
+                    <div style={{
+                      maxWidth: "75%", padding: "10px 14px",
+                      borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                      background: isMe ? "#0d9488" : "#f1f5f9",
+                      color: isMe ? "#fff" : "#0f172a",
+                    }}>
+                      <p style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>{msg.content}</p>
+                      <p style={{ fontSize: 10, opacity: 0.7, margin: "4px 0 0", textAlign: isMe ? "right" : "left" }}>
+                        {new Date(msg.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+            <div style={{ padding: "12px 16px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 10, alignItems: "flex-end" }}>
+              <textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMsg(); } }}
+                placeholder={order?.status === "DONE" || order?.status === "CANCELED" ? "Заказ завершён" : "Написать сообщение..."}
+                disabled={order?.status === "DONE" || order?.status === "CANCELED"}
+                rows={1} maxLength={2000}
+                style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "10px 14px", fontSize: 14, resize: "none", outline: "none", fontFamily: "inherit" }}
+              />
+              <button
+                onClick={handleSendMsg}
+                disabled={sendingMsg || !chatInput.trim() || order?.status === "DONE" || order?.status === "CANCELED"}
+                style={{
+                  width: 44, height: 44, borderRadius: "50%", background: "#0d9488", border: "none",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  opacity: sendingMsg || !chatInput.trim() ? 0.5 : 1, flexShrink: 0,
+                }}
+              >
+                <FaPaperPlane size={16} color="#fff" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
