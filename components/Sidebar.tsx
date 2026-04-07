@@ -9,7 +9,6 @@ import {
   User,
   ShieldCheck,
   LogOut,
-  Stethoscope,
   Star,
 } from "lucide-react";
 import { medicApi, Medic } from "@/lib/api";
@@ -53,13 +52,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #f1f5f9" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <Stethoscope size={18} color="#fff" />
-          </div>
+          <img src="/logo.png" alt="HamshiraGo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover" }} />
           <div>
             <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>HamshiraGo</p>
             <p style={{ fontSize: 11, color: "#64748b" }}>Медицинский портал</p>
