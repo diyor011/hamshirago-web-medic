@@ -2,23 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaBriefcaseMedical, FaMapMarkerAlt, FaWallet, FaArrowRight, FaTimes } from "react-icons/fa";
+import { Stethoscope, MapPin, Wallet, ArrowRight, X } from "lucide-react";
 
 const SLIDES = [
   {
-    Icon: FaBriefcaseMedical,
+    Icon: Stethoscope,
     color: "#0d9488",
     title: "Работайте онлайн",
     desc: "Принимайте заказы через браузер или телефон — без лишних приложений",
   },
   {
-    Icon: FaMapMarkerAlt,
+    Icon: MapPin,
     color: "#0284c7",
     title: "Зона работы",
     desc: "Настройте радиус и получайте только те заказы, которые рядом с вами",
   },
   {
-    Icon: FaWallet,
+    Icon: Wallet,
     color: "#d97706",
     title: "Прозрачный заработок",
     desc: "Видите каждую оплату, комиссию платформы и баланс в реальном времени",
@@ -50,7 +50,7 @@ export default function OnboardingMedicPage() {
           onClick={finish}
           style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", color: "#94a3b8", fontSize: 14, cursor: "pointer", padding: "6px 12px", borderRadius: 20 }}
         >
-          <FaTimes size={12} />
+          <X size={12} />
           Пропустить
         </button>
       </div>
@@ -98,7 +98,7 @@ export default function OnboardingMedicPage() {
           }}
         >
           {current < SLIDES.length - 1 ? "Далее" : "Начать"}
-          <FaArrowRight size={14} />
+          <ArrowRight size={14} />
         </button>
       </div>
 

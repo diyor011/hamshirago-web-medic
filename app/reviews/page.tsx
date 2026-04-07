@@ -2,17 +2,21 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { FaArrowLeft, FaStar, FaRegStar, FaCommentAlt } from "react-icons/fa";
+import { Star, MessageSquare } from "lucide-react";
 import { medicApi, Review } from "@/lib/api";
+import DashboardLayout from "@/components/DashboardLayout";
 
 function Stars({ rating }: { rating: number }) {
   return (
     <div style={{ display: "flex", gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((i) =>
-        i <= rating
-          ? <FaStar key={i} size={14} color="#eab308" />
-          : <FaRegStar key={i} size={14} color="#d1d5db" />
-      )}
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          size={14}
+          color={i <= rating ? "#eab308" : "#d1d5db"}
+          fill={i <= rating ? "#eab308" : "none"}
+        />
+      ))}
     </div>
   );
 }
@@ -20,6 +24,15 @@ function Stars({ rating }: { rating: number }) {
 function formatDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+function Spinner() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60 }}>
+      <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid #e2e8f0", borderTopColor: "#0d9488", animation: "spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 }
 
 export default function ReviewsPage() {
@@ -63,89 +76,85 @@ export default function ReviewsPage() {
     if (medicId) fetchReviews(1, false, medicId);
   }, [medicId, fetchReviews]);
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f8fafc" }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #e2e8f0", borderTopColor: "#0d9488", animation: "spin 0.8s linear infinite" }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto", padding: "20px 20px 28px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <DashboardLayout>
+      {loading ? <Spinner /> : (
+        <div>
+          {/* Header */}
+          <div style={{ marginBottom: 28 }}>
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 4 }}>Статистика</p>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a" }}>Мои отзывы</h1>
+          </div>
+
+          {/* Summary card */}
+          {total > 0 && (
+            <div style={{
+              background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
+              borderRadius: 16, padding: "24px", marginBottom: 20, color: "#fff",
+              display: "flex", alignItems: "center", gap: 24,
+            }}>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ fontSize: 48, fontWeight: 800, lineHeight: 1 }}>{avgRating ?? "—"}</p>
+                <div style={{ display: "flex", justifyContent: "center", gap: 4, margin: "8px 0" }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star
+                      key={i}
+                      size={18}
+                      color="#fff"
+                      fill={avgRating && i <= Math.round(avgRating) ? "#fff" : "transparent"}
+                    />
+                  ))}
+                </div>
+                <p style={{ fontSize: 13, opacity: 0.8 }}>{total} отзывов</p>
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {reviews.length === 0 && !loading && (
+            <div style={{ textAlign: "center", padding: "60px 20px" }}>
+              <MessageSquare size={48} color="#cbd5e1" style={{ margin: "0 auto 12px", display: "block" }} />
+              <p style={{ fontSize: 15, color: "#94a3b8" }}>Отзывов пока нет</p>
+              <p style={{ fontSize: 13, color: "#cbd5e1", marginTop: 6 }}>Они появятся после завершения заказов</p>
+            </div>
+          )}
+
+          {/* Review cards */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {reviews.map((review) => (
+              <div key={review.id} style={{
+                background: "#fff", borderRadius: 14, padding: 16,
+                border: "1px solid #e2e8f0",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <Stars rating={review.rating} />
+                  <span style={{ fontSize: 12, color: "#94a3b8" }}>{formatDate(review.createdAt)}</span>
+                </div>
+                {review.comment ? (
+                  <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6 }}>{review.comment}</p>
+                ) : (
+                  <p style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>Без комментария</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Load more */}
+          {page < totalPages && (
             <button
-              onClick={() => router.push("/profile")}
-              style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}
+              onClick={() => medicId && fetchReviews(page + 1, true, medicId)}
+              disabled={loadingMore}
+              style={{
+                width: "100%", marginTop: 12, background: "transparent",
+                border: "1.5px solid #e2e8f0", borderRadius: 12, padding: 13,
+                fontSize: 14, color: "#0d9488", fontWeight: 600, cursor: "pointer",
+              }}
             >
-              <FaArrowLeft size={15} />
+              {loadingMore ? "Загружаем..." : "Загрузить ещё"}
             </button>
-            <p style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>Мои отзывы</p>
-            <div style={{ width: 36 }} />
-          </div>
+          )}
         </div>
-      </div>
-
-      <div style={{ maxWidth: 600, margin: "-20px auto 0", padding: "0 16px 80px" }}>
-
-        {/* Summary card */}
-        {total > 0 && (
-          <div style={{ background: "#fff", borderRadius: 16, padding: "20px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 20 }}>
-            <div style={{ textAlign: "center", flex: 1 }}>
-              <p style={{ fontSize: 36, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>{avgRating ?? "—"}</p>
-              <div style={{ display: "flex", justifyContent: "center", gap: 3, margin: "6px 0" }}>
-                {[1,2,3,4,5].map((i) => (
-                  <FaStar key={i} size={16} color={avgRating && i <= Math.round(avgRating) ? "#eab308" : "#e2e8f0"} />
-                ))}
-              </div>
-              <p style={{ fontSize: 12, color: "#64748b" }}>{total} отзывов</p>
-            </div>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {reviews.length === 0 && !loading && (
-          <div style={{ textAlign: "center", padding: "60px 20px" }}>
-            <FaCommentAlt size={48} color="#cbd5e1" style={{ marginBottom: 12 }} />
-            <p style={{ fontSize: 15, color: "#94a3b8" }}>Отзывов пока нет</p>
-            <p style={{ fontSize: 13, color: "#cbd5e1", marginTop: 6 }}>Они появятся после завершения заказов</p>
-          </div>
-        )}
-
-        {/* Review cards */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {reviews.map((review) => (
-            <div key={review.id} style={{ background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 6px rgba(0,0,0,0.06)", border: "1px solid #f1f5f9" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <Stars rating={review.rating} />
-                <span style={{ fontSize: 12, color: "#94a3b8" }}>{formatDate(review.createdAt)}</span>
-              </div>
-              {review.comment ? (
-                <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6 }}>{review.comment}</p>
-              ) : (
-                <p style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>Без комментария</p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Load more */}
-        {page < totalPages && (
-          <button
-            onClick={() => medicId && fetchReviews(page + 1, true, medicId)}
-            disabled={loadingMore}
-            style={{ width: "100%", marginTop: 10, background: "transparent", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: 13, fontSize: 14, color: "#0d9488", fontWeight: 600, cursor: "pointer" }}
-          >
-            {loadingMore ? "Загружаем..." : "Загрузить ещё"}
-          </button>
-        )}
-      </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+      )}
+    </DashboardLayout>
   );
 }

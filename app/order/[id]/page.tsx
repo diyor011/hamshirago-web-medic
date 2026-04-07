@@ -4,10 +4,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  FaChevronLeft, FaMapMarker, FaPhone,
-  FaYandex, FaLocationArrow, FaCheckCircle, FaHeartbeat,
-  FaComments, FaPaperPlane, FaTimes,
-} from "react-icons/fa";
+  ChevronLeft, MapPin, Phone,
+  Navigation, CheckCircle, Activity,
+  MessageCircle, Send, X,
+} from "lucide-react";
 import { medicApi, WS_URL, Order, OrderStatus, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, NEXT_STATUS, formatPrice, MedicalCard, Review, ChatMessage } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
@@ -270,7 +270,7 @@ export default function OrderDetailPage() {
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "16px 24px 24px", display: "flex", alignItems: "center", gap: 12 }}>
         <button onClick={() => router.push("/")}
           style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", flexShrink: 0 }}>
-          <FaChevronLeft size={16} />
+          <ChevronLeft size={16} />
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>{order.serviceTitle}</h1>
@@ -329,16 +329,16 @@ export default function OrderDetailPage() {
           <div style={{ marginBottom: 12, position: "relative" }}>
             <button onClick={() => setShowNavChoice(v => !v)}
               style={{ width: "100%", background: "#0f172a", color: "#fff", fontSize: 15, fontWeight: 700, borderRadius: 12, padding: "14px", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <FaLocationArrow size={14} />
+              <Navigation size={14} />
               {t("order.openNavigation")}
             </button>
 
             {showNavChoice && (
               <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, right: 0, background: "#fff", borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", overflow: "hidden", zIndex: 10 }}>
                 {[
-                  { key: "yandex", label: t("order.openYandex"), color: "#fc3f1d", icon: <FaYandex size={18} /> },
-                  { key: "google", label: t("order.openGoogle"), color: "#4285f4", icon: <FaMapMarker size={16} /> },
-                  { key: "2gis",   label: t("order.open2GIS"),   color: "#1db248", icon: <FaMapMarker size={16} /> },
+                  { key: "yandex", label: t("order.openYandex"), color: "#fc3f1d", icon: <Navigation size={18} /> },
+                  { key: "google", label: t("order.openGoogle"), color: "#4285f4", icon: <MapPin size={16} /> },
+                  { key: "2gis",   label: t("order.open2GIS"),   color: "#1db248", icon: <MapPin size={16} /> },
                 ].map(({ key, label, color, icon }) => (
                   <button key={key} onClick={() => openNavigation(key as "yandex" | "google" | "2gis")}
                     style={{ width: "100%", background: "#fff", border: "none", borderBottom: "1px solid #f1f5f9", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, textAlign: "left" }}>
@@ -362,7 +362,7 @@ export default function OrderDetailPage() {
           <h2 style={sectionTitle}>{t("order.clientAddress")}</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <FaMapMarker size={14} color="#0d9488" style={{ marginTop: 2, flexShrink: 0 }} />
+              <MapPin size={14} color="#0d9488" style={{ marginTop: 2, flexShrink: 0 }} />
               <span style={{ fontSize: 15, color: "#0f172a", fontWeight: 500 }}>
                 {order.location?.house}
                 {order.location?.floor ? `, ${t("order.floor")} ${order.location.floor}` : ""}
@@ -370,7 +370,7 @@ export default function OrderDetailPage() {
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <FaPhone size={13} color="#0d9488" />
+              <Phone size={13} color="#0d9488" />
               <a href={`tel:${order.location?.phone}`}
                 style={{ fontSize: 15, color: "#0d9488", fontWeight: 600, textDecoration: "none" }}>
                 {order.location?.phone}
@@ -407,7 +407,7 @@ export default function OrderDetailPage() {
         {medicalCard && (medicalCard.bloodType || medicalCard.allergies || medicalCard.chronicDiseases || medicalCard.notes) && (
           <div style={{ ...cardStyle, borderLeft: "3px solid #0d9488" }}>
             <h2 style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: 6 }}>
-              <FaHeartbeat size={12} color="#0d9488" />
+              <Activity size={12} color="#0d9488" />
               {t("order.medicalCard.title")}
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -453,7 +453,7 @@ export default function OrderDetailPage() {
               return (
                 <div key={s} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: done || active ? bg : "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    {done ? <FaCheckCircle size={14} color={text} /> : <span style={{ fontSize: 11, fontWeight: 700, color: active ? text : "#94a3b8" }}>{i + 1}</span>}
+                    {done ? <CheckCircle size={14} color={text} /> : <span style={{ fontSize: 11, fontWeight: 700, color: active ? text : "#94a3b8" }}>{i + 1}</span>}
                   </div>
                   <span style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: active ? text : done ? "#64748b" : "#94a3b8" }}>
                     {ORDER_STATUS_LABEL[s]}
@@ -547,14 +547,14 @@ export default function OrderDetailPage() {
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}
           >
-            <FaComments size={15} />
+            <MessageCircle size={15} />
             Чат с клиентом
           </button>
         )}
 
         {order.status === "DONE" && (
           <div style={{ background: "#22c55e20", borderRadius: 16, padding: 20, textAlign: "center" }}>
-            <FaCheckCircle size={36} color="#22c55e" style={{ margin: "0 auto 12px", display: "block" }} />
+            <CheckCircle size={36} color="#22c55e" style={{ margin: "0 auto 12px", display: "block" }} />
             <p style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("order.orderDone")}</p>
             <p style={{ fontSize: 14, color: "#64748b", marginBottom: 16 }}>{t("order.orderDoneText")}</p>
             <button onClick={() => router.push("/")} style={primaryBtn}>{t("order.home")}</button>
@@ -581,11 +581,11 @@ export default function OrderDetailPage() {
           <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", height: "70vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #f1f5f9" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <FaComments size={16} color="#0d9488" />
+                <MessageCircle size={16} color="#0d9488" />
                 <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Чат с клиентом</span>
               </div>
               <button onClick={() => setChatOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
-                <FaTimes size={18} />
+                <X size={18} />
               </button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -631,7 +631,7 @@ export default function OrderDetailPage() {
                   opacity: sendingMsg || !chatInput.trim() ? 0.5 : 1, flexShrink: 0,
                 }}
               >
-                <FaPaperPlane size={16} color="#fff" />
+                <Send size={16} color="#fff" />
               </button>
             </div>
           </div>
