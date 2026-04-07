@@ -49,11 +49,12 @@ interface DispatchInvitePayload {
   expiresAt: string;
 }
 import { useRouter } from "next/navigation";
-import { FaSignOutAlt, FaMapMarker, FaClock, FaRedo, FaToggleOn, FaToggleOff, FaUserCircle, FaChevronRight } from "react-icons/fa";
+import { MapPin, Clock, RefreshCw, ChevronRight, AlertTriangle, Wifi, WifiOff } from "lucide-react";
 import { medicApi, WS_URL, Order, Medic, ORDER_STATUS_LABEL, ORDER_STATUS_COLOR, OrderStatus, formatPrice } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { io, Socket } from "socket.io-client";
 import { unsubscribeWebPush } from "@/lib/webPush";
+import DashboardLayout from "@/components/DashboardLayout";
 
 function playOrderAlert() {
   try {
@@ -356,67 +357,58 @@ export default function DashboardPage() {
   const activeOrders = myOrders.filter(o => !["DONE", "CANCELED"].includes(o.status));
   const historyOrders = myOrders.filter(o => ["DONE", "CANCELED"].includes(o.status));
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер";
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+    <DashboardLayout>
       <style>{`
-        .dash-header-inner { max-width: 1100px; margin: 0 auto; padding: 20px 24px 20px; }
-        .dash-body { max-width: 1100px; margin: 0 auto; padding: 20px 24px 80px; }
         .dash-columns { display: grid; grid-template-columns: 1fr; gap: 20px; }
         .orders-grid-2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
         @media (min-width: 860px) {
-          .dash-columns { grid-template-columns: 320px 1fr; }
+          .dash-columns { grid-template-columns: 300px 1fr; }
           .orders-grid-2 { grid-template-columns: 1fr 1fr; }
         }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
-      {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)" }}>
-        <div className="dash-header-inner">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <img src="/logo.png" alt="HamshiraGo" style={{ width: 50, height: 50, borderRadius: 15, objectFit: "cover" }} />
-              <div>
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>{t("home.medicLabel")}</p>
-                <p style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{medic?.name ?? "..."}</p>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {/* Language switcher */}
-              <div style={{ display: "flex", gap: 4 }}>
-                {(["ru", "uz"] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => setLanguage(lang)}
-                    style={{
-                      padding: "4px 8px", borderRadius: 6, cursor: "pointer",
-                      border: `1px solid ${language === lang ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.25)"}`,
-                      background: language === lang ? "rgba(255,255,255,0.25)" : "transparent",
-                      color: "#fff", fontSize: 11, fontWeight: 700,
-                    }}
-                  >
-                    {lang.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-              <button onClick={loadData} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}>
-                <FaRedo size={14} />
-              </button>
-              <button onClick={() => router.push("/profile")} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}>
-                <FaUserCircle size={18} />
-              </button>
-              <button onClick={handleLogout} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}>
-                <FaSignOutAlt size={16} />
-              </button>
-            </div>
+      {/* Welcome card */}
+      <div style={{
+        background: "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
+        borderRadius: 20, padding: "28px 32px", marginBottom: 24, position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", right: -20, top: -20, width: 140, height: 140, borderRadius: "50%", background: "rgba(255,255,255,0.07)" }} />
+        <div style={{ position: "relative" }}>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>
+            {new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
+            {greeting}, {medic?.name?.split(" ")[0] ?? "..."}
+          </h1>
+          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)" }}>
+            {isOnline
+              ? `Активных заказов: ${activeOrders.length}`
+              : "Вы офлайн — включите режим онлайн чтобы получать заказы"}
+          </p>
+        </div>
+        {/* Connection indicator */}
+        <div style={{ position: "absolute", top: 16, right: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: "4px 10px" }}>
+            {socketOk
+              ? <Wifi size={12} color="#fff" />
+              : <WifiOff size={12} color="#fbbf24" />}
+            <span style={{ fontSize: 11, color: socketOk ? "rgba(255,255,255,0.9)" : "#fbbf24", fontWeight: 600 }}>
+              {socketOk ? "Онлайн" : "Нет связи"}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="dash-body">
+      <div>
         {/* Connection lost banner */}
         {!socketOk && (
-          <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
+            <WifiOff size={14} />
             {t("home.connectionLost")}
           </div>
         )}
@@ -464,9 +456,9 @@ export default function DashboardPage() {
                   {isOnline ? t("home.ordersReceiving") : t("home.tapToStart")}
                 </p>
               </div>
-              {isOnline
-                ? <FaToggleOn size={40} color="rgba(255,255,255,0.9)" />
-                : <FaToggleOff size={40} color="#cbd5e1" />}
+              <div style={{ width: 44, height: 24, borderRadius: 12, background: isOnline ? "rgba(255,255,255,0.3)" : "#e2e8f0", position: "relative", transition: "background 0.2s" }}>
+                <div style={{ position: "absolute", top: 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", left: isOnline ? 23 : 3 }} />
+              </div>
             </button>
 
             {/* Stats */}
@@ -494,7 +486,7 @@ export default function DashboardPage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>{t("home.myOrders")}</p>
               <button onClick={() => router.push("/orders")} style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#0d9488", fontWeight: 600 }}>
-                Вся история <FaChevronRight size={10} />
+                Вся история <ChevronRight size={12} />
               </button>
             </div>
 
@@ -526,7 +518,7 @@ export default function DashboardPage() {
                           </div>
                           {order.location && (
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <FaMapMarker size={12} color="#94a3b8" />
+                              <MapPin size={12} color="#94a3b8" />
                               <span style={{ fontSize: 13, color: "#64748b" }}>{order.location.house}</span>
                             </div>
                           )}
@@ -555,7 +547,7 @@ export default function DashboardPage() {
                 )}
                 {myOrders.length === 0 && (
                   <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <FaClock size={40} color="#e2e8f0" style={{ margin: "0 auto 16px", display: "block" }} />
+                    <Clock size={40} color="#e2e8f0" style={{ margin: "0 auto 16px", display: "block" }} />
                     <p style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{t("home.noOrdersYet")}</p>
                     <p style={{ fontSize: 14, color: "#64748b" }}>{isOnline ? t("home.waitOrders") : t("home.enableOnline")}</p>
                   </div>
@@ -746,7 +738,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 }
 
