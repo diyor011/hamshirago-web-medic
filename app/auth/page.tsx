@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Lock, User, Eye, EyeOff, AlertCircle, Stethoscope, Star } from "lucide-react";
-import { medicApi } from "@/lib/api";
+import { medicApi, doctorApi } from "@/lib/api";
 import { subscribeWebPush } from "@/lib/webPush";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/context/LanguageContext";
 
 type Mode = "login" | "register";
+type Role = "medic" | "doctor";
 
 function formatPhone(raw: string) {
   const digits = raw.replace(/\D/g, "").slice(0, 12);
@@ -26,11 +27,13 @@ export default function AuthPage() {
   const router = useRouter();
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
+  const [role, setRole] = useState<Role>("medic");
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [experience, setExperience] = useState("");
+  const [specialization, setSpecialization] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,13 +51,24 @@ export default function AuthPage() {
     setLoading(true);
     const rawPhone = "+" + phone.replace(/\D/g, "");
     try {
-      const res = mode === "login"
-        ? await medicApi.auth.login(rawPhone, password)
-        : await medicApi.auth.register({ name, phone: rawPhone, password, experienceYears: Number(experience) || 0 });
-      localStorage.setItem("medic_token", res.access_token);
-      localStorage.setItem("medic", JSON.stringify(res.medic));
-      subscribeWebPush();
-      router.push("/");
+      if (role === "doctor") {
+        const res = mode === "login"
+          ? await doctorApi.auth.login(rawPhone, password)
+          : await doctorApi.auth.register({ name, phone: rawPhone, password, specialization: specialization || undefined, experienceYears: Number(experience) || 0 });
+        localStorage.setItem("medic_token", res.access_token);
+        localStorage.setItem("doctor", JSON.stringify(res.doctor));
+        localStorage.setItem("user_role", "doctor");
+        router.push("/doctor/consultations");
+      } else {
+        const res = mode === "login"
+          ? await medicApi.auth.login(rawPhone, password)
+          : await medicApi.auth.register({ name, phone: rawPhone, password, experienceYears: Number(experience) || 0 });
+        localStorage.setItem("medic_token", res.access_token);
+        localStorage.setItem("medic", JSON.stringify(res.medic));
+        localStorage.setItem("user_role", "medic");
+        subscribeWebPush();
+        router.push("/");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
       setError(msg === "TOO_MANY_REQUESTS" ? t("auth.tooManyAttempts") : msg || t("auth.errorGeneral"));
@@ -130,11 +144,28 @@ export default function AuthPage() {
             </div>
           </div>
 
+          {/* Role toggle */}
+          <div style={{ background: "#f1f5f9", borderRadius: 10, padding: 4, display: "flex", marginBottom: 20 }}>
+            {(["medic", "doctor"] as Role[]).map((r) => (
+              <button key={r} onClick={() => { setRole(r); setError(""); }} style={{
+                flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer",
+                fontSize: 14, fontWeight: 600, transition: "all 0.15s",
+                background: role === r ? "#fff" : "transparent",
+                color: role === r ? "#0d9488" : "#94a3b8",
+                boxShadow: role === r ? "0 1px 6px rgba(0,0,0,0.08)" : "none",
+              }}>
+                {r === "medic" ? "👩‍⚕️ Медик" : "🩺 Врач"}
+              </button>
+            ))}
+          </div>
+
           <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
             {mode === "login" ? "Добро пожаловать" : "Регистрация"}
           </h2>
           <p style={{ fontSize: 14, color: "#64748b", marginBottom: 28 }}>
-            {mode === "login" ? "Войдите в свой аккаунт медика" : "Создайте аккаунт для работы"}
+            {mode === "login"
+              ? role === "doctor" ? "Войдите в аккаунт врача" : "Войдите в свой аккаунт медика"
+              : role === "doctor" ? "Создайте аккаунт врача" : "Создайте аккаунт для работы"}
           </p>
 
           {/* Mode toggle */}
@@ -164,6 +195,17 @@ export default function AuthPage() {
                       placeholder={t("auth.namePlaceholder")} required style={inputStyle("name")} />
                   </div>
                 </div>
+                {role === "doctor" && (
+                  <div>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Специализация</label>
+                    <div style={{ position: "relative" }}>
+                      <Stethoscope size={16} color={focused === "spec" ? "#0d9488" : "#94a3b8"} style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }} />
+                      <input type="text" value={specialization} onChange={(e) => setSpecialization(e.target.value)}
+                        onFocus={() => setFocused("spec")} onBlur={() => setFocused(null)}
+                        placeholder="Терапевт, педиатр..." style={inputStyle("spec")} />
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>{t("auth.experienceLabel")}</label>
                   <div style={{ position: "relative" }}>

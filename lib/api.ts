@@ -6,6 +6,11 @@ function getToken(): string | null {
   return localStorage.getItem("medic_token");
 }
 
+export function getUserRole(): "medic" | "doctor" {
+  if (typeof window === "undefined") return "medic";
+  return (localStorage.getItem("user_role") as "medic" | "doctor") ?? "medic";
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -330,6 +335,115 @@ export interface Review {
   comment?: string | null;
   createdAt: string;
 }
+
+// ─── Doctor API ──────────────────────────────────────────────────────────────
+
+export interface DoctorAuthResponse {
+  access_token: string;
+  doctor: DoctorProfile;
+}
+
+export interface RegisterDoctorDto {
+  name: string;
+  phone: string;
+  password: string;
+  specialization?: string;
+  experienceYears?: number;
+}
+
+export interface DoctorProfile {
+  id: string;
+  name: string;
+  phone: string;
+  specialization: string | null;
+  experienceYears: number;
+  isOnline: boolean;
+  isBlocked: boolean;
+  verificationStatus: VerificationStatus;
+  profilePhotoUrl: string | null;
+  facePhotoUrl: string | null;
+  rating: number | null;
+  reviewCount: number;
+}
+
+export type ConsultationStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "CANCELED";
+
+export interface Consultation {
+  id: string;
+  clientId: string;
+  doctorId: string | null;
+  status: ConsultationStatus;
+  symptoms: string;
+  suggestedSpecialization: string | null;
+  doctorNotes: string | null;
+  slotId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  doctor?: DoctorProfile;
+  client?: { id: string; name: string; phone: string };
+  prescription?: { id: string; serviceTitle: string; status: string };
+}
+
+export interface DoctorSlot {
+  id: string;
+  doctorId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isBooked: boolean;
+  consultationId: string | null;
+}
+
+export const doctorApi = {
+  auth: {
+    login: (phone: string, password: string) =>
+      request<DoctorAuthResponse>("/doctors/login", {
+        method: "POST",
+        body: JSON.stringify({ phone, password }),
+      }),
+    register: (data: RegisterDoctorDto) =>
+      request<DoctorAuthResponse>("/doctors/register", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    me: () => request<DoctorProfile>(`/doctors/me?_=${Date.now()}`),
+    updateProfile: (dto: Partial<RegisterDoctorDto>) =>
+      request<DoctorProfile>("/doctors/profile", {
+        method: "PATCH",
+        body: JSON.stringify(dto),
+      }),
+  },
+  consultations: {
+    pending: () => request<Consultation[]>("/consultations/doctor/pending"),
+    my: (page = 1, limit = 20) =>
+      request<{ data: Consultation[]; total: number; page: number; totalPages: number }>(
+        `/consultations/doctor/my?page=${page}&limit=${limit}`,
+      ),
+    get: (id: string) => request<Consultation>(`/consultations/${id}`),
+    accept: (id: string) =>
+      request<Consultation>(`/consultations/${id}/doctor-accept`, { method: "POST" }),
+    decline: (id: string) =>
+      request<Consultation>(`/consultations/${id}/doctor-decline`, { method: "POST" }),
+    complete: (id: string, dto: { doctorNotes: string; createOrderServiceId?: string }) =>
+      request<Consultation>(`/consultations/${id}/doctor-complete`, {
+        method: "PATCH",
+        body: JSON.stringify(dto),
+      }),
+    joinCall: (id: string) =>
+      request<{ token: string; roomName: string }>(`/consultations/${id}/call/join`, {
+        method: "POST",
+        body: JSON.stringify({ role: "doctor" }),
+      }),
+  },
+  slots: {
+    create: (dto: { date: string; startTime: string; endTime: string; intervalMinutes: number }) =>
+      request<DoctorSlot[]>("/doctors/me/slots", { method: "POST", body: JSON.stringify(dto) }),
+    get: (date?: string) =>
+      request<DoctorSlot[]>(`/doctors/me/slots${date ? `?date=${date}` : ""}`),
+    delete: (slotId: string) =>
+      request<void>(`/doctors/me/slots/${slotId}`, { method: "DELETE" }),
+  },
+};
 
 export function formatPrice(n: number): string {
   return n.toLocaleString("ru-RU");
