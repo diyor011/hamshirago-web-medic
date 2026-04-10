@@ -1,6 +1,7 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
+// build: 2026-04-10
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {},
