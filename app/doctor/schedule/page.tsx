@@ -128,7 +128,7 @@ export default function DoctorSchedulePage() {
               onClick={() => setSelectedDate(ds)}
               style={{
                 flexShrink: 0, display: "flex", flexDirection: "column",
-                alignItems: "center", padding: "10px 14px", borderRadius: 12, border: "none",
+                alignItems: "center", padding: "10px 14px", borderRadius: 12,
                 cursor: "pointer", transition: "all 0.15s", minWidth: 60,
                 background: isSelected ? "#0d9488" : isToday ? "#f0fdfa" : "#fff",
                 color: isSelected ? "#fff" : isToday ? "#0d9488" : "#475569",
