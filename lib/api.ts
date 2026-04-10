@@ -382,6 +382,7 @@ export interface Consultation {
   doctor?: DoctorProfile;
   client?: { id: string; name: string; phone: string };
   prescription?: { id: string; serviceTitle: string; status: string };
+  salomatSummary?: string | null;
 }
 
 export interface DoctorSlot {

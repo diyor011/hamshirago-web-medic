@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, Consultation } from "@/lib/api";
 import {
-  ArrowLeft, Video, CheckCircle, FileText, User, Clock, AlertCircle,
+  ArrowLeft, Video, CheckCircle, FileText, User, Clock, AlertCircle, Bot,
 } from "lucide-react";
 
 export default function DoctorConsultationDetailPage() {
@@ -139,6 +139,27 @@ export default function DoctorConsultationDetailPage() {
             )}
             <p style={{ fontSize: 14, color: "#334155", lineHeight: 1.6, margin: 0 }}>{c.symptoms}</p>
           </div>
+
+          {/* Salomat AI summary */}
+          {c.salomatSummary && (
+            <div style={{ background: "linear-gradient(135deg, #f0fdfa, #e0f2fe)", borderRadius: 14, border: "1.5px solid #5eead4", padding: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 9,
+                  background: "linear-gradient(135deg, #0d9488, #0f766e)",
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>
+                  <Bot size={15} color="#fff" />
+                </div>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: "#0f766e", textTransform: "uppercase", letterSpacing: 1, margin: 0 }}>
+                  Salomat AI — Краткое резюме
+                </h3>
+              </div>
+              <p style={{ fontSize: 14, color: "#134e4a", lineHeight: 1.65, margin: 0, whiteSpace: "pre-wrap" }}>
+                {c.salomatSummary}
+              </p>
+            </div>
+          )}
 
           {/* Doctor notes (if completed) */}
           {c.doctorNotes && (
