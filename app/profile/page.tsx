@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { medicApi, Medic, formatPrice } from "@/lib/api";
 import { subscribeWebPush, unsubscribeWebPush } from "@/lib/webPush";
+import { getMedicBotLink } from "@/lib/telegram-config";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/context/LanguageContext";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -310,7 +311,7 @@ function ProfileContent() {
                 ) : (
                   <div>
                     <p style={{ fontSize: 13, color: "#64748b", marginBottom: 12, lineHeight: 1.6 }}>{t("profile.telegramHint")}</p>
-                    <a href={`https://t.me/hamshirago_medic_bot?start=${medic.id}`} target="_blank" rel="noreferrer"
+                    <a href={getMedicBotLink(medic.id)} target="_blank" rel="noreferrer"
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "#229ED9", color: "#fff", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
                       <MessageCircle size={16} />
                       {t("profile.telegramConnect")}

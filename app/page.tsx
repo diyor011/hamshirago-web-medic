@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { TELEGRAM_SUPPORT } from "@/lib/telegram-config";
 import dynamic from "next/dynamic";
 
 const InviteMap = dynamic(() => import("@/components/Map"), { ssr: false });
@@ -727,7 +728,7 @@ export default function DashboardPage() {
                 <span style={{ fontWeight: 700, color: "#0f172a" }}>{walletModal.required.toLocaleString("ru-RU")} {t("common.sum")}</span>
               </div>
             </div>
-            <a href="https://t.me/hamshirago_support" target="_blank" rel="noreferrer"
+            <a href={TELEGRAM_SUPPORT} target="_blank" rel="noreferrer"
               style={{ width: "100%", background: "#0088cc", color: "#fff", borderRadius: 12, padding: "13px", textAlign: "center", fontWeight: 700, fontSize: 15, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               ✈️ {t("wallet.contactAdmin")}
             </a>
