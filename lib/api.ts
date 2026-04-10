@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-739a.up.railway.app";
 export const WS_URL = BASE_URL;
 
 function getToken(): string | null {
@@ -451,8 +451,7 @@ export function formatPrice(n: number): string {
 }
 
 export function reportClientError(message: string, stack?: string): void {
-  const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app";
-  fetch(`${BASE}/client-errors`, {
+  fetch(`${BASE_URL}/client-errors`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
