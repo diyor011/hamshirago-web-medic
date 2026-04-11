@@ -6,7 +6,10 @@ import { Phone, Lock, Eye, EyeOff, AlertCircle, Building2 } from "lucide-react";
 import { clinicApi, getClinicRole } from "@/lib/clinicApi";
 
 function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 12);
+  let digits = raw.replace(/\D/g, "");
+  // Handle duplicate country code (e.g. paste into prefilled +998 field)
+  if (digits.startsWith("998998")) digits = digits.slice(3);
+  digits = digits.slice(0, 12);
   if (!digits) return "";
   const d = digits.startsWith("998") ? digits.slice(3) : digits;
   let result = "+998";

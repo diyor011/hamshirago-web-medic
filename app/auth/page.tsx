@@ -12,14 +12,17 @@ type Mode = "login" | "register";
 type Role = "medic" | "doctor";
 
 function formatPhone(raw: string) {
-  const digits = raw.replace(/\D/g, "").slice(0, 12);
+  let digits = raw.replace(/\D/g, "");
+  // Handle duplicate country code (e.g. paste into prefilled +998 field)
+  if (digits.startsWith("998998")) digits = digits.slice(3);
+  digits = digits.slice(0, 12);
   if (!digits) return "";
   const d = digits.startsWith("998") ? digits.slice(3) : digits;
   let result = "+998";
-  if (d.length > 0) result += " " + d.slice(0, 2);
-  if (d.length > 2) result += " " + d.slice(2, 5);
-  if (d.length > 5) result += " " + d.slice(5, 7);
-  if (d.length > 7) result += " " + d.slice(7, 9);
+  if (d.length > 0) result += " " + d.slice(0, 2);   // XX (operator)
+  if (d.length > 2) result += " " + d.slice(2, 5);    // XXX
+  if (d.length > 5) result += " " + d.slice(5, 7);    // XX
+  if (d.length > 7) result += " " + d.slice(7, 9);    // XX
   return result;
 }
 
@@ -40,9 +43,14 @@ export default function AuthPage() {
   const [focused, setFocused] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("medic_onboarding_completed")) {
-      router.push("/onboarding");
+    // Check if already logged in — redirect to dashboard
+    const token = localStorage.getItem("medic_token");
+    if (token) {
+      router.replace("/");
+      return;
     }
+    // Mark onboarding as completed since user reached auth page directly
+    localStorage.setItem("medic_onboarding_completed", "true");
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {

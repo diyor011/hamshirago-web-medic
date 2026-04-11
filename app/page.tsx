@@ -358,8 +358,11 @@ export default function DashboardPage() {
   const activeOrders = myOrders.filter(o => !["DONE", "CANCELED"].includes(o.status));
   const historyOrders = myOrders.filter(o => ["DONE", "CANCELED"].includes(o.status));
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер";
+  const [greeting, setGreeting] = useState("");
+  useEffect(() => {
+    const hour = new Date().getHours();
+    setGreeting(hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер");
+  }, []);
 
   return (
     <DashboardLayout>
