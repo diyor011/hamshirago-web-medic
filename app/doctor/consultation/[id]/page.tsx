@@ -6,7 +6,15 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, Consultation } from "@/lib/api";
 import {
   ArrowLeft, Video, CheckCircle, FileText, User, Clock, AlertCircle, Bot,
+  PlusCircle, Send, CalendarPlus, History, Pill,
 } from "lucide-react";
+
+interface PrescriptionItem {
+  drug: string;
+  dose: string;
+  frequency: string;
+  days: string;
+}
 
 export default function DoctorConsultationDetailPage() {
   const router = useRouter();
@@ -18,6 +26,11 @@ export default function DoctorConsultationDetailPage() {
   const [showComplete, setShowComplete] = useState(false);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
+
+  // Prescription form state
+  const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionItem[]>([]);
+  const [prescForm, setPrescForm] = useState<PrescriptionItem>({ drug: "", dose: "", frequency: "", days: "" });
+  const [showPrescForm, setShowPrescForm] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -42,6 +55,29 @@ export default function DoctorConsultationDetailPage() {
       alert(e instanceof Error ? e.message : "Ошибка");
     }
     setCompleting(false);
+  }
+
+  function addPrescriptionItem() {
+    if (!prescForm.drug.trim()) return;
+    setPrescriptionItems((prev) => [...prev, { ...prescForm }]);
+    setPrescForm({ drug: "", dose: "", frequency: "", days: "" });
+    setShowPrescForm(false);
+  }
+
+  function removePrescriptionItem(idx: number) {
+    setPrescriptionItems((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleSendPrescription() {
+    if (prescriptionItems.length === 0) {
+      alert("Добавьте хотя бы один препарат");
+      return;
+    }
+    alert("Рецепт отправлен пациенту (заглушка — API в разработке)");
+  }
+
+  function handleScheduleNextVisit() {
+    alert("Назначение следующего визита (заглушка — API в разработке)");
   }
 
   async function handleJoinCall() {
@@ -171,6 +207,128 @@ export default function DoctorConsultationDetailPage() {
             </div>
           )}
 
+          {/* Visit history placeholder */}
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <History size={16} color="#64748b" />
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, margin: 0 }}>
+                История визитов пациента
+              </h3>
+            </div>
+            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 14px" }}>
+              <p style={{ fontSize: 13, color: "#94a3b8", margin: 0, fontStyle: "italic" }}>
+                История предыдущих визитов будет доступна после интеграции с медкартой пациента.
+              </p>
+            </div>
+          </div>
+
+          {/* Prescription form */}
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Pill size={16} color="#9333ea" />
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, margin: 0 }}>
+                  Рецепт
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPrescForm(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: "#faf5ff", color: "#9333ea", border: "1px solid #e9d5ff",
+                  cursor: "pointer",
+                }}
+              >
+                <PlusCircle size={13} /> Добавить
+              </button>
+            </div>
+
+            {prescriptionItems.length === 0 && !showPrescForm && (
+              <p style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", padding: "12px 0" }}>
+                Нет препаратов. Нажмите «Добавить».
+              </p>
+            )}
+
+            {prescriptionItems.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                {prescriptionItems.map((item, idx) => (
+                  <div key={idx} style={{
+                    display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+                    padding: "10px 12px", borderRadius: 10, background: "#faf5ff", border: "1px solid #e9d5ff",
+                  }}>
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: "#3b0764", margin: "0 0 2px" }}>{item.drug}</p>
+                      {item.dose && <p style={{ fontSize: 12, color: "#7c3aed", margin: "0 0 1px" }}>Доза: {item.dose}</p>}
+                      {item.frequency && <p style={{ fontSize: 12, color: "#7c3aed", margin: "0 0 1px" }}>Приём: {item.frequency}</p>}
+                      {item.days && <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>{item.days} дней</p>}
+                    </div>
+                    <button
+                      onClick={() => removePrescriptionItem(idx)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, padding: 4 }}
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showPrescForm && (
+              <div style={{ background: "#f8fafc", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                {[
+                  { key: "drug" as const, label: "Препарат *", placeholder: "Ибупрофен" },
+                  { key: "dose" as const, label: "Доза", placeholder: "400 мг" },
+                  { key: "frequency" as const, label: "Кратность", placeholder: "3 раза в день" },
+                  { key: "days" as const, label: "Дней", placeholder: "5" },
+                ].map(({ key, label, placeholder }) => (
+                  <div key={key} style={{ marginBottom: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{label}</label>
+                    <input
+                      style={{
+                        width: "100%", padding: "8px 10px", borderRadius: 8,
+                        border: "1.5px solid #e2e8f0", fontSize: 13, color: "#0f172a",
+                        outline: "none", fontFamily: "inherit", boxSizing: "border-box",
+                      }}
+                      value={prescForm[key]}
+                      onChange={(e) => setPrescForm((f) => ({ ...f, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                    />
+                  </div>
+                ))}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button
+                    onClick={addPrescriptionItem}
+                    style={{
+                      background: "#9333ea", color: "#fff", border: "none", borderRadius: 8,
+                      padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    Добавить
+                  </button>
+                  <button
+                    onClick={() => setShowPrescForm(false)}
+                    style={{ background: "#e2e8f0", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer", color: "#64748b" }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {prescriptionItems.length > 0 && (
+              <button
+                onClick={handleSendPrescription}
+                style={{
+                  width: "100%", background: "linear-gradient(135deg, #9333ea, #7c3aed)", color: "#fff",
+                  border: "none", borderRadius: 10, padding: "11px 0",
+                  fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}
+              >
+                <Send size={15} /> Отправить рецепт пациенту
+              </button>
+            )}
+          </div>
+
           {/* Complete form */}
           {isActive && showComplete && (
             <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: 20 }}>
@@ -260,6 +418,20 @@ export default function DoctorConsultationDetailPage() {
               Завершить консультацию
             </button>
           )}
+
+          {/* Schedule next visit */}
+          <button
+            onClick={handleScheduleNextVisit}
+            style={{
+              background: "#f0fdfa", color: "#0d9488", border: "1px solid #ccfbf1",
+              borderRadius: 14, padding: "14px 20px", cursor: "pointer",
+              fontSize: 14, fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}
+          >
+            <CalendarPlus size={16} />
+            Назначить следующий визит
+          </button>
 
           {/* Prescription badge */}
           {c.prescription && (
