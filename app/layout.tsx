@@ -6,7 +6,7 @@ import OfflineBanner from "@/components/OfflineBanner";
 import InstallPrompt from "@/components/InstallPrompt";
 import { LanguageProvider } from "@/context/LanguageContext";
 
-const API_HOST = (process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-739a.up.railway.app").replace(/\/$/, "");
+const API_HOST = (process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   title: "HamshiraGo — Медик",
