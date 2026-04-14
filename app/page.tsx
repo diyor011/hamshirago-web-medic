@@ -136,6 +136,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem("medic_token");
     if (!token) { router.push("/auth"); return; }
+    // Redirect doctors away from the medic dashboard
+    if (localStorage.getItem("user_role") === "doctor") { router.replace("/doctor/consultations"); return; }
 
     const saved = localStorage.getItem("medic");
     if (saved) {

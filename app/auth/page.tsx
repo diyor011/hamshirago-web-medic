@@ -43,10 +43,11 @@ export default function AuthPage() {
   const [focused, setFocused] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if already logged in — redirect to dashboard
+    // Check if already logged in — redirect to correct dashboard based on role
     const token = localStorage.getItem("medic_token");
     if (token) {
-      router.replace("/");
+      const savedRole = localStorage.getItem("user_role");
+      router.replace(savedRole === "doctor" ? "/doctor/consultations" : "/");
       return;
     }
     // Mark onboarding as completed since user reached auth page directly
