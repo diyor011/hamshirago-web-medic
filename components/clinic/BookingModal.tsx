@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { X, Search, User } from "lucide-react";
-import { clinicApi, ClinicStaff, PaymentType, PatientInfo } from "@/lib/clinicApi";
+import { clinicApi, ClinicStaff, PaymentType, PatientInfo, DoctorRoomSlot } from "@/lib/clinicApi";
 
 interface Props {
   open: boolean;
@@ -42,6 +42,32 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const [roomSlots, setRoomSlots] = useState<DoctorRoomSlot[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+
+  // Load available rooms when doctor + date are set
+  useEffect(() => {
+    if (!doctorId || !date) { setRoomSlots([]); setRoomId(""); return; }
+    let cancelled = false;
+    setLoadingRooms(true);
+    clinicApi.rooms
+      .forDoctor(doctorId, date)
+      .then((slots) => {
+        if (cancelled) return;
+        setRoomSlots(slots);
+        // Auto-select first if only one room
+        if (slots.length === 1) setRoomId(slots[0].roomId);
+        else setRoomId("");
+      })
+      .catch(() => {
+        if (!cancelled) setRoomSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRooms(false);
+      });
+    return () => { cancelled = true; };
+  }, [doctorId, date]);
 
   const loadDoctors = useCallback(async () => {
     setLoadingDoctors(true);
@@ -87,15 +113,22 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
     if (!doctorId) { setError("Выберите врача"); return; }
     if (!date) { setError("Выберите дату"); return; }
     if (!time) { setError("Укажите время"); return; }
+    if (!roomId) { setError("Выберите кабинет"); return; }
 
-    // roomId: use the first room of selected doctor's schedule, or leave empty if not required
+    // Validate time is within doctor's room schedule window
+    const slot = roomSlots.find((s) => s.roomId === roomId);
+    if (slot && (time < slot.startTime || time > slot.endTime)) {
+      setError(`Время вне графика врача (${slot.startTime}–${slot.endTime})`);
+      return;
+    }
+
     setSubmitting(true); setError("");
     try {
       await clinicApi.appointments.create({
         patientPhone: phone.trim(),
         patientName: patientName.trim() || undefined,
         doctorId,
-        roomId: roomId || doctorId, // fallback; backend should handle
+        roomId,
         date,
         time,
         paymentType,
@@ -208,6 +241,40 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
             ))}
           </select>
         </div>
+
+        {/* Room (based on doctor's schedule) */}
+        {doctorId && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
+              Кабинет *
+            </label>
+            {loadingRooms ? (
+              <div style={{ ...inputStyle, color: "#94a3b8", display: "flex", alignItems: "center" }}>
+                Загрузка расписания...
+              </div>
+            ) : roomSlots.length === 0 ? (
+              <div style={{
+                ...inputStyle, background: "#fffbeb", border: "1.5px solid #fde68a",
+                color: "#92400e", fontSize: 13, display: "flex", alignItems: "center",
+              }}>
+                Врач не работает в выбранный день
+              </div>
+            ) : (
+              <select
+                style={{ ...inputStyle, background: "#fff" }}
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+              >
+                <option value="">Выберите кабинет</option>
+                {roomSlots.map((s) => (
+                  <option key={`${s.roomId}-${s.startTime}`} value={s.roomId}>
+                    {s.roomName}{s.floor != null ? ` (${s.floor} этаж)` : ""} · {s.startTime}–{s.endTime}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
         {/* Date & Time */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>

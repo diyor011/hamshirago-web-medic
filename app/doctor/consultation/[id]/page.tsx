@@ -6,7 +6,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, Consultation } from "@/lib/api";
 import {
   ArrowLeft, Video, CheckCircle, FileText, User, Clock, AlertCircle, Bot,
-  PlusCircle, Send, CalendarPlus, History, Pill,
+  PlusCircle, Send, CalendarPlus, History, Pill, Download,
 } from "lucide-react";
 
 interface PrescriptionItem {
@@ -73,11 +73,20 @@ export default function DoctorConsultationDetailPage() {
       alert("Добавьте хотя бы один препарат");
       return;
     }
-    alert("Рецепт отправлен пациенту (заглушка — API в разработке)");
+    const cons = consultation;
+    sessionStorage.setItem("print_prescription", JSON.stringify({
+      drugs: prescriptionItems,
+      patientName: cons?.client?.name ?? "—",
+      patientPhone: cons?.client?.phone ?? "—",
+      doctorName: cons?.doctor?.name ?? "—",
+      doctorSpec: cons?.doctor?.specialization ?? "",
+      date: new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }),
+    }));
+    window.open("/doctor/prescription/print", "_blank");
   }
 
   function handleScheduleNextVisit() {
-    alert("Назначение следующего визита (заглушка — API в разработке)");
+    alert("Функция будет доступна в ближайшее время");
   }
 
   async function handleJoinCall() {
@@ -324,7 +333,7 @@ export default function DoctorConsultationDetailPage() {
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}
               >
-                <Send size={15} /> Отправить рецепт пациенту
+                <Send size={15} /> Сформировать рецепт (PDF)
               </button>
             )}
           </div>
@@ -416,6 +425,22 @@ export default function DoctorConsultationDetailPage() {
             >
               <CheckCircle size={16} />
               Завершить консультацию
+            </button>
+          )}
+
+          {/* Download PDF — only when completed and has doctor notes */}
+          {c.status === "COMPLETED" && c.doctorNotes && (
+            <button
+              onClick={() => window.open(`/doctor/consultation/${id}/print`, "_blank")}
+              style={{
+                background: "#f8fafc", color: "#0f172a", border: "1px solid #cbd5e1",
+                borderRadius: 14, padding: "14px 20px", cursor: "pointer",
+                fontSize: 14, fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              <Download size={16} />
+              Скачать заключение (PDF)
             </button>
           )}
 

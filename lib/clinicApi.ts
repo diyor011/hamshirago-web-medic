@@ -110,6 +110,15 @@ export interface RoomDoctorSchedule {
   endTime: string;
 }
 
+export interface DoctorRoomSlot {
+  roomId: string;
+  roomName: string;
+  floor: number | null;
+  startTime: string;
+  endTime: string;
+  dayOfWeek: number;
+}
+
 export interface ClinicService {
   id: string;
   name: string;
@@ -266,6 +275,10 @@ export const clinicApi = {
       }),
     schedule: (roomId: string) =>
       request<RoomDoctorSchedule[]>(`/clinic/rooms/${roomId}/schedule`),
+    forDoctor: (doctorId: string, date?: string) => {
+      const q = date ? `?date=${encodeURIComponent(date)}` : "";
+      return request<DoctorRoomSlot[]>(`/clinic/doctors/${doctorId}/rooms${q}`);
+    },
   },
 
   services: {
