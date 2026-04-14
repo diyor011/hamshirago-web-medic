@@ -105,12 +105,7 @@ export default function AuthPage() {
         <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
         <div style={{ position: "absolute", bottom: -40, left: -40, width: 160, height: 160, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
         <div style={{ position: "relative", textAlign: "center" }}>
-          <div style={{
-            width: 72, height: 72, borderRadius: 20, background: "rgba(255,255,255,0.15)",
-            display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px",
-          }}>
-            <Stethoscope size={36} color="#fff" />
-          </div>
+          <img src="/logo.png" alt="HamshiraGo" style={{ width: 72, height: 72, borderRadius: 20, margin: "0 auto 20px", display: "block" }} />
           <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", marginBottom: 10 }}>HamshiraGo</h1>
           <p style={{ fontSize: 15, color: "rgba(255,255,255,0.75)", lineHeight: 1.6, maxWidth: 280 }}>
             Платформа для профессиональных медицинских специалистов
@@ -134,9 +129,7 @@ export default function AuthPage() {
           {/* Language + logo mobile */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
             <div className="mobile-logo" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #0d9488, #0f766e)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Stethoscope size={16} color="#fff" />
-              </div>
+              <img src="/logo.png" alt="HamshiraGo" style={{ width: 32, height: 32, borderRadius: 8 }} />
               <span style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>HamshiraGo</span>
             </div>
             <div style={{ display: "flex", gap: 4 }}>

@@ -39,7 +39,7 @@ export default function DoctorSidebar() {
       {/* Logo */}
       <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #f1f5f9" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <img src="/icon.svg" alt="HamshiraGo" style={{ width: 36, height: 36, borderRadius: 10 }} />
+          <img src="/logo.png" alt="HamshiraGo" style={{ width: 36, height: 36, borderRadius: 10 }} />
           <div>
             <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>HamshiraGo</p>
             <p style={{ fontSize: 11, color: "#0d9488", fontWeight: 600 }}>Врачебный портал</p>
