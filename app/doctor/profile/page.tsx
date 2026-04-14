@@ -2,34 +2,61 @@
 
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { doctorApi, DoctorProfile } from "@/lib/api";
+import { doctorApi } from "@/lib/api";
+import { useDoctor } from "@/context/DoctorContext";
 import { User, Edit2, Check, X, Stethoscope } from "lucide-react";
 
 export default function DoctorProfilePage() {
-  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { doctor, setDoctor } = useDoctor();
+  const [loading, setLoading] = useState(!doctor);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [specialization, setSpecialization] = useState("");
+  const [price, setPrice] = useState("");
+  const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (doctor) {
+      setName(doctor.name);
+      setSpecialization(doctor.specialization ?? "");
+      setPrice(doctor.pricePerConsultation != null ? String(doctor.pricePerConsultation) : "");
+      setBio(doctor.bio ?? "");
+      setLoading(false);
+      return;
+    }
     doctorApi.auth.me().then((d) => {
       setDoctor(d);
       setName(d.name);
       setSpecialization(d.specialization ?? "");
-      localStorage.setItem("doctor", JSON.stringify(d));
+      setPrice(d.pricePerConsultation != null ? String(d.pricePerConsultation) : "");
+      setBio(d.bio ?? "");
     }).catch(() => {}).finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync form fields when context doctor changes (e.g. after initial load)
+  useEffect(() => {
+    if (doctor && !editing) {
+      setName(doctor.name);
+      setSpecialization(doctor.specialization ?? "");
+      setPrice(doctor.pricePerConsultation != null ? String(doctor.pricePerConsultation) : "");
+      setBio(doctor.bio ?? "");
+    }
+  }, [doctor, editing]);
 
   async function handleSave() {
     setSaving(true);
     setError("");
     try {
-      const updated = await doctorApi.auth.updateProfile({ name: name.trim(), specialization: specialization.trim() || undefined });
+      const updated = await doctorApi.auth.updateProfile({
+        name: name.trim(),
+        specialization: specialization.trim() || undefined,
+        pricePerConsultation: price ? Math.round(Number(price)) : undefined,
+        bio: bio.trim() || undefined,
+      });
       setDoctor(updated);
-      localStorage.setItem("doctor", JSON.stringify(updated));
       setEditing(false);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Ошибка сохранения");
@@ -144,21 +171,57 @@ export default function DoctorProfilePage() {
                   }}
                 />
               </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>ЦЕНА ЗА КОНСУЛЬТАЦИЮ (сум)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="например: 150000"
+                  style={{
+                    width: "100%", height: 42, borderRadius: 8, border: "1.5px solid #e2e8f0",
+                    padding: "0 12px", fontSize: 14, boxSizing: "border-box", outline: "none",
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>О СЕБЕ</label>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Краткая биография, опыт, достижения..."
+                  rows={3}
+                  style={{
+                    width: "100%", borderRadius: 8, border: "1.5px solid #e2e8f0",
+                    padding: "10px 12px", fontSize: 14, boxSizing: "border-box", outline: "none",
+                    resize: "vertical", fontFamily: "inherit",
+                  }}
+                />
+              </div>
               {error && <p style={{ fontSize: 13, color: "#ef4444", margin: 0 }}>{error}</p>}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
+              {([
                 ["Телефон", doctor.phone],
                 ["Специализация", doctor.specialization ?? "—"],
                 ["Опыт", `${doctor.experienceYears} лет`],
+                ["Цена консультации", doctor.pricePerConsultation != null ? `${doctor.pricePerConsultation.toLocaleString("ru-RU")} сум` : "—"],
                 ["Рейтинг", `★ ${Number(doctor.rating ?? 0).toFixed(1)} (${doctor.reviewCount} отзывов)`],
-              ].map(([label, value]) => (
+              ] as [string, string][]).map(([label, value]) => (
                 <div key={label}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, margin: "0 0 2px" }}>{label}</p>
                   <p style={{ fontSize: 14, color: "#0f172a", margin: 0, fontWeight: 500 }}>{value}</p>
                 </div>
               ))}
+              {doctor.bio && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, margin: "0 0 2px" }}>О СЕБЕ</p>
+                  <p style={{ fontSize: 14, color: "#0f172a", margin: 0, fontWeight: 400, lineHeight: 1.5 }}>{doctor.bio}</p>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
+import { ClinicProvider, useClinic } from "@/context/ClinicContext";
 
 interface NavItem {
   href: string;
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
 
 function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname: string; onLogout: () => void }) {
   const visible = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const { clinic } = useClinic();
 
   return (
     <aside style={{
@@ -42,18 +44,28 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
       borderRight: "1px solid #e2e8f0", display: "flex",
       flexDirection: "column", position: "fixed", top: 0, left: 0, zIndex: 50,
     }}>
-      {/* Logo */}
+      {/* Logo / Clinic branding */}
       <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #f1f5f9" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: "linear-gradient(135deg, #0d9488, #0f766e)",
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}>
-            <Building2 size={18} color="#fff" />
-          </div>
-          <div>
-            <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.2 }}>HamshiraGo</p>
+          {clinic?.logoUrl ? (
+            <img
+              src={clinic.logoUrl}
+              alt={clinic.name}
+              style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "1px solid #e2e8f0", flexShrink: 0 }}
+            />
+          ) : (
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: "linear-gradient(135deg, #0d9488, #0f766e)",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+              <Building2 size={18} color="#fff" />
+            </div>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {clinic?.name ?? "HamshiraGo"}
+            </p>
             <p style={{ fontSize: 11, color: "#64748b" }}>Clinic Portal</p>
           </div>
         </div>
@@ -163,28 +175,30 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
-      <div className="clinic-sidebar">
-        <SidebarInner role={role} pathname={pathname} onLogout={handleLogout} />
-      </div>
-
-      <main style={{ flex: 1, minHeight: "100vh" }} className="clinic-main">
-        <div className="clinic-inner">
-          {children}
+    <ClinicProvider>
+      <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
+        <div className="clinic-sidebar">
+          <SidebarInner role={role!} pathname={pathname} onLogout={handleLogout} />
         </div>
-      </main>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .clinic-sidebar { display: block; }
-        .clinic-main { margin-left: 240px; }
-        .clinic-inner { max-width: 1200px; margin: 0 auto; padding: 32px 28px 60px; }
-        @media (max-width: 768px) {
-          .clinic-sidebar { display: none !important; }
-          .clinic-main { margin-left: 0 !important; }
-          .clinic-inner { padding: 16px 16px 40px !important; }
-        }
-      `}</style>
-    </div>
+        <main style={{ flex: 1, minHeight: "100vh" }} className="clinic-main">
+          <div className="clinic-inner">
+            {children}
+          </div>
+        </main>
+
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          .clinic-sidebar { display: block; }
+          .clinic-main { margin-left: 240px; }
+          .clinic-inner { max-width: 1200px; margin: 0 auto; padding: 32px 28px 60px; }
+          @media (max-width: 768px) {
+            .clinic-sidebar { display: none !important; }
+            .clinic-main { margin-left: 0 !important; }
+            .clinic-inner { padding: 16px 16px 40px !important; }
+          }
+        `}</style>
+      </div>
+    </ClinicProvider>
   );
 }

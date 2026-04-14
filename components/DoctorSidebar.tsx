@@ -5,13 +5,11 @@ import {
   ClipboardList,
   Calendar,
   FileText,
-  Users,
   User,
   LogOut,
   Stethoscope,
 } from "lucide-react";
-import { doctorApi, DoctorProfile } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { useDoctor } from "@/context/DoctorContext";
 
 const NAV = [
   { href: "/doctor/consultations", label: "Консультации", icon: ClipboardList },
@@ -23,16 +21,7 @@ const NAV = [
 export default function DoctorSidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
-
-  useEffect(() => {
-    const cached = localStorage.getItem("doctor");
-    if (cached) { try { setDoctor(JSON.parse(cached)); } catch {} }
-    doctorApi.auth.me().then((d) => {
-      setDoctor(d);
-      localStorage.setItem("doctor", JSON.stringify(d));
-    }).catch(() => {});
-  }, []);
+  const { doctor } = useDoctor();
 
   function handleLogout() {
     localStorage.removeItem("medic_token");

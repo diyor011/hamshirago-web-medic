@@ -6,6 +6,7 @@ import DoctorSidebar from "./DoctorSidebar";
 import MobileNav from "./MobileNav";
 import DoctorMobileNav from "./DoctorMobileNav";
 import { getUserRole } from "@/lib/api";
+import { DoctorProvider } from "@/context/DoctorContext";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<"medic" | "doctor">("medic");
@@ -16,7 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const isDoctor = role === "doctor";
 
-  return (
+  const inner = (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
       {/* Desktop sidebar */}
       <div className="dl-sidebar">
@@ -50,4 +51,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       `}</style>
     </div>
   );
+
+  if (isDoctor) {
+    return <DoctorProvider>{inner}</DoctorProvider>;
+  }
+
+  return inner;
 }

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import WebPushInit from "@/components/WebPushInit";
+import PushPermissionPrompt from "@/components/PushPermissionPrompt";
 import SplashScreen from "@/components/SplashScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InstallPrompt />
           <SplashScreen />
           <WebPushInit />
+          <PushPermissionPrompt />
           {children}
         </LanguageProvider>
       </body>

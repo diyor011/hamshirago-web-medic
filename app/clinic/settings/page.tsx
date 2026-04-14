@@ -6,6 +6,7 @@ import {
   Video, Home, CreditCard, Clock,
 } from "lucide-react";
 import { clinicApi, ClinicCompany, ClinicService } from "@/lib/clinicApi";
+import { useClinic } from "@/context/ClinicContext";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,8 @@ interface ServiceForm { name: string; price: string; durationMinutes: string; }
 const EMPTY_SVC: ServiceForm = { name: "", price: "", durationMinutes: "" };
 
 export default function SettingsPage() {
+  const { setClinic } = useClinic();
+
   // ── Company ──
   const [company, setCompany] = useState<ClinicCompany | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
@@ -195,12 +198,20 @@ export default function SettingsPage() {
   async function handleSaveCompany() {
     setSaving(true); setSaveSuccess(false);
     try {
-      await clinicApi.company.update({
+      const updated = await clinicApi.company.update({
         name: companyForm.name || undefined,
         address: companyForm.address || undefined,
         phone: companyForm.phone || undefined,
         email: companyForm.email || undefined,
         logoUrl: companyForm.logoUrl || undefined,
+      });
+      // Push updated data into ClinicContext so sidebar reflects changes instantly
+      setClinic({
+        id: updated.id,
+        name: updated.name,
+        logoUrl: updated.logoUrl ?? null,
+        phone: updated.phone ?? null,
+        address: updated.address ?? null,
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);

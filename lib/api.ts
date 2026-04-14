@@ -117,6 +117,14 @@ export const medicApi = {
       }),
   },
 
+  wallet: {
+    requestWithdrawal: (amount: number, cardNumber: string) =>
+      request<{ id: string; status: string; amount: number }>("/medics/me/withdrawal-request", {
+        method: "POST",
+        body: JSON.stringify({ amount, cardNumber }),
+      }),
+  },
+
   medicalCard: {
     getByClient: (clientId: string) =>
       request<MedicalCard>(`/medical-card/client/${clientId}`),
@@ -349,6 +357,8 @@ export interface RegisterDoctorDto {
   password: string;
   specialization?: string;
   experienceYears?: number;
+  pricePerConsultation?: number;
+  bio?: string;
 }
 
 export interface DoctorProfile {
@@ -364,6 +374,8 @@ export interface DoctorProfile {
   facePhotoUrl: string | null;
   rating: number | null;
   reviewCount: number;
+  pricePerConsultation: number | null;
+  bio: string | null;
 }
 
 export type ConsultationStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "CANCELED";
@@ -412,6 +424,11 @@ export const doctorApi = {
       request<DoctorProfile>("/doctors/profile", {
         method: "PATCH",
         body: JSON.stringify(dto),
+      }),
+    setOnline: (isOnline: boolean) =>
+      request<DoctorProfile>("/doctors/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ isOnline }),
       }),
   },
   consultations: {

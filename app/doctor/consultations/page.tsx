@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, Consultation, ConsultationStatus } from "@/lib/api";
-import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X } from "lucide-react";
+import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff } from "lucide-react";
+import { useDoctor } from "@/context/DoctorContext";
 
 const STATUS_LABEL: Record<ConsultationStatus, string> = {
   PENDING: "Ожидает",
@@ -25,11 +26,13 @@ type StatusFilter = "all" | "active" | "completed" | "canceled";
 
 export default function DoctorConsultationsPage() {
   const router = useRouter();
+  const { doctor, setDoctor } = useDoctor();
   const [tab, setTab] = useState<Tab>("pending");
   const [pending, setPending] = useState<Consultation[]>([]);
   const [all, setAll] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [togglingOnline, setTogglingOnline] = useState(false);
 
   // filters
   const [query, setQuery] = useState("");
@@ -123,6 +126,16 @@ export default function DoctorConsultationsPage() {
 
   const displayed = filtered;
 
+  async function toggleOnline() {
+    if (!doctor) return;
+    setTogglingOnline(true);
+    try {
+      const updated = await doctorApi.auth.setOnline(!doctor.isOnline);
+      setDoctor(updated);
+    } catch { /* ignore */ }
+    setTogglingOnline(false);
+  }
+
   function resetFilters() {
     setQuery("");
     setStatusFilter("all");
@@ -155,13 +168,32 @@ export default function DoctorConsultationsPage() {
             </p>
           </div>
         </div>
-        <button onClick={load} style={{
-          background: "#f1f5f9", border: "none", borderRadius: 8, padding: "8px 12px",
-          cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b",
-        }}>
-          <RefreshCw size={14} />
-          Обновить
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={toggleOnline}
+            disabled={togglingOnline}
+            style={{
+              background: doctor?.isOnline ? "linear-gradient(135deg,#22c55e,#16a34a)" : "#fff",
+              border: doctor?.isOnline ? "none" : "1.5px solid #e2e8f0",
+              borderRadius: 20, padding: "7px 14px",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+              fontSize: 13, fontWeight: 600,
+              color: doctor?.isOnline ? "#fff" : "#64748b",
+              opacity: togglingOnline ? 0.7 : 1,
+              transition: "all 0.2s",
+            }}
+          >
+            {doctor?.isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {doctor?.isOnline ? "Онлайн" : "Офлайн"}
+          </button>
+          <button onClick={load} style={{
+            background: "#f1f5f9", border: "none", borderRadius: 8, padding: "8px 12px",
+            cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b",
+          }}>
+            <RefreshCw size={14} />
+            Обновить
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
