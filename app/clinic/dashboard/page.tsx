@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw } from "lucide-react";
-import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead } from "@/lib/clinicApi";
+import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
 
 type Period = "today" | "week" | "month" | "year";
 
@@ -90,17 +90,25 @@ export default function DashboardPage() {
   const [todayApps, setTodayApps] = useState<Appointment[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
 
+  // New KPI widgets: room occupancy (7d) + top doctors (30d)
+  const [roomOccupancy, setRoomOccupancy] = useState<Array<{ roomId: string; roomName: string; percent: number; appointments: number }>>([]);
+  const [topDoctors, setTopDoctors] = useState<Array<{ doctorId: string; name: string; done: number }>>([]);
+
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [loadingMonthly, setLoadingMonthly] = useState(true);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [loadingLeads, setLoadingLeads] = useState(true);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [loadingTopDocs, setLoadingTopDocs] = useState(true);
 
   const [errOverview, setErrOverview] = useState<string | null>(null);
   const [errMonthly, setErrMonthly] = useState<string | null>(null);
   const [errDoctors, setErrDoctors] = useState<string | null>(null);
   const [errQueue, setErrQueue] = useState<string | null>(null);
   const [errLeads, setErrLeads] = useState<string | null>(null);
+  const [errRooms, setErrRooms] = useState<string | null>(null);
+  const [errTopDocs, setErrTopDocs] = useState<string | null>(null);
 
   const fetchOverview = useCallback(async (p: Period) => {
     setLoadingOverview(true); setErrOverview(null);
@@ -140,8 +148,71 @@ export default function DashboardPage() {
     finally { setLoadingLeads(false); }
   }, []);
 
+  const fetchRoomOccupancy = useCallback(async () => {
+    setLoadingRooms(true); setErrRooms(null);
+    try {
+      const rooms: ClinicRoom[] = await clinicApi.rooms.list();
+      // last 7 days (including today)
+      const days: string[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().slice(0, 10));
+      }
+      const perDay = await Promise.all(days.map((date) => clinicApi.appointments.list({ date })));
+      const all: Appointment[] = perDay.flat();
+      // Assume workday = 8 hours = 8 slots per room per day → 56 slots per week
+      const CAPACITY_PER_WEEK = 7 * 8;
+      const counts = new Map<string, number>();
+      for (const a of all) {
+        if (a.status === "CANCELED" || a.status === "NO_SHOW") continue;
+        counts.set(a.roomId, (counts.get(a.roomId) ?? 0) + 1);
+      }
+      const occ = rooms.map((r) => {
+        const n = counts.get(r.id) ?? 0;
+        return {
+          roomId: r.id,
+          roomName: r.name,
+          appointments: n,
+          percent: Math.min(100, Math.round((n / CAPACITY_PER_WEEK) * 100)),
+        };
+      }).sort((a, b) => b.percent - a.percent);
+      setRoomOccupancy(occ);
+    } catch (e) { setErrRooms(e instanceof Error ? e.message : "Ошибка"); }
+    finally { setLoadingRooms(false); }
+  }, []);
+
+  const fetchTopDoctors = useCallback(async () => {
+    setLoadingTopDocs(true); setErrTopDocs(null);
+    try {
+      const staff: ClinicStaff[] = await clinicApi.staff.list();
+      const doctorMap = new Map(staff.filter((s) => s.role === "DOCTOR").map((s) => [s.id, s.name]));
+      const days: string[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().slice(0, 10));
+      }
+      const perDay = await Promise.all(days.map((date) => clinicApi.appointments.list({ date, status: "DONE" })));
+      const all: Appointment[] = perDay.flat();
+      const counts = new Map<string, number>();
+      for (const a of all) {
+        counts.set(a.doctorId, (counts.get(a.doctorId) ?? 0) + 1);
+      }
+      const top = Array.from(counts.entries())
+        .map(([doctorId, done]) => ({ doctorId, name: doctorMap.get(doctorId) ?? "Врач", done }))
+        .sort((a, b) => b.done - a.done)
+        .slice(0, 5);
+      setTopDoctors(top);
+    } catch (e) { setErrTopDocs(e instanceof Error ? e.message : "Ошибка"); }
+    finally { setLoadingTopDocs(false); }
+  }, []);
+
   useEffect(() => { fetchOverview(period); }, [period, fetchOverview]);
-  useEffect(() => { fetchMonthly(); fetchDoctors(); fetchLeads(); fetchQueue(); }, [fetchMonthly, fetchDoctors, fetchLeads, fetchQueue]);
+  useEffect(() => {
+    fetchMonthly(); fetchDoctors(); fetchLeads(); fetchQueue();
+    fetchRoomOccupancy(); fetchTopDoctors();
+  }, [fetchMonthly, fetchDoctors, fetchLeads, fetchQueue, fetchRoomOccupancy, fetchTopDoctors]);
   useEffect(() => {
     const id = setInterval(fetchQueue, 10000);
     return () => clearInterval(id);
@@ -385,6 +456,92 @@ export default function DashboardPage() {
                       </span>
                       <span style={{ fontSize: 11, color: "#94a3b8" }}>{dateStr}</span>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Extra KPI row: room occupancy + top doctors */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 24 }} className="clinic-grid-stack">
+        {/* Room occupancy — 7 days */}
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 18 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Загрузка кабинетов за неделю</h2>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>7 дней</span>
+          </div>
+          {loadingRooms ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[1,2,3,4].map(i => (
+                <div key={i}>
+                  <Skeleton height={14} radius={4} />
+                  <div style={{ marginTop: 6 }}><Skeleton height={6} radius={3} /></div>
+                </div>
+              ))}
+            </div>
+          ) : errRooms ? (
+            <ErrorBanner message={errRooms} onRetry={fetchRoomOccupancy} />
+          ) : roomOccupancy.length === 0 ? (
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>Нет кабинетов</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {roomOccupancy.map((r) => (
+                <div key={r.roomId}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.roomName}</span>
+                    <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{r.percent}% · {r.appointments} приёмов</span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", borderRadius: 3,
+                      background: r.percent >= 80 ? "#ef4444" : r.percent >= 50 ? "#0d9488" : "#94a3b8",
+                      width: `${r.percent}%`, transition: "width 0.5s ease",
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top doctors by DONE — 30 days */}
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 18 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Топ врачей по визитам</h2>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>30 дней · DONE</span>
+          </div>
+          {loadingTopDocs ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[1,2,3,4,5].map(i => <Skeleton key={i} height={44} />)}
+            </div>
+          ) : errTopDocs ? (
+            <ErrorBanner message={errTopDocs} onRetry={fetchTopDoctors} />
+          ) : topDoctors.length === 0 ? (
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>Нет завершённых визитов</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {topDoctors.map((d, idx) => {
+                const c = avatarColors[idx % avatarColors.length];
+                return (
+                  <div key={d.doctorId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 6px", borderRadius: 10 }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                      background: "#f0fdfa", color: "#0d9488",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 800,
+                    }}>{idx + 1}</div>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                      background: c.bg, color: c.color,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 14, fontWeight: 700,
+                    }}>
+                      {d.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#0d9488", flexShrink: 0 }}>{d.done}</span>
                   </div>
                 );
               })}
