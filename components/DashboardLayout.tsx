@@ -1,21 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import DoctorSidebar from "./DoctorSidebar";
 import MobileNav from "./MobileNav";
 import DoctorMobileNav from "./DoctorMobileNav";
-import { getUserRole } from "@/lib/api";
-import { DoctorProvider } from "@/context/DoctorContext";
+import { usePathname } from "next/navigation";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<"medic" | "doctor">("medic");
-
-  useEffect(() => {
-    setRole(getUserRole());
-  }, []);
-
-  const isDoctor = role === "doctor";
+  // Derive role from URL path — consistent on server and client, no hydration mismatch.
+  const pathname = usePathname();
+  const isDoctor = pathname.startsWith("/doctor");
 
   const inner = (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
@@ -51,10 +45,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       `}</style>
     </div>
   );
-
-  if (isDoctor) {
-    return <DoctorProvider>{inner}</DoctorProvider>;
-  }
 
   return inner;
 }

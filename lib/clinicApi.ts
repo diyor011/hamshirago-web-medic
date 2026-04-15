@@ -225,6 +225,14 @@ export const clinicApi = {
     me: () => request<ClinicAuthResponse["user"]>("/clinic-auth/me"),
   },
 
+  me: {
+    saveTelegramChatId: (chatId: string) =>
+      request<{ ok: boolean }>("/clinic/me/telegram-chat-id", {
+        method: "PATCH",
+        body: JSON.stringify({ chatId }),
+      }),
+  },
+
   company: {
     get: () => request<ClinicCompany>("/clinic/company"),
     update: (data: Partial<ClinicCompany>) =>

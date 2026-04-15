@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
-import { doctorApi, Consultation, ConsultationStatus } from "@/lib/api";
-import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff } from "lucide-react";
+import { doctorApi, Consultation, ConsultationStatus, WS_URL } from "@/lib/api";
+import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff, Bell } from "lucide-react";
 import { useDoctor } from "@/context/DoctorContext";
+import { io } from "socket.io-client";
 
 const STATUS_LABEL: Record<ConsultationStatus, string> = {
   PENDING: "Ожидает",
@@ -24,6 +25,11 @@ const STATUS_COLOR: Record<ConsultationStatus, { text: string; bg: string }> = {
 type Tab = "pending" | "all";
 type StatusFilter = "all" | "active" | "completed" | "canceled";
 
+interface Toast {
+  id: number;
+  message: string;
+}
+
 export default function DoctorConsultationsPage() {
   const router = useRouter();
   const { doctor, setDoctor } = useDoctor();
@@ -33,6 +39,8 @@ export default function DoctorConsultationsPage() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [togglingOnline, setTogglingOnline] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastIdRef = useRef(0);
 
   // filters
   const [query, setQuery] = useState("");
@@ -61,7 +69,34 @@ export default function DoctorConsultationsPage() {
     setLoading(false);
   }, []);
 
+  function showToast(message: string) {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+  }
+
   useEffect(() => { load(); }, [load]);
+
+  // Socket.IO: listen for new consultations
+  useEffect(() => {
+    if (!doctor?.id) return;
+    const token = typeof window !== "undefined" ? localStorage.getItem("medic_token") : null;
+    const socket = io(WS_URL, {
+      transports: ["websocket"],
+      auth: { token },
+    });
+
+    socket.on("new_consultation", (payload: { consultationId?: string; clientId?: string; symptoms?: string; price?: number }) => {
+      const text = payload.symptoms
+        ? `Новая консультация: ${payload.symptoms.slice(0, 60)}`
+        : "Новая консультация — пациент ожидает";
+      showToast(text);
+      load();
+    });
+
+    return () => { socket.disconnect(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctor?.id]);
 
   async function handleAccept(id: string) {
     setActionId(id);
@@ -438,6 +473,24 @@ export default function DoctorConsultationsPage() {
           })}
         </div>
       )}
+      {/* Toast notifications */}
+      <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 10 }}>
+        {toasts.map((t) => (
+          <div key={t.id} style={{
+            background: "#0f172a", color: "#fff",
+            padding: "12px 18px", borderRadius: 12,
+            fontSize: 14, fontWeight: 600,
+            display: "flex", alignItems: "center", gap: 10,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+            animation: "toastIn 250ms cubic-bezier(0.32,0.72,0,1)",
+            maxWidth: 320,
+          }}>
+            <style>{`@keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }`}</style>
+            <Bell size={16} color="#0d9488" style={{ flexShrink: 0 }} />
+            {t.message}
+          </div>
+        ))}
+      </div>
     </DashboardLayout>
   );
 }

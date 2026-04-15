@@ -188,7 +188,7 @@ export default function WalletPage() {
                           </div>
                           <div>
                             <p style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>
-                              {(order as any).service?.title ?? order.serviceTitle ?? "Услуга"}
+                              {order.serviceTitle ?? "Услуга"}
                             </p>
                             <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{formatDate(order.created_at)}</p>
                           </div>

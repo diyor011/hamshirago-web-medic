@@ -1,8 +1,242 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, Download, ChevronDown } from "lucide-react";
 import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
+import { useClinic } from "@/context/ClinicContext";
+
+// ─── CSV helpers ──────────────────────────────────────────────────────────────
+
+function escapeCSV(val: unknown): string {
+  const s = val === null || val === undefined ? "" : String(val);
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function buildCSV(headers: string[], rows: unknown[][]): string {
+  const lines = [
+    headers.map(escapeCSV).join(","),
+    ...rows.map((row) => row.map(escapeCSV).join(",")),
+  ];
+  return "\uFEFF" + lines.join("\r\n"); // BOM for Excel Cyrillic
+}
+
+function triggerDownload(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const APPOINTMENT_STATUS_RU: Record<string, string> = {
+  SCHEDULED: "Запланирован",
+  CHECKED_IN: "Зарегистрирован",
+  IN_PROGRESS: "На приёме",
+  DONE: "Завершён",
+  CANCELED: "Отменён",
+  NO_SHOW: "Не явился",
+};
+
+const PAYMENT_TYPE_RU: Record<string, string> = {
+  CASH: "Наличные",
+  TERMINAL: "Терминал",
+  ONLINE: "Онлайн",
+};
+
+const LEAD_STATUS_RU: Record<string, string> = {
+  NEW: "Новый",
+  IN_PROGRESS: "В работе",
+  DONE: "Завершён",
+  CANCELED: "Отменён",
+};
+
+// ─── Onboarding checklist ─────────────────────────────────────────────────────
+
+const ONBOARDING_KEY = "clinic_onboarding_dismissed";
+
+interface OnboardingStep {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  done: boolean;
+}
+
+function OnboardingChecklist() {
+  const { clinic } = useClinic();
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(ONBOARDING_KEY) === "1";
+  });
+  const [hasStaff, setHasStaff] = useState<boolean | null>(null);
+  const [hasRooms, setHasRooms] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (dismissed) return;
+    clinicApi.staff.list()
+      .then((s) => setHasStaff(s.length > 0))
+      .catch(() => setHasStaff(false));
+    clinicApi.rooms.list()
+      .then((r) => setHasRooms(r.length > 0))
+      .catch(() => setHasRooms(false));
+  }, [dismissed]);
+
+  if (dismissed) return null;
+  if (hasStaff === null || hasRooms === null) return null; // wait for data
+
+  const profileDone = !!(clinic?.name && clinic?.address && clinic?.phone);
+
+  const steps: OnboardingStep[] = [
+    {
+      id: "profile",
+      title: "Заполните профиль клиники",
+      description: "Название, адрес, телефон — клиенты увидят эту информацию",
+      href: "/clinic/settings",
+      done: profileDone,
+    },
+    {
+      id: "staff",
+      title: "Добавьте врача",
+      description: "Пригласите первого врача или сотрудника ресепшна",
+      href: "/clinic/staff",
+      done: hasStaff,
+    },
+    {
+      id: "rooms",
+      title: "Создайте кабинет",
+      description: "Укажите кабинеты, в которых принимают врачи",
+      href: "/clinic/rooms",
+      done: hasRooms,
+    },
+    {
+      id: "schedule",
+      title: "Назначьте расписание",
+      description: "Привяжите врача к кабинету и задайте рабочие часы",
+      href: "/clinic/rooms",
+      done: hasRooms && hasStaff,
+    },
+  ];
+
+  const doneCount = steps.filter((s) => s.done).length;
+  const allDone = doneCount === steps.length;
+  const pct = Math.round((doneCount / steps.length) * 100);
+
+  function dismiss() {
+    localStorage.setItem(ONBOARDING_KEY, "1");
+    setDismissed(true);
+  }
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 16, border: "1.5px solid #ccfbf1",
+      padding: "20px 24px", marginBottom: 28,
+      boxShadow: "0 4px 20px rgba(13,148,136,0.08)",
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <h2 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0, marginBottom: 4 }}>
+            {allDone ? "Клиника готова к работе! 🎉" : "Настройте клинику"}
+          </h2>
+          <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+            {allDone
+              ? "Все шаги выполнены. Вы можете принимать пациентов."
+              : `Выполнено ${doneCount} из ${steps.length} шагов`}
+          </p>
+        </div>
+        <button
+          onClick={dismiss}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            color: "#94a3b8", fontSize: 20, lineHeight: 1, padding: "0 0 0 12px",
+            flexShrink: 0,
+          }}
+          title="Закрыть"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", marginBottom: 20, overflow: "hidden" }}>
+        <div style={{
+          height: "100%", borderRadius: 3,
+          background: allDone ? "#16a34a" : "linear-gradient(90deg, #0d9488, #14b8a6)",
+          width: `${pct}%`, transition: "width 0.5s ease",
+        }} />
+      </div>
+
+      {/* Steps */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        {steps.map((step) => (
+          <a
+            key={step.id}
+            href={step.done ? undefined : step.href}
+            style={{
+              display: "flex", alignItems: "flex-start", gap: 12,
+              padding: "14px 16px", borderRadius: 12, textDecoration: "none",
+              border: `1.5px solid ${step.done ? "#bbf7d0" : "#e2e8f0"}`,
+              background: step.done ? "#f0fdf4" : "#f8fafc",
+              cursor: step.done ? "default" : "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              if (!step.done) (e.currentTarget as HTMLElement).style.borderColor = "#0d9488";
+            }}
+            onMouseLeave={(e) => {
+              if (!step.done) (e.currentTarget as HTMLElement).style.borderColor = "#e2e8f0";
+            }}
+          >
+            {/* Status circle */}
+            <div style={{
+              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+              background: step.done ? "#16a34a" : "#e2e8f0",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              marginTop: 1,
+            }}>
+              {step.done
+                ? <span style={{ color: "#fff", fontSize: 14, lineHeight: 1 }}>✓</span>
+                : <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>{steps.indexOf(step) + 1}</span>
+              }
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{
+                fontSize: 13, fontWeight: 700,
+                color: step.done ? "#166534" : "#0f172a",
+                margin: 0, marginBottom: 3,
+              }}>
+                {step.title}
+              </p>
+              <p style={{ fontSize: 12, color: step.done ? "#16a34a" : "#64748b", margin: 0, lineHeight: 1.4 }}>
+                {step.done ? "Выполнено" : step.description}
+              </p>
+            </div>
+          </a>
+        ))}
+      </div>
+
+      {allDone && (
+        <div style={{ marginTop: 16, textAlign: "center" }}>
+          <button
+            onClick={dismiss}
+            style={{
+              background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
+              border: "none", borderRadius: 8, padding: "8px 24px",
+              fontSize: 13, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            Скрыть это сообщение
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Period = "today" | "week" | "month" | "year";
 
@@ -101,6 +335,10 @@ export default function DashboardPage() {
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingTopDocs, setLoadingTopDocs] = useState(true);
+
+  const [exportingCSV, setExportingCSV] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const [errOverview, setErrOverview] = useState<string | null>(null);
   const [errMonthly, setErrMonthly] = useState<string | null>(null);
@@ -218,6 +456,73 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [fetchQueue]);
 
+  // Close export menu on outside click
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
+  async function exportAppointments() {
+    setExportingCSV(true);
+    setShowExportMenu(false);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const apps = await clinicApi.appointments.list({ date: today });
+      const csv = buildCSV(
+        ["Дата", "Время", "Пациент", "Телефон", "Оплата", "Статус"],
+        apps.map((a) => [
+          a.date,
+          a.time,
+          a.patientName ?? "",
+          a.patientPhone,
+          PAYMENT_TYPE_RU[a.paymentType] ?? a.paymentType,
+          APPOINTMENT_STATUS_RU[a.status] ?? a.status,
+        ])
+      );
+      triggerDownload(csv, `appointments_${today}.csv`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Ошибка экспорта");
+    }
+    setExportingCSV(false);
+  }
+
+  async function exportLeads() {
+    setExportingCSV(true);
+    setShowExportMenu(false);
+    try {
+      const res = await clinicApi.leads.list({ limit: 500 });
+      const csv = buildCSV(
+        ["Имя", "Телефон", "Статус", "Заметки", "Дата"],
+        res.data.map((l) => [
+          l.name ?? "",
+          l.phone,
+          LEAD_STATUS_RU[l.status] ?? l.status,
+          l.notes ?? "",
+          new Date(l.createdAt).toLocaleDateString("ru-RU"),
+        ])
+      );
+      triggerDownload(csv, `leads_${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Ошибка экспорта");
+    }
+    setExportingCSV(false);
+  }
+
+  function exportMonthly() {
+    setShowExportMenu(false);
+    if (monthly.length === 0) return;
+    const csv = buildCSV(
+      ["Месяц", "Приёмов", "Выручка (сум)"],
+      monthly.map((m) => [m.month, m.appointments, m.revenue])
+    );
+    triggerDownload(csv, `monthly_stats_${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
   const todayDate = new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const waiting = todayApps.filter((a) => ["SCHEDULED", "WAITING"].includes(a.status)).length;
   const inProgress = todayApps.filter((a) => ["CHECKED_IN", "IN_PROGRESS"].includes(a.status)).length;
@@ -242,19 +547,72 @@ export default function DashboardPage() {
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
+      <OnboardingChecklist />
+
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Dashboard</h1>
           <p style={{ fontSize: 13, color: "#64748b", textTransform: "capitalize" }}>{todayDate}</p>
         </div>
-        <button style={{
-          background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-          fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
-          border: "none", cursor: "pointer",
-        }}>
-          + Записать пациента
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Export dropdown */}
+          <div ref={exportMenuRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowExportMenu((v) => !v)}
+              disabled={exportingCSV}
+              style={{
+                background: "#fff", color: "#0d9488",
+                border: "1.5px solid #0d9488", borderRadius: 10,
+                padding: "10px 14px", fontSize: 14, fontWeight: 700,
+                cursor: exportingCSV ? "not-allowed" : "pointer",
+                opacity: exportingCSV ? 0.6 : 1,
+                display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <Download size={15} />
+              {exportingCSV ? "Экспорт..." : "Экспорт"}
+              <ChevronDown size={13} />
+            </button>
+            {showExportMenu && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 6px)", right: 0,
+                background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.10)",
+                minWidth: 210, zIndex: 100, overflow: "hidden",
+              }}>
+                {[
+                  { label: "Записи (сегодня) .csv", onClick: exportAppointments },
+                  { label: "Лиды Salomat AI .csv", onClick: exportLeads },
+                  { label: "Помесячная статистика .csv", onClick: exportMonthly },
+                ].map(({ label, onClick }) => (
+                  <button
+                    key={label}
+                    onClick={onClick}
+                    style={{
+                      display: "block", width: "100%", textAlign: "left",
+                      padding: "11px 16px", background: "none", border: "none",
+                      fontSize: 13, fontWeight: 600, color: "#0f172a", cursor: "pointer",
+                      borderBottom: "1px solid #f1f5f9",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f8fafc"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button style={{
+            background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
+            fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
+            border: "none", cursor: "pointer",
+          }}>
+            + Записать пациента
+          </button>
+        </div>
       </div>
 
       {/* Period selector */}
