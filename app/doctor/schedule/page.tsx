@@ -106,13 +106,10 @@ export default function DoctorSchedulePage() {
       d.setDate(d.getDate() + i);
       if (tpl.days.includes(d.getDay())) dates.push(toDateStr(d));
     }
-    let created = 0;
-    for (const date of dates) {
-      try {
-        await doctorApi.slots.create({ date, startTime: tpl.startTime, endTime: tpl.endTime, intervalMinutes: tpl.intervalMinutes });
-        created++;
-      } catch { /* пропускаем дни где уже есть слоты */ }
-    }
+    const results = await Promise.allSettled(
+      dates.map(date => doctorApi.slots.create({ date, startTime: tpl.startTime, endTime: tpl.endTime, intervalMinutes: tpl.intervalMinutes }))
+    );
+    const created = results.filter(r => r.status === "fulfilled").length;
     setApplying(null);
     setApplyResult(`Создано слотов на ${created} из ${dates.length} дней`);
     setTimeout(() => setApplyResult(null), 4000);

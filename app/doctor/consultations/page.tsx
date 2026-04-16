@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
-import { doctorApi, Consultation, ConsultationStatus } from "@/lib/api";
+import { doctorApi, WS_URL, Consultation, ConsultationStatus } from "@/lib/api";
 import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff } from "lucide-react";
 import { useDoctor } from "@/context/DoctorContext";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
+import { io, Socket } from "socket.io-client";
 
 const STATUS_LABEL: Record<ConsultationStatus, string> = {
   PENDING: "Ожидает",
@@ -46,7 +47,10 @@ export default function DoctorConsultationsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const first = await doctorApi.consultations.my(1, 100);
+      const [first, pendingRes] = await Promise.all([
+        doctorApi.consultations.my(1, 100),
+        doctorApi.consultations.pending().catch(() => [] as Consultation[]),
+      ]);
       let collected: Consultation[] = first.data;
       const totalPages = first.totalPages ?? 1;
       if (totalPages > 1) {
@@ -57,7 +61,6 @@ export default function DoctorConsultationsPage() {
         );
         rest.forEach((r) => { collected = collected.concat(r); });
       }
-      const pendingRes = await doctorApi.consultations.pending().catch(() => [] as Consultation[]);
       setPending(pendingRes);
       setAll(collected);
     } catch {}
@@ -65,6 +68,41 @@ export default function DoctorConsultationsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // ── WebSocket: real-time new_consultation events ──
+  const socketRef = useRef<Socket | null>(null);
+  useEffect(() => {
+    const token = localStorage.getItem("medic_token");
+    if (!token) return;
+    const socket = io(WS_URL, {
+      auth: { token },
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+    });
+    socketRef.current = socket;
+
+    socket.on("new_consultation", (payload: { consultationId?: string; symptoms?: string }) => {
+      // Reload list to show new consultation
+      load();
+      // Browser notification
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification("Новая консультация!", {
+          body: payload.symptoms ? `Симптомы: ${payload.symptoms.slice(0, 100)}` : "Новый пациент ожидает",
+          icon: "/logo.png",
+        });
+      }
+      toast.info("Новая консультация!");
+    });
+
+    // Request notification permission on mount
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    return () => { socket.disconnect(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleAccept(id: string) {
     setActionId(id);
