@@ -15,10 +15,11 @@ const LanguageContext = createContext<LanguageContextValue>({
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
-    // Сбрасываем i18n синглтон к DEFAULT перед hydration render,
-    // чтобы клиент совпал с SSR. useEffect применит сохранённый язык после.
+    // Синхронно сбрасываем i18n.language к DEFAULT перед hydration render.
+    // changeLanguage() — async (сначала ставит undefined), поэтому используем
+    // прямое присваивание. useEffect применит сохранённый язык после hydration.
     if (typeof window !== "undefined" && i18n.language !== DEFAULT_LANGUAGE) {
-      i18n.changeLanguage(DEFAULT_LANGUAGE);
+      i18n.language = DEFAULT_LANGUAGE;
     }
     return DEFAULT_LANGUAGE;
   });
