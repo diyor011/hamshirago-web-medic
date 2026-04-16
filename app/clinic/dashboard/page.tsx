@@ -406,7 +406,7 @@ export default function DashboardPage() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 15, fontWeight: 700,
                     }}>
-                      {doc.doctorName.charAt(0).toUpperCase()}
+                      {(doc.doctorName ?? "?").charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>

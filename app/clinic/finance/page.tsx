@@ -278,7 +278,7 @@ export default function FinancePage() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 16, fontWeight: 800,
                     }}>
-                      {doc.doctorName.charAt(0).toUpperCase()}
+                      {(doc.doctorName ?? "?").charAt(0).toUpperCase()}
                     </div>
                     {idx < 3 && (
                       <span style={{
