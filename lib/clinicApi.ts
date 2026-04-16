@@ -67,7 +67,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export type ClinicRole = "CEO" | "RECEPTION" | "DOCTOR";
 
 export interface ClinicAuthResponse {
-  access_token: string;
+  token: string;
+  access_token?: string; // alias — бекенд возвращает token
   user: {
     id: string;
     name: string;
