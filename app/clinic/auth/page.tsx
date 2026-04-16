@@ -52,9 +52,7 @@ export default function ClinicAuthPage() {
       localStorage.setItem("clinic_token", res.token ?? res.access_token ?? "");
       localStorage.setItem("clinic_user", JSON.stringify(res.user));
       const jwtRole = getClinicRole();
-      if (jwtRole === "DOCTOR") {
-        router.replace("/doctor/consultations");
-      } else if (jwtRole === "RECEPTION") {
+      if (jwtRole === "DOCTOR" || jwtRole === "RECEPTION") {
         router.replace("/clinic/reception");
       } else {
         router.replace("/clinic/dashboard");

@@ -18,6 +18,7 @@ import {
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
 import { ClinicProvider, useClinic } from "@/context/ClinicContext";
+import ContextErrorBoundary from "@/components/ContextErrorBoundary";
 
 interface NavItem {
   href: string;
@@ -28,8 +29,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/dashboard",  label: "Дашборд",    icon: LayoutDashboard, roles: ["CEO"] },
-  { href: "/clinic/reception",  label: "Ресепшн",    icon: CalendarDays,    roles: ["CEO", "RECEPTION"] },
-  { href: "/clinic/leads",      label: "Лиды",       icon: Users,           roles: ["CEO", "RECEPTION"] },
+  { href: "/clinic/reception",  label: "Ресепшн",    icon: CalendarDays,    roles: ["CEO", "RECEPTION", "DOCTOR"] },
+  { href: "/clinic/leads",      label: "Лиды",       icon: Users,           roles: ["CEO", "RECEPTION", "DOCTOR"] },
   { href: "/clinic/rooms",      label: "Кабинеты",   icon: DoorOpen,        roles: ["CEO"] },
   { href: "/clinic/services",   label: "Услуги",     icon: Stethoscope,     roles: ["CEO"] },
   { href: "/clinic/staff",      label: "Сотрудники", icon: UserCog,         roles: ["CEO"] },
@@ -150,7 +151,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
     // Role-based route guard
     const ceoOnly = ["/clinic/dashboard", "/clinic/rooms", "/clinic/services", "/clinic/staff", "/clinic/finance", "/clinic/settings"];
-    if (r === "RECEPTION" && ceoOnly.some((p) => pathname.startsWith(p))) {
+    if ((r === "RECEPTION" || r === "DOCTOR") && ceoOnly.some((p) => pathname.startsWith(p))) {
       router.replace("/clinic/reception");
       return;
     }
@@ -176,30 +177,32 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <ClinicProvider>
-      <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
-        <div className="clinic-sidebar">
-          <SidebarInner role={role!} pathname={pathname} onLogout={handleLogout} />
-        </div>
-
-        <main style={{ flex: 1, minHeight: "100vh" }} className="clinic-main">
-          <div className="clinic-inner">
-            {children}
+    <ContextErrorBoundary zone="Clinic">
+      <ClinicProvider>
+        <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
+          <div className="clinic-sidebar">
+            <SidebarInner role={role!} pathname={pathname} onLogout={handleLogout} />
           </div>
-        </main>
 
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-          .clinic-sidebar { display: block; }
-          .clinic-main { margin-left: 240px; }
-          .clinic-inner { max-width: 1200px; margin: 0 auto; padding: 32px 28px 60px; }
-          @media (max-width: 768px) {
-            .clinic-sidebar { display: none !important; }
-            .clinic-main { margin-left: 0 !important; }
-            .clinic-inner { padding: 16px 16px 40px !important; }
-          }
-        `}</style>
-      </div>
-    </ClinicProvider>
+          <main style={{ flex: 1, minHeight: "100vh" }} className="clinic-main">
+            <div className="clinic-inner">
+              {children}
+            </div>
+          </main>
+
+          <style>{`
+            @keyframes spin { to { transform: rotate(360deg); } }
+            .clinic-sidebar { display: block; }
+            .clinic-main { margin-left: 240px; }
+            .clinic-inner { max-width: 1200px; margin: 0 auto; padding: 32px 28px 60px; }
+            @media (max-width: 768px) {
+              .clinic-sidebar { display: none !important; }
+              .clinic-main { margin-left: 0 !important; }
+              .clinic-inner { padding: 16px 16px 40px !important; }
+            }
+          `}</style>
+        </div>
+      </ClinicProvider>
+    </ContextErrorBoundary>
   );
 }
