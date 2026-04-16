@@ -145,6 +145,13 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
     const r = getClinicRole();
     if (!r) { router.replace("/clinic/auth"); return; }
     setRole(r);
+
+    // Role-based route guard
+    const ceoOnly = ["/clinic/dashboard", "/clinic/rooms", "/clinic/staff", "/clinic/finance", "/clinic/settings"];
+    if (r === "RECEPTION" && ceoOnly.some((p) => pathname.startsWith(p))) {
+      router.replace("/clinic/reception");
+      return;
+    }
   }, [router, pathname, isAuthPage]);
 
   function handleLogout() {
