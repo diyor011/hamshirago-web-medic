@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Lock, User, Eye, EyeOff, AlertCircle, Stethoscope, Star } from "lucide-react";
-import { medicApi, doctorApi } from "@/lib/api";
+import { medicApi, doctorApi, clinicApi } from "@/lib/api";
 import { subscribeWebPush } from "@/lib/webPush";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/context/LanguageContext";
 
 type Mode = "login" | "register";
-type Role = "medic" | "doctor";
+type Role = "medic" | "doctor" | "clinic";
 
 function formatPhone(raw: string) {
   let digits = raw.replace(/\D/g, "");
@@ -47,7 +47,9 @@ export default function AuthPage() {
     const token = localStorage.getItem("medic_token");
     if (token) {
       const savedRole = localStorage.getItem("user_role");
-      router.replace(savedRole === "doctor" ? "/doctor/consultations" : "/");
+      if (savedRole === "doctor") router.replace("/doctor/consultations");
+      else if (savedRole === "clinic") router.replace("/clinic/dashboard");
+      else router.replace("/");
       return;
     }
     // Mark onboarding as completed since user reached auth page directly
@@ -60,7 +62,13 @@ export default function AuthPage() {
     setLoading(true);
     const rawPhone = "+" + phone.replace(/\D/g, "");
     try {
-      if (role === "doctor") {
+      if (role === "clinic") {
+        const res = await clinicApi.auth.login(rawPhone, password);
+        localStorage.setItem("medic_token", res.access_token);
+        localStorage.setItem("clinic_staff", JSON.stringify(res.staff));
+        localStorage.setItem("user_role", "clinic");
+        router.push("/clinic/dashboard");
+      } else if (role === "doctor") {
         const res = mode === "login"
           ? await doctorApi.auth.login(rawPhone, password)
           : await doctorApi.auth.register({ name, phone: rawPhone, password, specialization: specialization || undefined, experienceYears: Number(experience) || 0 });
@@ -148,15 +156,19 @@ export default function AuthPage() {
 
           {/* Role toggle */}
           <div style={{ background: "#f1f5f9", borderRadius: 10, padding: 4, display: "flex", marginBottom: 20 }}>
-            {(["medic", "doctor"] as Role[]).map((r) => (
-              <button key={r} onClick={() => { setRole(r); setError(""); }} style={{
-                flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer",
-                fontSize: 14, fontWeight: 600, transition: "all 0.15s",
-                background: role === r ? "#fff" : "transparent",
-                color: role === r ? "#0d9488" : "#94a3b8",
-                boxShadow: role === r ? "0 1px 6px rgba(0,0,0,0.08)" : "none",
+            {([
+              { key: "medic", label: "👩‍⚕️ Медик" },
+              { key: "doctor", label: "🩺 Врач" },
+              { key: "clinic", label: "🏥 Клиника" },
+            ] as { key: Role; label: string }[]).map(({ key, label }) => (
+              <button key={key} onClick={() => { setRole(key); setMode("login"); setError(""); }} style={{
+                flex: 1, padding: "9px 4px", borderRadius: 8, border: "none", cursor: "pointer",
+                fontSize: 13, fontWeight: 600, transition: "all 0.15s",
+                background: role === key ? "#fff" : "transparent",
+                color: role === key ? "#0d9488" : "#94a3b8",
+                boxShadow: role === key ? "0 1px 6px rgba(0,0,0,0.08)" : "none",
               }}>
-                {r === "medic" ? "👩‍⚕️ Медик" : "🩺 Врач"}
+                {label}
               </button>
             ))}
           </div>
@@ -165,28 +177,32 @@ export default function AuthPage() {
             {mode === "login" ? "Добро пожаловать" : "Регистрация"}
           </h2>
           <p style={{ fontSize: 14, color: "#64748b", marginBottom: 28 }}>
-            {mode === "login"
-              ? role === "doctor" ? "Войдите в аккаунт врача" : "Войдите в свой аккаунт медика"
-              : role === "doctor" ? "Создайте аккаунт врача" : "Создайте аккаунт для работы"}
+            {role === "clinic"
+              ? "Войдите в аккаунт CEO клиники"
+              : mode === "login"
+                ? role === "doctor" ? "Войдите в аккаунт врача" : "Войдите в свой аккаунт медика"
+                : role === "doctor" ? "Создайте аккаунт врача" : "Создайте аккаунт для работы"}
           </p>
 
-          {/* Mode toggle */}
-          <div style={{ background: "#f1f5f9", borderRadius: 10, padding: 4, display: "flex", marginBottom: 24 }}>
-            {(["login", "register"] as Mode[]).map((m) => (
-              <button key={m} onClick={() => { setMode(m); setError(""); }} style={{
-                flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer",
-                fontSize: 14, fontWeight: 600, transition: "all 0.15s",
-                background: mode === m ? "#fff" : "transparent",
-                color: mode === m ? "#0d9488" : "#94a3b8",
-                boxShadow: mode === m ? "0 1px 6px rgba(0,0,0,0.08)" : "none",
-              }}>
-                {m === "login" ? t("auth.login") : t("auth.register")}
-              </button>
-            ))}
-          </div>
+          {/* Mode toggle — скрыть для клиники (нет регистрации) */}
+          {role !== "clinic" && (
+            <div style={{ background: "#f1f5f9", borderRadius: 10, padding: 4, display: "flex", marginBottom: 24 }}>
+              {(["login", "register"] as Mode[]).map((m) => (
+                <button key={m} onClick={() => { setMode(m); setError(""); }} style={{
+                  flex: 1, padding: "9px", borderRadius: 8, border: "none", cursor: "pointer",
+                  fontSize: 14, fontWeight: 600, transition: "all 0.15s",
+                  background: mode === m ? "#fff" : "transparent",
+                  color: mode === m ? "#0d9488" : "#94a3b8",
+                  boxShadow: mode === m ? "0 1px 6px rgba(0,0,0,0.08)" : "none",
+                }}>
+                  {m === "login" ? t("auth.login") : t("auth.register")}
+                </button>
+              ))}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {mode === "register" && (
+            {mode === "register" && role !== "clinic" && (
               <>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>{t("auth.name")}</label>

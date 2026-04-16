@@ -407,6 +407,29 @@ export interface DoctorSlot {
   consultationId: string | null;
 }
 
+export interface ClinicStaff {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  companyId: string;
+}
+
+export interface ClinicAuthResponse {
+  access_token: string;
+  staff: ClinicStaff;
+}
+
+export const clinicApi = {
+  auth: {
+    login: (phone: string, password: string) =>
+      request<ClinicAuthResponse>("/clinic-auth/login", {
+        method: "POST",
+        body: JSON.stringify({ phone, password }),
+      }),
+  },
+};
+
 export const doctorApi = {
   auth: {
     login: (phone: string, password: string) =>
