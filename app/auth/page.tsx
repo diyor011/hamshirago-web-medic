@@ -69,7 +69,7 @@ export default function AuthPage() {
         localStorage.setItem("clinic_user", JSON.stringify(res.user));
         const jwtRole = getClinicRole();
         if (jwtRole === "DOCTOR") {
-          router.replace("/doctor");
+          router.replace("/doctor/consultations");
         } else if (jwtRole === "RECEPTION") {
           router.replace("/clinic/reception");
         } else {
