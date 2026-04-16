@@ -21,9 +21,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   });
-  if (res.status === 401 && !path.startsWith("/auth/") && !path.startsWith("/medics/login") && !path.startsWith("/medics/register")) {
+  if (res.status === 401 &&
+      !path.startsWith("/auth/") &&
+      !path.startsWith("/medics/login") &&
+      !path.startsWith("/medics/register") &&
+      !path.startsWith("/doctors/login") &&
+      !path.startsWith("/doctors/register")) {
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
+    localStorage.removeItem("doctor");
     window.location.replace("/auth");
     return new Promise<T>(() => {}); // страница уходит на /auth, подавляем дальнейшую обработку
   }

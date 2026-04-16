@@ -45,10 +45,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     !path.startsWith("/clinic-auth/")
   ) {
     clearClinicSession();
-    if (typeof window !== "undefined") {
-      window.location.href = "/clinic/auth";
-    }
-    throw new Error("Unauthorized");
+    window.location.replace("/clinic/auth");
+    return new Promise<T>(() => {});
   }
   if (!res.ok) {
     const error = await res.json().catch(() => ({ message: "Ошибка сервера" }));
