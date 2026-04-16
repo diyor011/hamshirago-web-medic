@@ -17,7 +17,8 @@ export function getClinicRole(): "CEO" | "RECEPTION" | "DOCTOR" | null {
     const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const payload = JSON.parse(atob(padded));
-    return payload.role ?? null;
+    // JWT has role:'clinic' (general) + clinicRole:'CEO'|'RECEPTION'|'DOCTOR'
+    return payload.clinicRole ?? payload.role ?? null;
   } catch {
     return null;
   }
