@@ -22,7 +22,6 @@ function formatPhone(raw: string): string {
 
 export default function ClinicAuthPage() {
   const router = useRouter();
-  const [role, setRole] = useState<"CEO" | "RECEPTION">("CEO");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -127,39 +126,7 @@ export default function ClinicAuthPage() {
           </div>
 
           <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>Добро пожаловать</h2>
-          <p style={{ fontSize: 14, color: "#64748b", marginBottom: 24 }}>Войдите в портал клиники</p>
-
-          {/* Role selector */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
-            {(["CEO", "RECEPTION"] as const).map((r) => {
-              const active = role === r;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  style={{
-                    flex: 1, padding: "10px 0", borderRadius: 10, fontSize: 13, fontWeight: 700,
-                    border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
-                    background: active ? "#f0fdfa" : "#fff",
-                    color: active ? "#0d9488" : "#94a3b8",
-                    cursor: "pointer", transition: "all 0.15s",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                  }}
-                >
-                  <span style={{
-                    width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
-                    border: `2px solid ${active ? "#0d9488" : "#cbd5e1"}`,
-                    background: active ? "#0d9488" : "#fff",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    {active && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
-                  </span>
-                  {r === "CEO" ? "Директор (CEO)" : "Ресепшн"}
-                </button>
-              );
-            })}
-          </div>
+          <p style={{ fontSize: 14, color: "#64748b", marginBottom: 32 }}>Войдите в портал клиники</p>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
