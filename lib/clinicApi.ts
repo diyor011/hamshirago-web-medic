@@ -241,8 +241,6 @@ export const clinicApi = {
       phone: string;
       password: string;
       role: ClinicRole;
-      specialization?: string;
-      photoUrl?: string;
     }) =>
       request<ClinicStaff>("/clinic/staff", {
         method: "POST",

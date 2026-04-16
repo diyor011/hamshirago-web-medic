@@ -254,7 +254,7 @@ export default function DashboardPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Dashboard</h1>
           <p style={{ fontSize: 13, color: "#64748b", textTransform: "capitalize" }}>{todayDate}</p>
         </div>
-        <button style={{
+        <button onClick={() => setShowBooking(true)} style={{
           background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
           fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
           border: "none", cursor: "pointer",
@@ -559,6 +559,12 @@ export default function DashboardPage() {
       <style>{`
         @media (max-width: 900px) { .clinic-grid-stack { grid-template-columns: 1fr !important; } }
       `}</style>
+
+      <BookingModal
+        open={showBooking}
+        onClose={() => setShowBooking(false)}
+        onSuccess={() => setShowBooking(false)}
+      />
     </div>
   );
 }

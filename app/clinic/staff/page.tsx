@@ -92,8 +92,6 @@ export default function StaffPage() {
         phone: form.phone.trim(),
         password: form.password,
         role: form.role,
-        ...(form.role === "DOCTOR" && form.specialization ? { specialization: form.specialization } : {}),
-        ...(form.role === "DOCTOR" && form.photoUrl ? { photoUrl: form.photoUrl } : {}),
       });
       setForm(EMPTY_FORM);
       setShowCreate(false);
@@ -177,18 +175,6 @@ export default function StaffPage() {
                 <option value="CEO">Директор (CEO)</option>
               </select>
             </div>
-            {form.role === "DOCTOR" && (
-              <>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Специализация</label>
-                  <input style={inputStyle} value={form.specialization} onChange={(e) => setForm((f) => ({ ...f, specialization: e.target.value }))} placeholder="Кардиолог" />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Фото URL</label>
-                  <input style={inputStyle} value={form.photoUrl} onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://res.cloudinary.com/..." />
-                </div>
-              </>
-            )}
           </div>
 
           {createError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 12 }}>{createError}</p>}
