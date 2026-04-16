@@ -74,6 +74,50 @@ export async function subscribeWebPush(): Promise<void> {
   }
 }
 
+export async function subscribeWebPushDoctor(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  const token = localStorage.getItem("medic_token");
+  if (!token) return;
+  if (localStorage.getItem("user_role") !== "doctor") return;
+
+  try {
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+
+    const res = await fetch(`${BASE_URL}/auth/vapid-public-key`);
+    const text = await res.text();
+    if (!text) return;
+    const { publicKey } = JSON.parse(text);
+    if (!publicKey) return;
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+
+    const sub = subscription.toJSON();
+    await fetch(`${BASE_URL}/doctors/web-push-subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.keys?.p256dh, auth: sub.keys?.auth },
+      }),
+    });
+    console.log("[WebPush] врач: подписка сохранена ✅");
+  } catch (err) {
+    console.log("[WebPush] врач: ошибка:", err);
+  }
+}
+
 export async function unsubscribeWebPush(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!("serviceWorker" in navigator)) return;
