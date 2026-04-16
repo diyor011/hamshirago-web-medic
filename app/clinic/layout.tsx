@@ -13,6 +13,7 @@ import {
   TrendingUp,
   LogOut,
   Building2,
+  Stethoscope,
 } from "lucide-react";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
@@ -30,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/reception",  label: "Ресепшн",    icon: CalendarDays,    roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/leads",      label: "Лиды",       icon: Users,           roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/rooms",      label: "Кабинеты",   icon: DoorOpen,        roles: ["CEO"] },
+  { href: "/clinic/services",   label: "Услуги",     icon: Stethoscope,     roles: ["CEO"] },
   { href: "/clinic/staff",      label: "Сотрудники", icon: UserCog,         roles: ["CEO"] },
   { href: "/clinic/finance",    label: "Финансы",    icon: TrendingUp,      roles: ["CEO"] },
   { href: "/clinic/settings",   label: "Настройки",  icon: Settings,        roles: ["CEO"] },
@@ -147,7 +149,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
     setRole(r);
 
     // Role-based route guard
-    const ceoOnly = ["/clinic/dashboard", "/clinic/rooms", "/clinic/staff", "/clinic/finance", "/clinic/settings"];
+    const ceoOnly = ["/clinic/dashboard", "/clinic/rooms", "/clinic/services", "/clinic/staff", "/clinic/finance", "/clinic/settings"];
     if (r === "RECEPTION" && ceoOnly.some((p) => pathname.startsWith(p))) {
       router.replace("/clinic/reception");
       return;
