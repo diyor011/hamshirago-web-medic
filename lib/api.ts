@@ -24,8 +24,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (res.status === 401 && !path.startsWith("/auth/") && !path.startsWith("/medics/login") && !path.startsWith("/medics/register")) {
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
-    window.location.href = "/auth";
-    throw new Error("Unauthorized");
+    window.location.replace("/auth");
+    return new Promise<T>(() => {}); // страница уходит на /auth, подавляем дальнейшую обработку
   }
   if (res.status === 429) throw new Error("TOO_MANY_REQUESTS");
   if (res.status === 402) {
