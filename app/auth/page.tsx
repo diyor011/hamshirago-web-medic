@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Lock, User, Eye, EyeOff, AlertCircle, Stethoscope, Star } from "lucide-react";
-import { medicApi, doctorApi, clinicApi } from "@/lib/api";
+import { medicApi, doctorApi } from "@/lib/api";
+import { clinicApi, getClinicRole } from "@/lib/clinicApi";
 import { subscribeWebPush } from "@/lib/webPush";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/context/LanguageContext";
@@ -64,10 +65,16 @@ export default function AuthPage() {
     try {
       if (role === "clinic") {
         const res = await clinicApi.auth.login(rawPhone, password);
-        localStorage.setItem("medic_token", res.access_token);
-        localStorage.setItem("clinic_staff", JSON.stringify(res.staff));
-        localStorage.setItem("user_role", "clinic");
-        router.push("/clinic/dashboard");
+        localStorage.setItem("clinic_token", res.token ?? res.access_token ?? "");
+        localStorage.setItem("clinic_user", JSON.stringify(res.user));
+        const jwtRole = getClinicRole();
+        if (jwtRole === "DOCTOR") {
+          router.replace("/doctor");
+        } else if (jwtRole === "RECEPTION") {
+          router.replace("/clinic/reception");
+        } else {
+          router.replace("/clinic/dashboard");
+        }
       } else if (role === "doctor") {
         const res = mode === "login"
           ? await doctorApi.auth.login(rawPhone, password)
