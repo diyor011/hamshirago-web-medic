@@ -8,7 +8,6 @@ export interface ClinicState {
   name: string;
   logoUrl?: string | null;
   isVerified?: boolean;
-  phone?: string | null;
   address?: string | null;
 }
 
@@ -30,7 +29,6 @@ function companyToState(c: ClinicCompany): ClinicState {
     name: c.name,
     logoUrl: c.logoUrl ?? null,
     isVerified: true,
-    phone: c.phone ?? null,
     address: c.address ?? null,
   };
 }

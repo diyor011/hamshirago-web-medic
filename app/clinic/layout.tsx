@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -87,7 +88,7 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
         {visible.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <a
+            <Link
               key={href}
               href={href}
               style={{
@@ -104,7 +105,7 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
             >
               <Icon size={17} strokeWidth={active ? 2.5 : 2} />
               {label}
-            </a>
+            </Link>
           );
         })}
       </nav>
@@ -132,16 +133,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const isAuthPage = pathname === "/clinic/auth";
 
-  // Initialise synchronously: auth page is always GUEST, others check localStorage
-  const [role, setRole] = useState<ClinicRole | null>(() => {
-    if (isAuthPage) return "GUEST" as ClinicRole;
-    if (typeof window === "undefined") return null;
-    try {
-      const token = getClinicToken();
-      if (!token) return null;
-      return getClinicRole();
-    } catch { return null; }
-  });
+  const [role, setRole] = useState<ClinicRole | null>(null);
 
   useEffect(() => {
     if (isAuthPage) {

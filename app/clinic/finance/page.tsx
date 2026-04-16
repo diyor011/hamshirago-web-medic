@@ -166,7 +166,7 @@ export default function FinancePage() {
             {
               icon: <DollarSign size={22} color="#0d9488" />,
               iconBg: "#f0fdfa",
-              value: `${overview.revenue.toLocaleString("ru-RU")} сум`,
+              value: `${(overview.revenue ?? 0).toLocaleString("ru-RU")} сум`,
               label: "Выручка",
             },
             {
@@ -178,7 +178,7 @@ export default function FinancePage() {
             {
               icon: <TrendingUp size={22} color="#9333ea" />,
               iconBg: "#faf5ff",
-              value: `${overview.cancelRate}%`,
+              value: `${overview.cancelRate ?? 0}%`,
               label: "Процент отмен",
             },
           ].map(({ icon, iconBg, value, label }) => (
@@ -228,7 +228,7 @@ export default function FinancePage() {
                     <td style={{ padding: "10px 0", fontWeight: 600, color: "#374151" }}>{row.month}</td>
                     <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
                     <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>
-                      {row.revenue.toLocaleString("ru-RU")} сум
+                      {(row.revenue ?? 0).toLocaleString("ru-RU")} сум
                     </td>
                     <td style={{ padding: "10px 0 10px 16px" }}>
                       <div style={{ height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
@@ -297,7 +297,7 @@ export default function FinancePage() {
                         {doc.doctorName}
                       </span>
                       <span style={{ fontSize: 12, color: "#0d9488", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
-                        {doc.revenue.toLocaleString("ru-RU")} сум
+                        {(doc.revenue ?? 0).toLocaleString("ru-RU")} сум
                       </span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

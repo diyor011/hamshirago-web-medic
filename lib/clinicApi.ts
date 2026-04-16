@@ -82,8 +82,6 @@ export interface ClinicCompany {
   id: string;
   name: string;
   address?: string;
-  phone?: string;
-  email?: string;
   logoUrl?: string;
 }
 
@@ -155,12 +153,12 @@ export interface Appointment {
 
 export interface CreateAppointmentDto {
   patientPhone: string;
-  patientName?: string;
-  doctorId: string;
-  roomId: string;
+  patientName: string;
+  doctorId?: string;
+  roomId?: string;
   date: string;
   time: string;
-  paymentType: PaymentType;
+  paymentType?: PaymentType;
 }
 
 export type LeadStatus = "NEW" | "IN_PROGRESS" | "DONE" | "CANCELED";
@@ -261,7 +259,7 @@ export const clinicApi = {
 
   rooms: {
     list: () => request<ClinicRoom[]>("/clinic/rooms"),
-    create: (dto: { name: string; floor?: number }) =>
+    create: (dto: { name: string; floor?: string | number }) =>
       request<ClinicRoom>("/clinic/rooms", {
         method: "POST",
         body: JSON.stringify(dto),
@@ -285,7 +283,7 @@ export const clinicApi = {
 
   services: {
     list: () => request<ClinicService[]>("/clinic/services"),
-    create: (dto: { name: string; price: number; durationMinutes: number }) =>
+    create: (dto: { name: string; price: number; durationMinutes: number; category?: string }) =>
       request<ClinicService>("/clinic/services", {
         method: "POST",
         body: JSON.stringify(dto),

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw } from "lucide-react";
 import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
+import BookingModal from "@/components/clinic/BookingModal";
 
 type Period = "today" | "week" | "month" | "year";
 
@@ -93,6 +94,7 @@ export default function DashboardPage() {
   // New KPI widgets: room occupancy (7d) + top doctors (30d)
   const [roomOccupancy, setRoomOccupancy] = useState<Array<{ roomId: string; roomName: string; percent: number; appointments: number }>>([]);
   const [topDoctors, setTopDoctors] = useState<Array<{ doctorId: string; name: string; done: number }>>([]);
+  const [showBooking, setShowBooking] = useState(false);
 
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [loadingMonthly, setLoadingMonthly] = useState(true);
@@ -218,7 +220,11 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [fetchQueue]);
 
-  const todayDate = new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const todayDate = mounted
+    ? new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    : "";
   const waiting = todayApps.filter((a) => ["SCHEDULED", "WAITING"].includes(a.status)).length;
   const inProgress = todayApps.filter((a) => ["CHECKED_IN", "IN_PROGRESS"].includes(a.status)).length;
   const done = todayApps.filter((a) => a.status === "DONE").length;
@@ -292,8 +298,8 @@ export default function DashboardPage() {
           <>
             <KpiCard icon={<Users size={22} color="#2563eb" />} iconBg="#eff6ff" value={overview.newPatients} label="Новых пациентов" />
             <KpiCard icon={<CheckCircle size={22} color="#16a34a" />} iconBg="#f0fdf4" value={overview.appointments} label="Всего приёмов" />
-            <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${overview.revenue.toLocaleString("ru-RU")} сум`} label="Выручка" />
-            <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate}%`} label="Процент отмен" />
+            <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${(overview.revenue ?? 0).toLocaleString("ru-RU")} сум`} label="Выручка" />
+            <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate ?? 0}%`} label="Процент отмен" />
           </>
         ) : null}
       </div>
@@ -326,7 +332,7 @@ export default function DashboardPage() {
                   <tr key={row.month} style={{ borderBottom: "1px solid #f8fafc" }}>
                     <td style={{ padding: "9px 0", color: "#374151", fontWeight: 600 }}>{row.month}</td>
                     <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
-                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{row.revenue.toLocaleString("ru-RU")} сум</td>
+                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{(row.revenue ?? 0).toLocaleString("ru-RU")} сум</td>
                     <td style={{ padding: "9px 0 9px 16px" }}>
                       <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
                         <div style={{ height: "100%", borderRadius: 3, background: "#0d9488", width: `${(row.appointments / maxMonth) * 100}%` }} />

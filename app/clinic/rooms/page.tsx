@@ -116,7 +116,7 @@ export default function RoomsPage() {
     try {
       await clinicApi.rooms.create({
         name: createName.trim(),
-        floor: createFloor ? parseInt(createFloor, 10) : undefined,
+        floor: createFloor ? createFloor.trim() : undefined,
       });
       setCreateName("");
       setCreateFloor("");
