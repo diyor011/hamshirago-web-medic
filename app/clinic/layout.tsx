@@ -131,7 +131,7 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
 export default function ClinicLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isAuthPage = pathname === "/clinic/auth";
+  const isAuthPage = pathname === "/clinic/auth" || pathname === "/auth";
 
   const [role, setRole] = useState<ClinicRole | null>(null);
 
@@ -141,9 +141,9 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       return;
     }
     const token = getClinicToken();
-    if (!token) { router.replace("/clinic/auth"); return; }
+    if (!token) { router.replace("/auth"); return; }
     const r = getClinicRole();
-    if (!r) { router.replace("/clinic/auth"); return; }
+    if (!r) { router.replace("/auth"); return; }
     setRole(r);
 
     // Role-based route guard
@@ -156,7 +156,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
   function handleLogout() {
     clearClinicSession();
-    router.replace("/clinic/auth");
+    router.replace("/auth");
   }
 
   // Only block non-auth pages while resolving auth
