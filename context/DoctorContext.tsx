@@ -38,7 +38,13 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     doctorApi.auth.me().then((d) => {
       setDoctor(d);
-    }).catch(() => {});
+    }).catch(() => {
+      // 401 уже обработан API клиентом (redirect → /auth)
+      // Для остальных ошибок: если нет кеша — редиректим
+      if (!localStorage.getItem(STORAGE_KEY)) {
+        window.location.replace("/auth");
+      }
+    });
   }, [setDoctor]);
 
   return (

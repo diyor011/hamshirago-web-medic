@@ -56,7 +56,13 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     clinicApi.company.get().then((company) => {
       setClinic(companyToState(company));
-    }).catch(() => {});
+    }).catch(() => {
+      // 401 уже обработан API клиентом (redirect → /auth)
+      // Для остальных ошибок: если нет кеша — редиректим
+      if (!localStorage.getItem(STORAGE_KEY)) {
+        window.location.replace("/clinic/auth");
+      }
+    });
   }, [setClinic]);
 
   return (
