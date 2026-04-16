@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
   TrendingUp,
   LogOut,
   Building2,
+  Stethoscope,
 } from "lucide-react";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
@@ -29,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/reception",  label: "Ресепшн",    icon: CalendarDays,    roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/leads",      label: "Лиды",       icon: Users,           roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/rooms",      label: "Кабинеты",   icon: DoorOpen,        roles: ["CEO"] },
+  { href: "/clinic/services",   label: "Услуги",     icon: Stethoscope,     roles: ["CEO"] },
   { href: "/clinic/staff",      label: "Сотрудники", icon: UserCog,         roles: ["CEO"] },
   { href: "/clinic/finance",    label: "Финансы",    icon: TrendingUp,      roles: ["CEO"] },
   { href: "/clinic/settings",   label: "Настройки",  icon: Settings,        roles: ["CEO"] },
@@ -87,7 +90,7 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
         {visible.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <a
+            <Link
               key={href}
               href={href}
               style={{
@@ -104,7 +107,7 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
             >
               <Icon size={17} strokeWidth={active ? 2.5 : 2} />
               {label}
-            </a>
+            </Link>
           );
         })}
       </nav>
@@ -130,18 +133,9 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
 export default function ClinicLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const isAuthPage = pathname === "/clinic/auth";
+  const isAuthPage = pathname === "/clinic/auth" || pathname === "/auth";
 
-  // Initialise synchronously: auth page is always GUEST, others check localStorage
-  const [role, setRole] = useState<ClinicRole | null>(() => {
-    if (isAuthPage) return "GUEST" as ClinicRole;
-    if (typeof window === "undefined") return null;
-    try {
-      const token = getClinicToken();
-      if (!token) return null;
-      return getClinicRole();
-    } catch { return null; }
-  });
+  const [role, setRole] = useState<ClinicRole | null>(null);
 
   useEffect(() => {
     if (isAuthPage) {
@@ -149,15 +143,22 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       return;
     }
     const token = getClinicToken();
-    if (!token) { router.replace("/clinic/auth"); return; }
+    if (!token) { router.replace("/auth"); return; }
     const r = getClinicRole();
-    if (!r) { router.replace("/clinic/auth"); return; }
+    if (!r) { router.replace("/auth"); return; }
     setRole(r);
+
+    // Role-based route guard
+    const ceoOnly = ["/clinic/dashboard", "/clinic/rooms", "/clinic/services", "/clinic/staff", "/clinic/finance", "/clinic/settings"];
+    if (r === "RECEPTION" && ceoOnly.some((p) => pathname.startsWith(p))) {
+      router.replace("/clinic/reception");
+      return;
+    }
   }, [router, pathname, isAuthPage]);
 
   function handleLogout() {
     clearClinicSession();
-    router.replace("/clinic/auth");
+    router.replace("/auth");
   }
 
   // Only block non-auth pages while resolving auth

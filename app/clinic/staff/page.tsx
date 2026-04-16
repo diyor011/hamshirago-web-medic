@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, RefreshCw, UserX, Users } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRole } from "@/lib/clinicApi";
+import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 
 const ROLE_LABELS: Record<ClinicRole, string> = {
   CEO: "Директор",
@@ -71,6 +72,8 @@ export default function StaffPage() {
   const [createError, setCreateError] = useState("");
 
   const [deactivating, setDeactivating] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   const loadStaff = useCallback(async () => {
     setLoading(true); setError(null);
@@ -92,8 +95,7 @@ export default function StaffPage() {
         phone: form.phone.trim(),
         password: form.password,
         role: form.role,
-        ...(form.role === "DOCTOR" && form.specialization ? { specialization: form.specialization } : {}),
-        ...(form.role === "DOCTOR" && form.photoUrl ? { photoUrl: form.photoUrl } : {}),
+        ...(form.photoUrl ? { photoUrl: form.photoUrl } : {}),
       });
       setForm(EMPTY_FORM);
       setShowCreate(false);
@@ -106,13 +108,18 @@ export default function StaffPage() {
   }
 
   async function handleDeactivate(id: string) {
-    if (!confirm("Деактивировать сотрудника?")) return;
+    setConfirmId(id);
+  }
+
+  async function doDeactivate(id: string) {
+    setConfirmId(null);
     setDeactivating(id);
     try {
       await clinicApi.staff.deactivate(id);
+      toast.success("Сотрудник деактивирован");
       await loadStaff();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setDeactivating(null);
     }
@@ -131,6 +138,15 @@ export default function StaffPage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+      {confirmId && (
+        <ConfirmDialog
+          message="Деактивировать сотрудника? Он потеряет доступ к порталу."
+          confirmLabel="Деактивировать"
+          onConfirm={() => doDeactivate(confirmId)}
+          onCancel={() => setConfirmId(null)}
+        />
+      )}
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
@@ -177,18 +193,10 @@ export default function StaffPage() {
                 <option value="CEO">Директор (CEO)</option>
               </select>
             </div>
-            {form.role === "DOCTOR" && (
-              <>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Специализация</label>
-                  <input style={inputStyle} value={form.specialization} onChange={(e) => setForm((f) => ({ ...f, specialization: e.target.value }))} placeholder="Кардиолог" />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Фото URL</label>
-                  <input style={inputStyle} value={form.photoUrl} onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://res.cloudinary.com/..." />
-                </div>
-              </>
-            )}
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Фото URL</label>
+              <input style={inputStyle} value={form.photoUrl} onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://res.cloudinary.com/..." />
+            </div>
           </div>
 
           {createError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 12 }}>{createError}</p>}

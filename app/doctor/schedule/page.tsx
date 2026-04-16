@@ -4,6 +4,32 @@ import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, DoctorSlot } from "@/lib/api";
 import { Calendar, Plus, Trash2, Clock, CheckCircle, Repeat, ChevronDown, ChevronUp } from "lucide-react";
+<<<<<<< HEAD
+=======
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
+
+const TEMPLATE_KEY = "doctor-slot-templates";
+const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+
+interface SlotTemplate {
+  id: string;
+  name: string;
+  days: number[]; // 0=Sun … 6=Sat
+  startTime: string;
+  endTime: string;
+  intervalMinutes: number;
+}
+
+function loadTemplates(): SlotTemplate[] {
+  try {
+    return JSON.parse(localStorage.getItem(TEMPLATE_KEY) ?? "[]");
+  } catch { return []; }
+}
+
+function saveTemplates(templates: SlotTemplate[]) {
+  localStorage.setItem(TEMPLATE_KEY, JSON.stringify(templates));
+}
+>>>>>>> 47a7cbc9e7c92047b4e061c24dd3e98168b29ec0
 
 function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -42,17 +68,67 @@ export default function DoctorSchedulePage() {
   const [endTime, setEndTime] = useState("17:00");
   const [interval, setInterval] = useState("30");
 
-  // Template state
-  const [showTemplate, setShowTemplate] = useState(false);
-  const [tplDays, setTplDays] = useState<number[]>([1,2,3,4,5]);
+  // Templates
+  const [templates, setTemplates] = useState<SlotTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showNewTemplate, setShowNewTemplate] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplDays, setTplDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [tplStart, setTplStart] = useState("09:00");
   const [tplEnd, setTplEnd] = useState("17:00");
   const [tplInterval, setTplInterval] = useState("30");
-  const [tplRange, setTplRange] = useState("14");
-  const [applyingTpl, setApplyingTpl] = useState(false);
-  const [tplResult, setTplResult] = useState<string | null>(null);
+  const [applying, setApplying] = useState<string | null>(null);
+  const [applyResult, setApplyResult] = useState<string | null>(null);
 
   const days = getDays(today, 14);
+  const { toasts, toast, closeToast } = useToast();
+
+  useEffect(() => { setTemplates(loadTemplates()); }, []);
+
+  function handleSaveTemplate() {
+    if (!tplName.trim() || tplDays.length === 0) return;
+    const tpl: SlotTemplate = {
+      id: Date.now().toString(),
+      name: tplName.trim(),
+      days: tplDays,
+      startTime: tplStart,
+      endTime: tplEnd,
+      intervalMinutes: parseInt(tplInterval, 10) || 30,
+    };
+    const updated = [...templates, tpl];
+    setTemplates(updated);
+    saveTemplates(updated);
+    setShowNewTemplate(false);
+    setTplName(""); setTplDays([1, 2, 3, 4, 5]);
+    setTplStart("09:00"); setTplEnd("17:00"); setTplInterval("30");
+  }
+
+  function handleDeleteTemplate(id: string) {
+    const updated = templates.filter((t) => t.id !== id);
+    setTemplates(updated);
+    saveTemplates(updated);
+  }
+
+  async function handleApplyTemplate(tpl: SlotTemplate, weeks = 4) {
+    setApplying(tpl.id); setApplyResult(null);
+    const dates: string[] = [];
+    for (let i = 0; i < weeks * 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      if (tpl.days.includes(d.getDay())) dates.push(toDateStr(d));
+    }
+    let created = 0;
+    for (const date of dates) {
+      try {
+        await doctorApi.slots.create({ date, startTime: tpl.startTime, endTime: tpl.endTime, intervalMinutes: tpl.intervalMinutes });
+        created++;
+      } catch { /* пропускаем дни где уже есть слоты */ }
+    }
+    setApplying(null);
+    setApplyResult(`Создано слотов на ${created} из ${dates.length} дней`);
+    setTimeout(() => setApplyResult(null), 4000);
+    loadSlots(selectedDate);
+  }
 
   const loadSlots = useCallback(async (date: string) => {
     setLoading(true);
@@ -78,7 +154,7 @@ export default function DoctorSchedulePage() {
       await loadSlots(selectedDate);
       setShowCreate(false);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Ошибка создания слотов");
+      toast.error(e instanceof Error ? e.message : "Ошибка создания слотов");
     }
     setCreating(false);
   }
@@ -89,7 +165,7 @@ export default function DoctorSchedulePage() {
       await doctorApi.slots.delete(slotId);
       setSlots((prev) => prev.filter((s) => s.id !== slotId));
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Ошибка удаления");
+      toast.error(e instanceof Error ? e.message : "Ошибка удаления");
     }
     setDeletingId(null);
   }
@@ -140,6 +216,7 @@ export default function DoctorSchedulePage() {
 
   return (
     <DashboardLayout>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -321,6 +398,141 @@ export default function DoctorSchedulePage() {
             </button>
           );
         })}
+      </div>
+
+      {/* Templates section */}
+      <div style={{ marginBottom: 20 }}>
+        <button
+          onClick={() => setShowTemplates((v) => !v)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12,
+            padding: "12px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#0f172a",
+          }}
+        >
+          <Repeat size={16} color="#0d9488" />
+          Шаблоны расписания
+          <span style={{ marginLeft: "auto", color: "#94a3b8", fontSize: 12 }}>
+            {templates.length} шаблонов
+          </span>
+          {showTemplates ? <ChevronUp size={15} color="#94a3b8" /> : <ChevronDown size={15} color="#94a3b8" />}
+        </button>
+
+        {showTemplates && (
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderTop: "none", borderRadius: "0 0 12px 12px", padding: 16 }}>
+
+            {applyResult && (
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#16a34a", marginBottom: 12 }}>
+                ✓ {applyResult}
+              </div>
+            )}
+
+            {templates.length === 0 && !showNewTemplate && (
+              <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+                Нет шаблонов. Создайте шаблон чтобы быстро заполнять расписание на несколько недель.
+              </p>
+            )}
+
+            {templates.map((tpl) => (
+              <div key={tpl.id} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                background: "#f8fafc", borderRadius: 10, marginBottom: 8, flexWrap: "wrap",
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>{tpl.name}</p>
+                  <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
+                    {tpl.days.map((d) => DAY_LABELS[d]).join(", ")} · {tpl.startTime}–{tpl.endTime} · {tpl.intervalMinutes} мин
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleApplyTemplate(tpl)}
+                  disabled={applying === tpl.id}
+                  style={{
+                    padding: "7px 14px", borderRadius: 8, border: "none",
+                    background: "linear-gradient(135deg, #0d9488, #0f766e)",
+                    color: "#fff", fontSize: 12, fontWeight: 700, cursor: applying === tpl.id ? "not-allowed" : "pointer",
+                    opacity: applying === tpl.id ? 0.7 : 1, whiteSpace: "nowrap",
+                  }}
+                >
+                  {applying === tpl.id ? "Применяю..." : "Применить на 4 нед."}
+                </button>
+                <button
+                  onClick={() => handleDeleteTemplate(tpl.id)}
+                  style={{ padding: "7px 8px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", cursor: "pointer", color: "#ef4444" }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+
+            {showNewTemplate ? (
+              <div style={{ background: "#f8fafc", borderRadius: 10, padding: 14, marginTop: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Название шаблона *</label>
+                    <input
+                      value={tplName} onChange={(e) => setTplName(e.target.value)}
+                      placeholder="Пн–Пт стандарт"
+                      style={{ width: "100%", height: 36, borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "0 10px", fontSize: 13, boxSizing: "border-box", outline: "none" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Начало</label>
+                    <input type="time" value={tplStart} onChange={(e) => setTplStart(e.target.value)}
+                      style={{ width: "100%", height: 36, borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "0 10px", fontSize: 13, boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Конец</label>
+                    <input type="time" value={tplEnd} onChange={(e) => setTplEnd(e.target.value)}
+                      style={{ width: "100%", height: 36, borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "0 10px", fontSize: 13, boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Интервал (мин)</label>
+                    <select value={tplInterval} onChange={(e) => setTplInterval(e.target.value)}
+                      style={{ width: "100%", height: 36, borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "0 10px", fontSize: 13, boxSizing: "border-box", outline: "none", background: "#fff" }}>
+                      {[15, 20, 30, 45, 60].map((v) => <option key={v} value={v}>{v} мин</option>)}
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Дни недели</label>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {DAY_LABELS.map((label, idx) => {
+                        const active = tplDays.includes(idx);
+                        return (
+                          <button key={idx} type="button"
+                            onClick={() => setTplDays((prev) => active ? prev.filter((d) => d !== idx) : [...prev, idx])}
+                            style={{
+                              width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                              background: active ? "#0d9488" : "#e2e8f0",
+                              color: active ? "#fff" : "#64748b",
+                            }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={handleSaveTemplate} style={{ background: "#0d9488", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    Сохранить
+                  </button>
+                  <button onClick={() => setShowNewTemplate(false)} style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, cursor: "pointer", color: "#64748b" }}>
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowNewTemplate(true)}
+                style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, background: "none", border: "1.5px dashed #e2e8f0", borderRadius: 10, padding: "10px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#0d9488", width: "100%" }}
+              >
+                <Plus size={14} /> Новый шаблон
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create form */}

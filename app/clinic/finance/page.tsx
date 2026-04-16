@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, TrendingUp, DollarSign, Users, Download } from "lucide-react";
 import { clinicApi, StatsOverview, MonthlyStats, DoctorStats } from "@/lib/clinicApi";
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: number }) {
   return (
@@ -51,6 +52,7 @@ export default function FinancePage() {
   const [errOverview, setErrOverview] = useState<string | null>(null);
   const [errMonthly, setErrMonthly] = useState<string | null>(null);
   const [errDoctors, setErrDoctors] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   const fetchOverview = useCallback(async (p: Period) => {
     setLoadingOverview(true); setErrOverview(null);
@@ -80,7 +82,7 @@ export default function FinancePage() {
   const maxDocRevenue = Math.max(...doctors.map((d) => d.revenue), 1);
 
   function exportCSV() {
-    if (monthly.length === 0) { alert("Нет данных для экспорта"); return; }
+    if (monthly.length === 0) { toast.warn("Нет данных для экспорта"); return; }
     const header = ["Месяц", "Приёмов", "Выручка (сум)"];
     const rows = monthly.map((r) => [r.month, r.appointments, r.revenue]);
 
@@ -114,6 +116,7 @@ export default function FinancePage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
@@ -166,7 +169,7 @@ export default function FinancePage() {
             {
               icon: <DollarSign size={22} color="#0d9488" />,
               iconBg: "#f0fdfa",
-              value: `${overview.revenue.toLocaleString("ru-RU")} сум`,
+              value: `${(overview.revenue ?? 0).toLocaleString("ru-RU")} сум`,
               label: "Выручка",
             },
             {
@@ -178,7 +181,7 @@ export default function FinancePage() {
             {
               icon: <TrendingUp size={22} color="#9333ea" />,
               iconBg: "#faf5ff",
-              value: `${overview.cancelRate}%`,
+              value: `${overview.cancelRate ?? 0}%`,
               label: "Процент отмен",
             },
           ].map(({ icon, iconBg, value, label }) => (
@@ -228,7 +231,7 @@ export default function FinancePage() {
                     <td style={{ padding: "10px 0", fontWeight: 600, color: "#374151" }}>{row.month}</td>
                     <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
                     <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>
-                      {row.revenue.toLocaleString("ru-RU")} сум
+                      {(row.revenue ?? 0).toLocaleString("ru-RU")} сум
                     </td>
                     <td style={{ padding: "10px 0 10px 16px" }}>
                       <div style={{ height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
@@ -278,7 +281,7 @@ export default function FinancePage() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 16, fontWeight: 800,
                     }}>
-                      {doc.doctorName.charAt(0).toUpperCase()}
+                      {(doc.doctorName ?? "?").charAt(0).toUpperCase()}
                     </div>
                     {idx < 3 && (
                       <span style={{
@@ -297,7 +300,7 @@ export default function FinancePage() {
                         {doc.doctorName}
                       </span>
                       <span style={{ fontSize: 12, color: "#0d9488", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
-                        {doc.revenue.toLocaleString("ru-RU")} сум
+                        {(doc.revenue ?? 0).toLocaleString("ru-RU")} сум
                       </span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

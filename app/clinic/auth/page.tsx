@@ -50,12 +50,12 @@ export default function ClinicAuthPage() {
     try {
       const rawPhone = "+" + phoneDigits;
       const res = await clinicApi.auth.login(rawPhone, password);
-      localStorage.setItem("clinic_token", res.access_token);
+      localStorage.setItem("clinic_token", res.token ?? res.access_token ?? "");
       localStorage.setItem("clinic_user", JSON.stringify(res.user));
-      const role = getClinicRole();
-      if (role === "DOCTOR") {
+      const jwtRole = getClinicRole();
+      if (jwtRole === "DOCTOR") {
         router.replace("/doctor");
-      } else if (role === "RECEPTION") {
+      } else if (jwtRole === "RECEPTION") {
         router.replace("/clinic/reception");
       } else {
         router.replace("/clinic/dashboard");

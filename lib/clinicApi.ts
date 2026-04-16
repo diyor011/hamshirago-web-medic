@@ -17,7 +17,8 @@ export function getClinicRole(): "CEO" | "RECEPTION" | "DOCTOR" | null {
     const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const payload = JSON.parse(atob(padded));
-    return payload.role ?? null;
+    // JWT has role:'clinic' (general) + clinicRole:'CEO'|'RECEPTION'|'DOCTOR'
+    return payload.clinicRole ?? payload.role ?? null;
   } catch {
     return null;
   }
@@ -67,7 +68,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export type ClinicRole = "CEO" | "RECEPTION" | "DOCTOR";
 
 export interface ClinicAuthResponse {
-  access_token: string;
+  token: string;
+  access_token?: string; // alias — бекенд возвращает token
   user: {
     id: string;
     name: string;
@@ -80,8 +82,6 @@ export interface ClinicCompany {
   id: string;
   name: string;
   address?: string;
-  phone?: string;
-  email?: string;
   logoUrl?: string;
 }
 
@@ -153,12 +153,12 @@ export interface Appointment {
 
 export interface CreateAppointmentDto {
   patientPhone: string;
-  patientName?: string;
-  doctorId: string;
-  roomId: string;
+  patientName: string;
+  doctorId?: string;
+  roomId?: string;
   date: string;
   time: string;
-  paymentType: PaymentType;
+  paymentType?: PaymentType;
 }
 
 export type LeadStatus = "NEW" | "IN_PROGRESS" | "DONE" | "CANCELED";
@@ -249,7 +249,6 @@ export const clinicApi = {
       phone: string;
       password: string;
       role: ClinicRole;
-      specialization?: string;
       photoUrl?: string;
     }) =>
       request<ClinicStaff>("/clinic/staff", {
@@ -267,7 +266,7 @@ export const clinicApi = {
 
   rooms: {
     list: () => request<ClinicRoom[]>("/clinic/rooms"),
-    create: (dto: { name: string; floor?: number }) =>
+    create: (dto: { name: string; floor?: string | number }) =>
       request<ClinicRoom>("/clinic/rooms", {
         method: "POST",
         body: JSON.stringify(dto),
@@ -291,7 +290,7 @@ export const clinicApi = {
 
   services: {
     list: () => request<ClinicService[]>("/clinic/services"),
-    create: (dto: { name: string; price: number; durationMinutes: number }) =>
+    create: (dto: { name: string; price: number; durationMinutes: number; category?: string }) =>
       request<ClinicService>("/clinic/services", {
         method: "POST",
         body: JSON.stringify(dto),

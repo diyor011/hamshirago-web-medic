@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { clinicApi, ClinicCompany, ClinicService } from "@/lib/clinicApi";
 import { useClinic } from "@/context/ClinicContext";
+import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -120,8 +121,15 @@ const card: React.CSSProperties = {
   boxShadow: "0 1px 4px rgba(15,23,42,0.04)", padding: "24px",
 };
 
-interface ServiceForm { name: string; price: string; durationMinutes: string; }
-const EMPTY_SVC: ServiceForm = { name: "", price: "", durationMinutes: "" };
+type ServiceCategory = "CONSULTATION" | "LAB" | "DIAGNOSTIC" | "PROCEDURE";
+const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
+  { value: "CONSULTATION", label: "Консультация" },
+  { value: "LAB",          label: "Лаборатория" },
+  { value: "DIAGNOSTIC",   label: "Диагностика" },
+  { value: "PROCEDURE",    label: "Процедура" },
+];
+interface ServiceForm { name: string; price: string; durationMinutes: string; category: ServiceCategory; }
+const EMPTY_SVC: ServiceForm = { name: "", price: "", durationMinutes: "", category: "CONSULTATION" };
 
 export default function SettingsPage() {
   const { setClinic } = useClinic();
@@ -134,7 +142,7 @@ export default function SettingsPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const [companyForm, setCompanyForm] = useState({
-    name: "", address: "", phone: "", email: "", logoUrl: "",
+    name: "", address: "", logoUrl: "",
   });
 
   // ── Telegram ──
@@ -168,6 +176,8 @@ export default function SettingsPage() {
   const [editForm, setEditForm] = useState<ServiceForm>(EMPTY_SVC);
   const [updatingSvc, setUpdatingSvc] = useState(false);
   const [deactivatingSvc, setDeactivatingSvc] = useState<string | null>(null);
+  const [confirmSvcId, setConfirmSvcId] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   // ── Working Hours (localStorage) ──
   const [hours, setHours] = useState<WorkingHours>(() => {
@@ -196,8 +206,7 @@ export default function SettingsPage() {
       const c = await clinicApi.company.get();
       setCompany(c);
       setCompanyForm({
-        name: c.name ?? "", address: c.address ?? "",
-        phone: c.phone ?? "", email: c.email ?? "", logoUrl: c.logoUrl ?? "",
+        name: c.name ?? "", address: c.address ?? "", logoUrl: c.logoUrl ?? "",
       });
     } catch (e) {
       setErrCompany(e instanceof Error ? e.message : "Ошибка загрузки");
@@ -220,8 +229,6 @@ export default function SettingsPage() {
       const updated = await clinicApi.company.update({
         name: companyForm.name || undefined,
         address: companyForm.address || undefined,
-        phone: companyForm.phone || undefined,
-        email: companyForm.email || undefined,
         logoUrl: companyForm.logoUrl || undefined,
       });
       // Push updated data into ClinicContext so sidebar reflects changes instantly
@@ -229,14 +236,13 @@ export default function SettingsPage() {
         id: updated.id,
         name: updated.name,
         logoUrl: updated.logoUrl ?? null,
-        phone: updated.phone ?? null,
         address: updated.address ?? null,
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       await loadCompany();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка сохранения");
+      toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
     } finally { setSaving(false); }
   }
 
@@ -273,6 +279,7 @@ export default function SettingsPage() {
         name: svcForm.name.trim(),
         price: parseInt(svcForm.price, 10),
         durationMinutes: parseInt(svcForm.durationMinutes, 10),
+        category: svcForm.category,
       });
       setSvcForm(EMPTY_SVC); setShowCreateSvc(false);
       await loadServices();
@@ -292,15 +299,19 @@ export default function SettingsPage() {
       });
       setEditingSvc(null); await loadServices();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка обновления");
+      toast.error(e instanceof Error ? e.message : "Ошибка обновления");
     } finally { setUpdatingSvc(false); }
   }
 
   async function handleDeactivateService(id: string) {
-    if (!confirm("Деактивировать услугу?")) return;
+    setConfirmSvcId(id);
+  }
+
+  async function doDeactivateService(id: string) {
+    setConfirmSvcId(null);
     setDeactivatingSvc(id);
-    try { await clinicApi.services.deactivate(id); await loadServices(); }
-    catch (e) { alert(e instanceof Error ? e.message : "Ошибка"); }
+    try { await clinicApi.services.deactivate(id); toast.success("Услуга деактивирована"); await loadServices(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка"); }
     finally { setDeactivatingSvc(null); }
   }
 
@@ -330,6 +341,15 @@ export default function SettingsPage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+      {confirmSvcId && (
+        <ConfirmDialog
+          message="Деактивировать услугу? Она станет недоступна для записи."
+          confirmLabel="Деактивировать"
+          onConfirm={() => doDeactivateService(confirmSvcId)}
+          onCancel={() => setConfirmSvcId(null)}
+        />
+      )}
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
         .day-row:hover { background: #f8fafc !important; }
@@ -377,8 +397,6 @@ export default function SettingsPage() {
               {[
                 { key: "name" as const,    label: "Название клиники *", placeholder: "Медцентр «Здоровье»" },
                 { key: "address" as const, label: "Адрес",              placeholder: "ул. Амира Темура 10, Ташкент" },
-                { key: "phone" as const,   label: "Телефон",            placeholder: "+998712345678" },
-                { key: "email" as const,   label: "Email",              placeholder: "info@clinic.uz" },
               ].map(({ key, label, placeholder }) => (
                 <div key={key}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{label}</label>
@@ -549,10 +567,16 @@ export default function SettingsPage() {
 
         {showCreateSvc && (
           <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Название *</label>
                 <input style={inputStyle} value={svcForm.name} onChange={(e) => setSvcForm((f) => ({ ...f, name: e.target.value }))} placeholder="Консультация терапевта" />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Категория *</label>
+                <select style={inputStyle} value={svcForm.category} onChange={(e) => setSvcForm((f) => ({ ...f, category: e.target.value as ServiceCategory }))}>
+                  {SERVICE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
               </div>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Цена (UZS) *</label>
@@ -632,7 +656,7 @@ export default function SettingsPage() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => { setEditingSvc(svc.id); setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes) }); }} style={{ padding: "5px 8px", borderRadius: 7, background: "#f8fafc", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><Pencil size={13} /></button>
+                          <button onClick={() => { setEditingSvc(svc.id); setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes), category: "CONSULTATION" }); }} style={{ padding: "5px 8px", borderRadius: 7, background: "#f8fafc", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><Pencil size={13} /></button>
                           {svc.isActive && (
                             <button onClick={() => handleDeactivateService(svc.id)} disabled={deactivatingSvc === svc.id} style={{ padding: "5px 8px", borderRadius: 7, background: "#fef2f2", border: "1px solid #fecaca", cursor: "pointer", color: "#ef4444" }}><Trash2 size={13} /></button>
                           )}

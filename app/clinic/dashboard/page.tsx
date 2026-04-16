@@ -1,242 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, Download, ChevronDown } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, ChevronRight, X, Download } from "lucide-react";
 import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
-import { useClinic } from "@/context/ClinicContext";
-
-// ─── CSV helpers ──────────────────────────────────────────────────────────────
-
-function escapeCSV(val: unknown): string {
-  const s = val === null || val === undefined ? "" : String(val);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-function buildCSV(headers: string[], rows: unknown[][]): string {
-  const lines = [
-    headers.map(escapeCSV).join(","),
-    ...rows.map((row) => row.map(escapeCSV).join(",")),
-  ];
-  return "\uFEFF" + lines.join("\r\n"); // BOM for Excel Cyrillic
-}
-
-function triggerDownload(csv: string, filename: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-const APPOINTMENT_STATUS_RU: Record<string, string> = {
-  SCHEDULED: "Запланирован",
-  CHECKED_IN: "Зарегистрирован",
-  IN_PROGRESS: "На приёме",
-  DONE: "Завершён",
-  CANCELED: "Отменён",
-  NO_SHOW: "Не явился",
-};
-
-const PAYMENT_TYPE_RU: Record<string, string> = {
-  CASH: "Наличные",
-  TERMINAL: "Терминал",
-  ONLINE: "Онлайн",
-};
-
-const LEAD_STATUS_RU: Record<string, string> = {
-  NEW: "Новый",
-  IN_PROGRESS: "В работе",
-  DONE: "Завершён",
-  CANCELED: "Отменён",
-};
-
-// ─── Onboarding checklist ─────────────────────────────────────────────────────
-
-const ONBOARDING_KEY = "clinic_onboarding_dismissed";
-
-interface OnboardingStep {
-  id: string;
-  title: string;
-  description: string;
-  href: string;
-  done: boolean;
-}
-
-function OnboardingChecklist() {
-  const { clinic } = useClinic();
-  const [dismissed, setDismissed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(ONBOARDING_KEY) === "1";
-  });
-  const [hasStaff, setHasStaff] = useState<boolean | null>(null);
-  const [hasRooms, setHasRooms] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (dismissed) return;
-    clinicApi.staff.list()
-      .then((s) => setHasStaff(s.length > 0))
-      .catch(() => setHasStaff(false));
-    clinicApi.rooms.list()
-      .then((r) => setHasRooms(r.length > 0))
-      .catch(() => setHasRooms(false));
-  }, [dismissed]);
-
-  if (dismissed) return null;
-  if (hasStaff === null || hasRooms === null) return null; // wait for data
-
-  const profileDone = !!(clinic?.name && clinic?.address && clinic?.phone);
-
-  const steps: OnboardingStep[] = [
-    {
-      id: "profile",
-      title: "Заполните профиль клиники",
-      description: "Название, адрес, телефон — клиенты увидят эту информацию",
-      href: "/clinic/settings",
-      done: profileDone,
-    },
-    {
-      id: "staff",
-      title: "Добавьте врача",
-      description: "Пригласите первого врача или сотрудника ресепшна",
-      href: "/clinic/staff",
-      done: hasStaff,
-    },
-    {
-      id: "rooms",
-      title: "Создайте кабинет",
-      description: "Укажите кабинеты, в которых принимают врачи",
-      href: "/clinic/rooms",
-      done: hasRooms,
-    },
-    {
-      id: "schedule",
-      title: "Назначьте расписание",
-      description: "Привяжите врача к кабинету и задайте рабочие часы",
-      href: "/clinic/rooms",
-      done: hasRooms && hasStaff,
-    },
-  ];
-
-  const doneCount = steps.filter((s) => s.done).length;
-  const allDone = doneCount === steps.length;
-  const pct = Math.round((doneCount / steps.length) * 100);
-
-  function dismiss() {
-    localStorage.setItem(ONBOARDING_KEY, "1");
-    setDismissed(true);
-  }
-
-  return (
-    <div style={{
-      background: "#fff", borderRadius: 16, border: "1.5px solid #ccfbf1",
-      padding: "20px 24px", marginBottom: 28,
-      boxShadow: "0 4px 20px rgba(13,148,136,0.08)",
-    }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0, marginBottom: 4 }}>
-            {allDone ? "Клиника готова к работе! 🎉" : "Настройте клинику"}
-          </h2>
-          <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
-            {allDone
-              ? "Все шаги выполнены. Вы можете принимать пациентов."
-              : `Выполнено ${doneCount} из ${steps.length} шагов`}
-          </p>
-        </div>
-        <button
-          onClick={dismiss}
-          style={{
-            background: "none", border: "none", cursor: "pointer",
-            color: "#94a3b8", fontSize: 20, lineHeight: 1, padding: "0 0 0 12px",
-            flexShrink: 0,
-          }}
-          title="Закрыть"
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Progress bar */}
-      <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", marginBottom: 20, overflow: "hidden" }}>
-        <div style={{
-          height: "100%", borderRadius: 3,
-          background: allDone ? "#16a34a" : "linear-gradient(90deg, #0d9488, #14b8a6)",
-          width: `${pct}%`, transition: "width 0.5s ease",
-        }} />
-      </div>
-
-      {/* Steps */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-        {steps.map((step) => (
-          <a
-            key={step.id}
-            href={step.done ? undefined : step.href}
-            style={{
-              display: "flex", alignItems: "flex-start", gap: 12,
-              padding: "14px 16px", borderRadius: 12, textDecoration: "none",
-              border: `1.5px solid ${step.done ? "#bbf7d0" : "#e2e8f0"}`,
-              background: step.done ? "#f0fdf4" : "#f8fafc",
-              cursor: step.done ? "default" : "pointer",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              if (!step.done) (e.currentTarget as HTMLElement).style.borderColor = "#0d9488";
-            }}
-            onMouseLeave={(e) => {
-              if (!step.done) (e.currentTarget as HTMLElement).style.borderColor = "#e2e8f0";
-            }}
-          >
-            {/* Status circle */}
-            <div style={{
-              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-              background: step.done ? "#16a34a" : "#e2e8f0",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              marginTop: 1,
-            }}>
-              {step.done
-                ? <span style={{ color: "#fff", fontSize: 14, lineHeight: 1 }}>✓</span>
-                : <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 700 }}>{steps.indexOf(step) + 1}</span>
-              }
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <p style={{
-                fontSize: 13, fontWeight: 700,
-                color: step.done ? "#166534" : "#0f172a",
-                margin: 0, marginBottom: 3,
-              }}>
-                {step.title}
-              </p>
-              <p style={{ fontSize: 12, color: step.done ? "#16a34a" : "#64748b", margin: 0, lineHeight: 1.4 }}>
-                {step.done ? "Выполнено" : step.description}
-              </p>
-            </div>
-          </a>
-        ))}
-      </div>
-
-      {allDone && (
-        <div style={{ marginTop: 16, textAlign: "center" }}>
-          <button
-            onClick={dismiss}
-            style={{
-              background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-              border: "none", borderRadius: 8, padding: "8px 24px",
-              fontSize: 13, fontWeight: 700, cursor: "pointer",
-            }}
-          >
-            Скрыть это сообщение
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+import BookingModal from "@/components/clinic/BookingModal";
 
 type Period = "today" | "week" | "month" | "year";
 
@@ -294,6 +61,86 @@ interface KpiCardProps {
   label: string;
 }
 
+const ONBOARDING_DISMISS_KEY = "clinic-onboarding-dismissed";
+
+interface OnboardingStep {
+  key: string;
+  label: string;
+  hint: string;
+  href: string;
+  done: boolean;
+}
+
+function OnboardingBanner({ steps, onDismiss }: { steps: OnboardingStep[]; onDismiss: () => void }) {
+  const completed = steps.filter((s) => s.done).length;
+  const pct = Math.round((completed / steps.length) * 100);
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)",
+      border: "1.5px solid #99f6e4", borderRadius: 16,
+      padding: "20px 24px", marginBottom: 24, position: "relative",
+    }}>
+      <button onClick={onDismiss} style={{
+        position: "absolute", top: 14, right: 14,
+        background: "none", border: "none", cursor: "pointer",
+        color: "#94a3b8", display: "flex", padding: 4,
+      }}>
+        <X size={16} />
+      </button>
+
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>
+          🚀 Настройте клинику — {completed}/{steps.length} шагов
+        </p>
+        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
+          Выполните все шаги чтобы начать принимать пациентов
+        </p>
+        <div style={{ height: 6, borderRadius: 3, background: "#e2e8f0", overflow: "hidden" }}>
+          <div style={{
+            height: "100%", borderRadius: 3,
+            background: "linear-gradient(90deg, #0d9488, #5eead4)",
+            width: `${pct}%`, transition: "width 0.4s ease",
+          }} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {steps.map((step) => (
+          <a key={step.key} href={step.done ? undefined : step.href} style={{
+            display: "flex", alignItems: "center", gap: 12,
+            padding: "10px 14px", borderRadius: 10,
+            background: step.done ? "rgba(255,255,255,0.5)" : "#fff",
+            border: `1px solid ${step.done ? "#bbf7d0" : "#e2e8f0"}`,
+            textDecoration: "none", cursor: step.done ? "default" : "pointer",
+            transition: "all 0.15s",
+          }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+              background: step.done ? "#dcfce7" : "#f1f5f9",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {step.done
+                ? <CheckCircle size={16} color="#16a34a" />
+                : <span style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8" }}>
+                    {steps.indexOf(step) + 1}
+                  </span>
+              }
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: step.done ? "#16a34a" : "#0f172a", margin: 0 }}>
+                {step.label}
+              </p>
+              <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>{step.hint}</p>
+            </div>
+            {!step.done && <ChevronRight size={15} color="#94a3b8" />}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function KpiCard({ icon, iconBg, value, label }: KpiCardProps) {
   return (
     <div style={{
@@ -327,6 +174,13 @@ export default function DashboardPage() {
   // New KPI widgets: room occupancy (7d) + top doctors (30d)
   const [roomOccupancy, setRoomOccupancy] = useState<Array<{ roomId: string; roomName: string; percent: number; appointments: number }>>([]);
   const [topDoctors, setTopDoctors] = useState<Array<{ doctorId: string; name: string; done: number }>>([]);
+  const [showBooking, setShowBooking] = useState(false);
+
+  // Onboarding
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [hasStaff, setHasStaff]       = useState<boolean | null>(null);
+  const [hasRooms, setHasRooms]       = useState<boolean | null>(null);
+  const [hasServices, setHasServices] = useState<boolean | null>(null);
 
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [loadingMonthly, setLoadingMonthly] = useState(true);
@@ -456,79 +310,97 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [fetchQueue]);
 
-  // Close export menu on outside click
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setShowExportMenu(false);
-      }
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    setMounted(true);
+    setOnboardingDismissed(!!localStorage.getItem(ONBOARDING_DISMISS_KEY));
+    Promise.all([
+      clinicApi.staff.list(),
+      clinicApi.rooms.list(),
+      clinicApi.services.list(),
+    ]).then(([staff, rooms, svcs]) => {
+      setHasStaff(staff.length > 0);
+      setHasRooms(rooms.length > 0);
+      setHasServices(svcs.length > 0);
+    }).catch(() => {
+      setHasStaff(true); setHasRooms(true); setHasServices(true);
+    });
   }, []);
-
-  async function exportAppointments() {
-    setExportingCSV(true);
-    setShowExportMenu(false);
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const apps = await clinicApi.appointments.list({ date: today });
-      const csv = buildCSV(
-        ["Дата", "Время", "Пациент", "Телефон", "Оплата", "Статус"],
-        apps.map((a) => [
-          a.date,
-          a.time,
-          a.patientName ?? "",
-          a.patientPhone,
-          PAYMENT_TYPE_RU[a.paymentType] ?? a.paymentType,
-          APPOINTMENT_STATUS_RU[a.status] ?? a.status,
-        ])
-      );
-      triggerDownload(csv, `appointments_${today}.csv`);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка экспорта");
-    }
-    setExportingCSV(false);
-  }
-
-  async function exportLeads() {
-    setExportingCSV(true);
-    setShowExportMenu(false);
-    try {
-      const res = await clinicApi.leads.list({ limit: 500 });
-      const csv = buildCSV(
-        ["Имя", "Телефон", "Статус", "Заметки", "Дата"],
-        res.data.map((l) => [
-          l.name ?? "",
-          l.phone,
-          LEAD_STATUS_RU[l.status] ?? l.status,
-          l.notes ?? "",
-          new Date(l.createdAt).toLocaleDateString("ru-RU"),
-        ])
-      );
-      triggerDownload(csv, `leads_${new Date().toISOString().slice(0, 10)}.csv`);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка экспорта");
-    }
-    setExportingCSV(false);
-  }
-
-  function exportMonthly() {
-    setShowExportMenu(false);
-    if (monthly.length === 0) return;
-    const csv = buildCSV(
-      ["Месяц", "Приёмов", "Выручка (сум)"],
-      monthly.map((m) => [m.month, m.appointments, m.revenue])
-    );
-    triggerDownload(csv, `monthly_stats_${new Date().toISOString().slice(0, 10)}.csv`);
-  }
-
-  const todayDate = new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const todayDate = mounted
+    ? new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    : "";
   const waiting = todayApps.filter((a) => ["SCHEDULED", "WAITING"].includes(a.status)).length;
   const inProgress = todayApps.filter((a) => ["CHECKED_IN", "IN_PROGRESS"].includes(a.status)).length;
   const done = todayApps.filter((a) => a.status === "DONE").length;
   const maxDoc = Math.max(...doctors.map((d) => d.appointments), 1);
   const maxMonth = Math.max(...monthly.map((m) => m.appointments), 1);
+
+  const onboardingSteps: OnboardingStep[] = [
+    { key: "staff",    label: "Добавьте сотрудника",  hint: "Врач или регистратор", href: "/clinic/staff",    done: hasStaff    === true },
+    { key: "rooms",    label: "Создайте кабинет",     hint: "Где принимают врачи",  href: "/clinic/rooms",    done: hasRooms    === true },
+    { key: "services", label: "Добавьте услугу",      hint: "Консультация, анализ…", href: "/clinic/services", done: hasServices === true },
+  ];
+  const allOnboardingDone = onboardingSteps.every((s) => s.done);
+  const showOnboarding = !onboardingDismissed && !allOnboardingDone && hasStaff !== null;
+
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  function downloadCSV(filename: string, rows: string[][]) {
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  async function exportAppointments() {
+    setExporting(true); setExportOpen(false);
+    try {
+      const days: string[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        days.push(d.toISOString().slice(0, 10));
+      }
+      const perDay = await Promise.all(days.map((date) => clinicApi.appointments.list({ date })));
+      const all: Appointment[] = perDay.flat();
+      const rows: string[][] = [
+        ["ID", "Пациент", "Телефон", "Врач", "Дата", "Время", "Статус", "Оплата"],
+        ...all.map((a) => [
+          a.id.slice(0, 8),
+          a.patientName ?? "",
+          a.patientPhone ?? "",
+          a.doctorId ?? "",
+          a.date ?? "",
+          a.time ?? "",
+          a.status ?? "",
+          a.paymentType ?? "",
+        ]),
+      ];
+      downloadCSV(`appointments-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    } catch { /* ignore */ }
+    finally { setExporting(false); }
+  }
+
+  async function exportLeads() {
+    setExporting(true); setExportOpen(false);
+    try {
+      const res = await clinicApi.leads.list({ limit: 500 });
+      const rows: string[][] = [
+        ["ID", "Имя", "Телефон", "Статус", "Заметки", "Дата"],
+        ...res.data.map((l) => [
+          l.id.slice(0, 8),
+          l.name ?? "",
+          l.phone,
+          l.status,
+          l.notes ?? "",
+          new Date(l.createdAt).toLocaleDateString("ru-RU"),
+        ]),
+      ];
+      downloadCSV(`leads-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    } catch { /* ignore */ }
+    finally { setExporting(false); }
+  }
 
   const card: React.CSSProperties = {
     background: "#fff", borderRadius: 16, padding: "20px 24px",
@@ -557,55 +429,48 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {/* Export dropdown */}
-          <div ref={exportMenuRef} style={{ position: "relative" }}>
+          <div style={{ position: "relative" }}>
             <button
-              onClick={() => setShowExportMenu((v) => !v)}
-              disabled={exportingCSV}
+              onClick={() => setExportOpen((v) => !v)}
+              disabled={exporting}
               style={{
-                background: "#fff", color: "#0d9488",
-                border: "1.5px solid #0d9488", borderRadius: 10,
-                padding: "10px 14px", fontSize: 14, fontWeight: 700,
-                cursor: exportingCSV ? "not-allowed" : "pointer",
-                opacity: exportingCSV ? 0.6 : 1,
-                display: "flex", alignItems: "center", gap: 6,
+                display: "flex", alignItems: "center", gap: 7,
+                padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+                background: "#fff", border: "1.5px solid #e2e8f0", color: "#475569",
+                cursor: exporting ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1,
               }}
             >
-              <Download size={15} />
-              {exportingCSV ? "Экспорт..." : "Экспорт"}
-              <ChevronDown size={13} />
+              <Download size={14} /> {exporting ? "Экспорт..." : "Экспорт"}
             </button>
-            {showExportMenu && (
-              <div style={{
-                position: "absolute", top: "calc(100% + 6px)", right: 0,
-                background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.10)",
-                minWidth: 210, zIndex: 100, overflow: "hidden",
-              }}>
-                {[
-                  { label: "Записи (сегодня) .csv", onClick: exportAppointments },
-                  { label: "Лиды Salomat AI .csv", onClick: exportLeads },
-                  { label: "Помесячная статистика .csv", onClick: exportMonthly },
-                ].map(({ label, onClick }) => (
-                  <button
-                    key={label}
-                    onClick={onClick}
-                    style={{
-                      display: "block", width: "100%", textAlign: "left",
-                      padding: "11px 16px", background: "none", border: "none",
-                      fontSize: 13, fontWeight: 600, color: "#0f172a", cursor: "pointer",
-                      borderBottom: "1px solid #f1f5f9",
+            {exportOpen && (
+              <>
+                <div onClick={() => setExportOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                <div style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                  background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)", minWidth: 200, overflow: "hidden",
+                }}>
+                  {[
+                    { label: "Записи за 30 дней (CSV)", fn: exportAppointments },
+                    { label: "Лиды (CSV)",               fn: exportLeads },
+                  ].map(({ label, fn }) => (
+                    <button key={label} onClick={fn} style={{
+                      display: "block", width: "100%", padding: "11px 16px",
+                      textAlign: "left", background: "none", border: "none",
+                      fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f8fafc"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
-          <button style={{
+          <button onClick={() => setShowBooking(true)} style={{
             background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
             fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
             border: "none", cursor: "pointer",
@@ -614,6 +479,17 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Onboarding checklist */}
+      {showOnboarding && (
+        <OnboardingBanner
+          steps={onboardingSteps}
+          onDismiss={() => {
+            localStorage.setItem(ONBOARDING_DISMISS_KEY, "1");
+            setOnboardingDismissed(true);
+          }}
+        />
+      )}
 
       {/* Period selector */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
@@ -650,8 +526,8 @@ export default function DashboardPage() {
           <>
             <KpiCard icon={<Users size={22} color="#2563eb" />} iconBg="#eff6ff" value={overview.newPatients} label="Новых пациентов" />
             <KpiCard icon={<CheckCircle size={22} color="#16a34a" />} iconBg="#f0fdf4" value={overview.appointments} label="Всего приёмов" />
-            <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${overview.revenue.toLocaleString("ru-RU")} сум`} label="Выручка" />
-            <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate}%`} label="Процент отмен" />
+            <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${(overview.revenue ?? 0).toLocaleString("ru-RU")} сум`} label="Выручка" />
+            <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate ?? 0}%`} label="Процент отмен" />
           </>
         ) : null}
       </div>
@@ -684,7 +560,7 @@ export default function DashboardPage() {
                   <tr key={row.month} style={{ borderBottom: "1px solid #f8fafc" }}>
                     <td style={{ padding: "9px 0", color: "#374151", fontWeight: 600 }}>{row.month}</td>
                     <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
-                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{row.revenue.toLocaleString("ru-RU")} сум</td>
+                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{(row.revenue ?? 0).toLocaleString("ru-RU")} сум</td>
                     <td style={{ padding: "9px 0 9px 16px" }}>
                       <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
                         <div style={{ height: "100%", borderRadius: 3, background: "#0d9488", width: `${(row.appointments / maxMonth) * 100}%` }} />
@@ -758,7 +634,7 @@ export default function DashboardPage() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 15, fontWeight: 700,
                     }}>
-                      {doc.doctorName.charAt(0).toUpperCase()}
+                      {(doc.doctorName ?? "?").charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
@@ -911,6 +787,12 @@ export default function DashboardPage() {
       <style>{`
         @media (max-width: 900px) { .clinic-grid-stack { grid-template-columns: 1fr !important; } }
       `}</style>
+
+      <BookingModal
+        open={showBooking}
+        onClose={() => setShowBooking(false)}
+        onSuccess={() => setShowBooking(false)}
+      />
     </div>
   );
 }

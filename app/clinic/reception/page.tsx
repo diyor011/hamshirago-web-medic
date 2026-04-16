@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -118,11 +119,14 @@ export default function ReceptionPage() {
   const [calendarAppts, setCalendarAppts] = useState<Appointment[]>([]);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const { toasts, toast, closeToast } = useToast();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
-  // Today label for header
-  const todayLabel = new Date().toLocaleDateString("ru-RU", {
-    day: "numeric", month: "long", year: "numeric",
-  });
+  // Today label for header — deferred to client to avoid hydration mismatch
+  const todayLabel = mounted
+    ? new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+    : "";
 
   const fmtDateISO = (d: Date) => {
     const y = d.getFullYear();
@@ -186,7 +190,7 @@ export default function ReceptionPage() {
       await clinicApi.appointments.checkin(id);
       await loadApps();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setCheckingIn(null);
     }
@@ -249,6 +253,7 @@ export default function ReceptionPage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       <style>{`
         @keyframes shimmer {
           0%   { background-position: 200% 0; }
@@ -419,7 +424,7 @@ export default function ReceptionPage() {
               </button>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "capitalize" }}>
-              {fmtDateRu(calendarDate)}
+              {mounted ? fmtDateRu(calendarDate) : ""}
             </div>
             <button
               onClick={loadCalendar}

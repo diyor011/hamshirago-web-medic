@@ -116,7 +116,7 @@ export default function RoomsPage() {
     try {
       await clinicApi.rooms.create({
         name: createName.trim(),
-        floor: createFloor ? parseInt(createFloor, 10) : undefined,
+        floor: createFloor ? createFloor.trim() : undefined,
       });
       setCreateName("");
       setCreateFloor("");
@@ -275,7 +275,7 @@ export default function RoomsPage() {
             </thead>
             <tbody>
               {rooms.map((room) => {
-                const sched = room.schedules ?? [];
+                const sched = Array.isArray(room.schedules) ? room.schedules : [];
                 return (
                   <tr key={room.id} style={{ borderBottom: "1px solid #f8fafc" }}>
                     <td style={{ padding: "14px 20px" }}>

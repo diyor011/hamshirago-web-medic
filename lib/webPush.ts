@@ -76,16 +76,11 @@ export async function subscribeWebPush(): Promise<void> {
 
 export async function subscribeWebPushDoctor(): Promise<void> {
   if (typeof window === "undefined") return;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    console.log("[WebPush] не поддерживается браузером");
-    return;
-  }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
   const token = localStorage.getItem("medic_token");
-  if (!token) {
-    console.log("[WebPush] нет medic_token, пропускаем");
-    return;
-  }
+  if (!token) return;
+  if (localStorage.getItem("user_role") !== "doctor") return;
 
   try {
     const registration = await navigator.serviceWorker.register("/sw.js");
@@ -93,9 +88,9 @@ export async function subscribeWebPushDoctor(): Promise<void> {
 
     const res = await fetch(`${BASE_URL}/auth/vapid-public-key`);
     const text = await res.text();
-    if (!text) { console.log("[WebPush] VAPID ключ не настроен на бекенде"); return; }
+    if (!text) return;
     const { publicKey } = JSON.parse(text);
-    if (!publicKey) { console.log("[WebPush] VAPID ключ не настроен на бекенде"); return; }
+    if (!publicKey) return;
 
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return;
@@ -117,9 +112,9 @@ export async function subscribeWebPushDoctor(): Promise<void> {
         keys: { p256dh: sub.keys?.p256dh, auth: sub.keys?.auth },
       }),
     });
-    console.log("[WebPush] подписка врача сохранена на бекенде ✅");
+    console.log("[WebPush] врач: подписка сохранена ✅");
   } catch (err) {
-    console.log("[WebPush] ошибка:", err);
+    console.log("[WebPush] врач: ошибка:", err);
   }
 }
 
@@ -150,7 +145,7 @@ export async function unsubscribeWebPushDoctor(): Promise<void> {
       });
     }
   } catch {
-    // Тихо игнорируем
+    // ignore
   }
 }
 

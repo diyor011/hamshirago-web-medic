@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { X, Search, User } from "lucide-react";
-import { clinicApi, ClinicStaff, PaymentType, PatientInfo, DoctorRoomSlot } from "@/lib/clinicApi";
+import { clinicApi, ClinicStaff, ClinicRoom, PaymentType, PatientInfo, DoctorRoomSlot } from "@/lib/clinicApi";
 
 interface Props {
   open: boolean;
@@ -25,6 +25,7 @@ const inputStyle: React.CSSProperties = {
 export default function BookingModal({ open, onClose, onSuccess }: Props) {
   const [doctors, setDoctors] = useState<ClinicStaff[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [allRooms, setAllRooms] = useState<ClinicRoom[]>([]);
 
   // Patient lookup
   const [phone, setPhone] = useState("");
@@ -72,8 +73,12 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
   const loadDoctors = useCallback(async () => {
     setLoadingDoctors(true);
     try {
-      const all = await clinicApi.staff.list();
+      const [all, rooms] = await Promise.all([
+        clinicApi.staff.list(),
+        clinicApi.rooms.list(),
+      ]);
       setDoctors(all.filter((s) => s.role === "DOCTOR" && s.isActive));
+      setAllRooms(rooms);
     } catch {
       // ignore
     } finally {
@@ -124,11 +129,16 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
 
     setSubmitting(true); setError("");
     try {
+      // patientName is required by backend — fall back to phone if no name known
+      const resolvedName = patientName.trim()
+        || (patient?.name ?? "")
+        || phone.trim();
+
       await clinicApi.appointments.create({
         patientPhone: phone.trim(),
-        patientName: patientName.trim() || undefined,
-        doctorId,
-        roomId,
+        patientName: resolvedName,
+        doctorId: doctorId || undefined,
+        roomId: roomId || undefined,
         date,
         time,
         paymentType,
@@ -252,14 +262,7 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
               <div style={{ ...inputStyle, color: "#94a3b8", display: "flex", alignItems: "center" }}>
                 Загрузка расписания...
               </div>
-            ) : roomSlots.length === 0 ? (
-              <div style={{
-                ...inputStyle, background: "#fffbeb", border: "1.5px solid #fde68a",
-                color: "#92400e", fontSize: 13, display: "flex", alignItems: "center",
-              }}>
-                Врач не работает в выбранный день
-              </div>
-            ) : (
+            ) : roomSlots.length > 0 ? (
               <select
                 style={{ ...inputStyle, background: "#fff" }}
                 value={roomId}
@@ -272,6 +275,31 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
                   </option>
                 ))}
               </select>
+            ) : allRooms.length > 0 ? (
+              <>
+                <div style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", marginBottom: 6 }}>
+                  Расписание врача не настроено — выберите кабинет вручную
+                </div>
+                <select
+                  style={{ ...inputStyle, background: "#fff" }}
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                >
+                  <option value="">Выберите кабинет</option>
+                  {allRooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}{r.floor != null ? ` (${r.floor} этаж)` : ""}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <div style={{
+                ...inputStyle, background: "#fef2f2", border: "1.5px solid #fecaca",
+                color: "#ef4444", fontSize: 13, display: "flex", alignItems: "center",
+              }}>
+                Нет доступных кабинетов — сначала создайте кабинет
+              </div>
             )}
           </div>
         )}

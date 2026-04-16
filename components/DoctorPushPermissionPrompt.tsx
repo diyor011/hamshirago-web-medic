@@ -14,9 +14,9 @@ export default function DoctorPushPermissionPrompt() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
-
     if (Notification.permission !== "default") return;
 
+    // Только для врачей
     if (localStorage.getItem("user_role") !== "doctor") return;
     if (!localStorage.getItem("medic_token")) return;
 
@@ -88,7 +88,7 @@ export default function DoctorPushPermissionPrompt() {
           Уведомления о консультациях
         </p>
         <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.55, marginBottom: 24 }}>
-          Получайте мгновенные уведомления о новых консультациях — даже когда вкладка закрыта.
+          Получайте мгновенные уведомления о новых консультациях от пациентов — даже когда вкладка закрыта.
         </p>
 
         <button
