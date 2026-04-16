@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { clinicApi, ClinicCompany, ClinicService } from "@/lib/clinicApi";
 import { useClinic } from "@/context/ClinicContext";
+import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -156,6 +157,8 @@ export default function SettingsPage() {
   const [editForm, setEditForm] = useState<ServiceForm>(EMPTY_SVC);
   const [updatingSvc, setUpdatingSvc] = useState(false);
   const [deactivatingSvc, setDeactivatingSvc] = useState<string | null>(null);
+  const [confirmSvcId, setConfirmSvcId] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   // ── Working Hours (localStorage) ──
   const [hours, setHours] = useState<WorkingHours>(() => {
@@ -220,7 +223,7 @@ export default function SettingsPage() {
       setTimeout(() => setSaveSuccess(false), 3000);
       await loadCompany();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка сохранения");
+      toast.error(e instanceof Error ? e.message : "Ошибка сохранения");
     } finally { setSaving(false); }
   }
 
@@ -277,15 +280,19 @@ export default function SettingsPage() {
       });
       setEditingSvc(null); await loadServices();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка обновления");
+      toast.error(e instanceof Error ? e.message : "Ошибка обновления");
     } finally { setUpdatingSvc(false); }
   }
 
   async function handleDeactivateService(id: string) {
-    if (!confirm("Деактивировать услугу?")) return;
+    setConfirmSvcId(id);
+  }
+
+  async function doDeactivateService(id: string) {
+    setConfirmSvcId(null);
     setDeactivatingSvc(id);
-    try { await clinicApi.services.deactivate(id); await loadServices(); }
-    catch (e) { alert(e instanceof Error ? e.message : "Ошибка"); }
+    try { await clinicApi.services.deactivate(id); toast.success("Услуга деактивирована"); await loadServices(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка"); }
     finally { setDeactivatingSvc(null); }
   }
 
@@ -315,6 +322,15 @@ export default function SettingsPage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+      {confirmSvcId && (
+        <ConfirmDialog
+          message="Деактивировать услугу? Она станет недоступна для записи."
+          confirmLabel="Деактивировать"
+          onConfirm={() => doDeactivateService(confirmSvcId)}
+          onCancel={() => setConfirmSvcId(null)}
+        />
+      )}
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
         .day-row:hover { background: #f8fafc !important; }

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, TrendingUp, DollarSign, Users, Download } from "lucide-react";
 import { clinicApi, StatsOverview, MonthlyStats, DoctorStats } from "@/lib/clinicApi";
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: number }) {
   return (
@@ -51,6 +52,7 @@ export default function FinancePage() {
   const [errOverview, setErrOverview] = useState<string | null>(null);
   const [errMonthly, setErrMonthly] = useState<string | null>(null);
   const [errDoctors, setErrDoctors] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   const fetchOverview = useCallback(async (p: Period) => {
     setLoadingOverview(true); setErrOverview(null);
@@ -80,7 +82,7 @@ export default function FinancePage() {
   const maxDocRevenue = Math.max(...doctors.map((d) => d.revenue), 1);
 
   function exportCSV() {
-    if (monthly.length === 0) { alert("Нет данных для экспорта"); return; }
+    if (monthly.length === 0) { toast.warn("Нет данных для экспорта"); return; }
     const header = ["Месяц", "Приёмов", "Выручка (сум)"];
     const rows = monthly.map((r) => [r.month, r.appointments, r.revenue]);
 
@@ -114,6 +116,7 @@ export default function FinancePage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>

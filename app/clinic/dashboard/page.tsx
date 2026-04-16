@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw } from "lucide-react";
+import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, ChevronRight, X, Download } from "lucide-react";
 import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 
@@ -61,6 +61,86 @@ interface KpiCardProps {
   label: string;
 }
 
+const ONBOARDING_DISMISS_KEY = "clinic-onboarding-dismissed";
+
+interface OnboardingStep {
+  key: string;
+  label: string;
+  hint: string;
+  href: string;
+  done: boolean;
+}
+
+function OnboardingBanner({ steps, onDismiss }: { steps: OnboardingStep[]; onDismiss: () => void }) {
+  const completed = steps.filter((s) => s.done).length;
+  const pct = Math.round((completed / steps.length) * 100);
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)",
+      border: "1.5px solid #99f6e4", borderRadius: 16,
+      padding: "20px 24px", marginBottom: 24, position: "relative",
+    }}>
+      <button onClick={onDismiss} style={{
+        position: "absolute", top: 14, right: 14,
+        background: "none", border: "none", cursor: "pointer",
+        color: "#94a3b8", display: "flex", padding: 4,
+      }}>
+        <X size={16} />
+      </button>
+
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>
+          🚀 Настройте клинику — {completed}/{steps.length} шагов
+        </p>
+        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
+          Выполните все шаги чтобы начать принимать пациентов
+        </p>
+        <div style={{ height: 6, borderRadius: 3, background: "#e2e8f0", overflow: "hidden" }}>
+          <div style={{
+            height: "100%", borderRadius: 3,
+            background: "linear-gradient(90deg, #0d9488, #5eead4)",
+            width: `${pct}%`, transition: "width 0.4s ease",
+          }} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {steps.map((step) => (
+          <a key={step.key} href={step.done ? undefined : step.href} style={{
+            display: "flex", alignItems: "center", gap: 12,
+            padding: "10px 14px", borderRadius: 10,
+            background: step.done ? "rgba(255,255,255,0.5)" : "#fff",
+            border: `1px solid ${step.done ? "#bbf7d0" : "#e2e8f0"}`,
+            textDecoration: "none", cursor: step.done ? "default" : "pointer",
+            transition: "all 0.15s",
+          }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+              background: step.done ? "#dcfce7" : "#f1f5f9",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {step.done
+                ? <CheckCircle size={16} color="#16a34a" />
+                : <span style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8" }}>
+                    {steps.indexOf(step) + 1}
+                  </span>
+              }
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: step.done ? "#16a34a" : "#0f172a", margin: 0 }}>
+                {step.label}
+              </p>
+              <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>{step.hint}</p>
+            </div>
+            {!step.done && <ChevronRight size={15} color="#94a3b8" />}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function KpiCard({ icon, iconBg, value, label }: KpiCardProps) {
   return (
     <div style={{
@@ -95,6 +175,12 @@ export default function DashboardPage() {
   const [roomOccupancy, setRoomOccupancy] = useState<Array<{ roomId: string; roomName: string; percent: number; appointments: number }>>([]);
   const [topDoctors, setTopDoctors] = useState<Array<{ doctorId: string; name: string; done: number }>>([]);
   const [showBooking, setShowBooking] = useState(false);
+
+  // Onboarding
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [hasStaff, setHasStaff]       = useState<boolean | null>(null);
+  const [hasRooms, setHasRooms]       = useState<boolean | null>(null);
+  const [hasServices, setHasServices] = useState<boolean | null>(null);
 
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [loadingMonthly, setLoadingMonthly] = useState(true);
@@ -221,7 +307,21 @@ export default function DashboardPage() {
   }, [fetchQueue]);
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    setOnboardingDismissed(!!localStorage.getItem(ONBOARDING_DISMISS_KEY));
+    Promise.all([
+      clinicApi.staff.list(),
+      clinicApi.rooms.list(),
+      clinicApi.services.list(),
+    ]).then(([staff, rooms, svcs]) => {
+      setHasStaff(staff.length > 0);
+      setHasRooms(rooms.length > 0);
+      setHasServices(svcs.length > 0);
+    }).catch(() => {
+      setHasStaff(true); setHasRooms(true); setHasServices(true);
+    });
+  }, []);
   const todayDate = mounted
     ? new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
     : "";
@@ -230,6 +330,73 @@ export default function DashboardPage() {
   const done = todayApps.filter((a) => a.status === "DONE").length;
   const maxDoc = Math.max(...doctors.map((d) => d.appointments), 1);
   const maxMonth = Math.max(...monthly.map((m) => m.appointments), 1);
+
+  const onboardingSteps: OnboardingStep[] = [
+    { key: "staff",    label: "Добавьте сотрудника",  hint: "Врач или регистратор", href: "/clinic/staff",    done: hasStaff    === true },
+    { key: "rooms",    label: "Создайте кабинет",     hint: "Где принимают врачи",  href: "/clinic/rooms",    done: hasRooms    === true },
+    { key: "services", label: "Добавьте услугу",      hint: "Консультация, анализ…", href: "/clinic/services", done: hasServices === true },
+  ];
+  const allOnboardingDone = onboardingSteps.every((s) => s.done);
+  const showOnboarding = !onboardingDismissed && !allOnboardingDone && hasStaff !== null;
+
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  function downloadCSV(filename: string, rows: string[][]) {
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  async function exportAppointments() {
+    setExporting(true); setExportOpen(false);
+    try {
+      const days: string[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        days.push(d.toISOString().slice(0, 10));
+      }
+      const perDay = await Promise.all(days.map((date) => clinicApi.appointments.list({ date })));
+      const all: Appointment[] = perDay.flat();
+      const rows: string[][] = [
+        ["ID", "Пациент", "Телефон", "Врач", "Дата", "Время", "Статус", "Оплата"],
+        ...all.map((a) => [
+          a.id.slice(0, 8),
+          a.patientName ?? "",
+          a.patientPhone ?? "",
+          a.doctorId ?? "",
+          a.date ?? "",
+          a.time ?? "",
+          a.status ?? "",
+          a.paymentType ?? "",
+        ]),
+      ];
+      downloadCSV(`appointments-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    } catch { /* ignore */ }
+    finally { setExporting(false); }
+  }
+
+  async function exportLeads() {
+    setExporting(true); setExportOpen(false);
+    try {
+      const res = await clinicApi.leads.list({ limit: 500 });
+      const rows: string[][] = [
+        ["ID", "Имя", "Телефон", "Статус", "Заметки", "Дата"],
+        ...res.data.map((l) => [
+          l.id.slice(0, 8),
+          l.name ?? "",
+          l.phone,
+          l.status,
+          l.notes ?? "",
+          new Date(l.createdAt).toLocaleDateString("ru-RU"),
+        ]),
+      ];
+      downloadCSV(`leads-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    } catch { /* ignore */ }
+    finally { setExporting(false); }
+  }
 
   const card: React.CSSProperties = {
     background: "#fff", borderRadius: 16, padding: "20px 24px",
@@ -254,14 +421,69 @@ export default function DashboardPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Dashboard</h1>
           <p style={{ fontSize: 13, color: "#64748b", textTransform: "capitalize" }}>{todayDate}</p>
         </div>
-        <button onClick={() => setShowBooking(true)} style={{
-          background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-          fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
-          border: "none", cursor: "pointer",
-        }}>
-          + Записать пациента
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Export dropdown */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setExportOpen((v) => !v)}
+              disabled={exporting}
+              style={{
+                display: "flex", alignItems: "center", gap: 7,
+                padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+                background: "#fff", border: "1.5px solid #e2e8f0", color: "#475569",
+                cursor: exporting ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1,
+              }}
+            >
+              <Download size={14} /> {exporting ? "Экспорт..." : "Экспорт"}
+            </button>
+            {exportOpen && (
+              <>
+                <div onClick={() => setExportOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                <div style={{
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
+                  background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)", minWidth: 200, overflow: "hidden",
+                }}>
+                  {[
+                    { label: "Записи за 30 дней (CSV)", fn: exportAppointments },
+                    { label: "Лиды (CSV)",               fn: exportLeads },
+                  ].map(({ label, fn }) => (
+                    <button key={label} onClick={fn} style={{
+                      display: "block", width: "100%", padding: "11px 16px",
+                      textAlign: "left", background: "none", border: "none",
+                      fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer",
+                    }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <button onClick={() => setShowBooking(true)} style={{
+            background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
+            fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
+            border: "none", cursor: "pointer",
+          }}>
+            + Записать пациента
+          </button>
+        </div>
       </div>
+
+      {/* Onboarding checklist */}
+      {showOnboarding && (
+        <OnboardingBanner
+          steps={onboardingSteps}
+          onDismiss={() => {
+            localStorage.setItem(ONBOARDING_DISMISS_KEY, "1");
+            setOnboardingDismissed(true);
+          }}
+        />
+      )}
 
       {/* Period selector */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>

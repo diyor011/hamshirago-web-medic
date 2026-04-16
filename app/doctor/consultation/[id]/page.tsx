@@ -8,6 +8,7 @@ import {
   ArrowLeft, Video, CheckCircle, FileText, User, Clock, AlertCircle, Bot,
   PlusCircle, Send, CalendarPlus, History, Pill, Download,
 } from "lucide-react";
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 interface PrescriptionItem {
   drug: string;
@@ -31,6 +32,7 @@ export default function DoctorConsultationDetailPage() {
   const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionItem[]>([]);
   const [prescForm, setPrescForm] = useState<PrescriptionItem>({ drug: "", dose: "", frequency: "", days: "" });
   const [showPrescForm, setShowPrescForm] = useState(false);
+  const { toasts, toast, closeToast } = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -45,14 +47,14 @@ export default function DoctorConsultationDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleComplete() {
-    if (!notes.trim()) { alert("Введите заметки врача"); return; }
+    if (!notes.trim()) { toast.warn("Введите заметки врача"); return; }
     setCompleting(true);
     try {
       await doctorApi.consultations.complete(id, { doctorNotes: notes });
       await load();
       setShowComplete(false);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     }
     setCompleting(false);
   }
@@ -70,7 +72,7 @@ export default function DoctorConsultationDetailPage() {
 
   function handleSendPrescription() {
     if (prescriptionItems.length === 0) {
-      alert("Добавьте хотя бы один препарат");
+      toast.warn("Добавьте хотя бы один препарат");
       return;
     }
     const cons = consultation;
@@ -86,7 +88,7 @@ export default function DoctorConsultationDetailPage() {
   }
 
   function handleScheduleNextVisit() {
-    alert("Функция будет доступна в ближайшее время");
+    toast.info("Функция будет доступна в ближайшее время");
   }
 
   async function handleJoinCall() {
@@ -95,7 +97,7 @@ export default function DoctorConsultationDetailPage() {
       // Open LiveKit room in new tab (or use embedded LiveKit component)
       window.open(`https://meet.livekit.io/custom?liveKitUrl=${encodeURIComponent(process.env.NEXT_PUBLIC_LIVEKIT_URL ?? "")}&token=${token}`, "_blank");
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Не удалось подключиться к звонку");
+      toast.error(e instanceof Error ? e.message : "Не удалось подключиться к звонку");
     }
   }
 
@@ -127,6 +129,7 @@ export default function DoctorConsultationDetailPage() {
 
   return (
     <DashboardLayout>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
         <button onClick={() => router.back()} style={{

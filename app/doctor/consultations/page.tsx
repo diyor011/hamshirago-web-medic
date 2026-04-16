@@ -6,6 +6,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, Consultation, ConsultationStatus } from "@/lib/api";
 import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff } from "lucide-react";
 import { useDoctor } from "@/context/DoctorContext";
+import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 
 const STATUS_LABEL: Record<ConsultationStatus, string> = {
   PENDING: "Ожидает",
@@ -32,6 +33,8 @@ export default function DoctorConsultationsPage() {
   const [all, setAll] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [confirmDeclineId, setConfirmDeclineId] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
   const [togglingOnline, setTogglingOnline] = useState(false);
 
   // filters
@@ -69,19 +72,23 @@ export default function DoctorConsultationsPage() {
       await doctorApi.consultations.accept(id);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     }
     setActionId(null);
   }
 
   async function handleDecline(id: string) {
-    if (!confirm("Отклонить консультацию?")) return;
+    setConfirmDeclineId(id);
+  }
+
+  async function doDecline(id: string) {
+    setConfirmDeclineId(null);
     setActionId(id);
     try {
       await doctorApi.consultations.decline(id);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     }
     setActionId(null);
   }
@@ -152,6 +159,15 @@ export default function DoctorConsultationsPage() {
 
   return (
     <DashboardLayout>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+      {confirmDeclineId && (
+        <ConfirmDialog
+          message="Отклонить консультацию? Пациент получит уведомление."
+          confirmLabel="Отклонить"
+          onConfirm={() => doDecline(confirmDeclineId)}
+          onCancel={() => setConfirmDeclineId(null)}
+        />
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{

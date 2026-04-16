@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, MessageSquare, Phone, CalendarPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { clinicApi, Lead, LeadStatus, LeadStats } from "@/lib/clinicApi";
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
   NEW: "Новый",
@@ -75,6 +76,7 @@ export default function LeadsPage() {
   const [errStats, setErrStats] = useState<string | null>(null);
   const [errLeads, setErrLeads] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   const loadStats = useCallback(async () => {
     setLoadingStats(true); setErrStats(null);
@@ -114,7 +116,7 @@ export default function LeadsPage() {
       await clinicApi.leads.updateStatus(lead.id, newStatus);
       await Promise.all([loadStats(), loadLeads(filter, page)]);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
       setUpdating(null);
     }
@@ -129,6 +131,7 @@ export default function LeadsPage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
       <div style={{ marginBottom: 28 }}>
