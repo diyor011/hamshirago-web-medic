@@ -121,6 +121,11 @@ export const medicApi = {
         method: "PATCH",
         body: JSON.stringify({ status }),
       }),
+    setFinalPrice: (id: string, finalPrice: number) =>
+      request<Order>(`/orders/${id}/final-price`, {
+        method: "PATCH",
+        body: JSON.stringify({ finalPrice }),
+      }),
   },
 
   wallet: {
@@ -283,6 +288,9 @@ export interface Order {
   platformFee?: number;
   urgentFee?: number;
   isUrgent?: boolean;
+  finalPrice?: number | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
   status: OrderStatus;
   cancelReason?: string | null;
   created_at: string;
