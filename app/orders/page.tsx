@@ -62,7 +62,7 @@ export default function OrdersHistoryPage() {
   );
 
   const doneOrders = orders.filter((o) => o.status === "DONE");
-  const totalEarned = doneOrders.reduce((s, o) => s + (o.priceAmount - o.discountAmount), 0);
+  const totalEarned = doneOrders.reduce((s, o) => s + (o.finalPrice ?? (o.priceAmount - o.discountAmount)), 0);
   const canceledCount = orders.filter((o) => o.status === "CANCELED").length;
   const activeCount = orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length;
 
@@ -135,7 +135,8 @@ export default function OrdersHistoryPage() {
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden" }}>
           {filtered.map((order, idx) => {
             const { text, bg } = ORDER_STATUS_COLOR[order.status];
-            const net = order.priceAmount - order.discountAmount;
+            const net = order.finalPrice ?? (order.priceAmount - order.discountAmount);
+            const isRange = order.priceMin != null && order.priceMax != null && !order.finalPrice;
             return (
               <div
                 key={order.id}
@@ -175,8 +176,14 @@ export default function OrdersHistoryPage() {
                   </div>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#0d9488" }}>{formatPrice(net)} сум</p>
-                  {order.discountAmount > 0 && (
+                  {isRange ? (
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0d9488" }}>
+                      {formatPrice(order.priceMin!)} — {formatPrice(order.priceMax!)} сум
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "#0d9488" }}>{formatPrice(net)} сум</p>
+                  )}
+                  {!isRange && order.discountAmount > 0 && (
                     <p style={{ fontSize: 11, color: "#94a3b8", textDecoration: "line-through" }}>{formatPrice(order.priceAmount)} сум</p>
                   )}
                 </div>
