@@ -43,9 +43,6 @@ export default function OrderDetailPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
-  const [finalPriceInput, setFinalPriceInput] = useState("");
-  const [settingFinalPrice, setSettingFinalPrice] = useState(false);
-  const [finalPriceError, setFinalPriceError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const myMedicId = useRef<string>("");
 
@@ -232,23 +229,6 @@ export default function OrderDetailPage() {
   function handleRatingSkip() {
     setShowRating(false);
     setRatingDone(true);
-  }
-
-  async function handleSetFinalPrice() {
-    const val = parseInt(finalPriceInput.replace(/\D/g, ""), 10);
-    if (!val || val <= 0) { setFinalPriceError("Введите корректную сумму"); return; }
-    if (order?.priceMin && val < order.priceMin) { setFinalPriceError(`Минимум ${formatPrice(order.priceMin)} UZS`); return; }
-    if (order?.priceMax && val > order.priceMax) { setFinalPriceError(`Максимум ${formatPrice(order.priceMax)} UZS`); return; }
-    setSettingFinalPrice(true);
-    setFinalPriceError("");
-    try {
-      const updated = await medicApi.orders.setFinalPrice(id, val);
-      setOrder(updated);
-    } catch (err: unknown) {
-      setFinalPriceError(err instanceof Error ? err.message : "Ошибка");
-    } finally {
-      setSettingFinalPrice(false);
-    }
   }
 
   function openNavigation(app: "yandex" | "google" | "2gis") {
@@ -489,44 +469,6 @@ export default function OrderDetailPage() {
         {error && (
           <div style={{ background: "#ef444412", borderRadius: 10, padding: "12px 14px", marginBottom: 12, color: "#ef4444", fontSize: 13, fontWeight: 500 }}>
             {error}
-          </div>
-        )}
-
-        {/* Final price block — shown when range service and status is SERVICE_STARTED */}
-        {order.status === "SERVICE_STARTED" && order.priceMin != null && order.priceMax != null && (
-          <div style={{ ...cardStyle, borderLeft: "3px solid #0d9488" }}>
-            <h2 style={sectionTitle}>Итоговая цена</h2>
-            {order.finalPrice ? (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, color: "#64748b" }}>Установлена</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: "#0d9488" }}>{formatPrice(order.finalPrice)} UZS</span>
-              </div>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
-                  Диапазон: {formatPrice(order.priceMin)} — {formatPrice(order.priceMax)} UZS
-                </p>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="number"
-                    value={finalPriceInput}
-                    onChange={(e) => { setFinalPriceInput(e.target.value); setFinalPriceError(""); }}
-                    placeholder={`${order.priceMin} – ${order.priceMax}`}
-                    min={order.priceMin}
-                    max={order.priceMax}
-                    style={{ flex: 1, height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 12px", fontSize: 14, outline: "none" }}
-                  />
-                  <button
-                    onClick={handleSetFinalPrice}
-                    disabled={settingFinalPrice || !finalPriceInput}
-                    style={{ height: 44, padding: "0 16px", borderRadius: 10, border: "none", background: "#0d9488", color: "#fff", fontSize: 14, fontWeight: 700, cursor: settingFinalPrice || !finalPriceInput ? "not-allowed" : "pointer", opacity: settingFinalPrice || !finalPriceInput ? 0.6 : 1 }}
-                  >
-                    {settingFinalPrice ? "..." : "Сохранить"}
-                  </button>
-                </div>
-                {finalPriceError && <p style={{ fontSize: 12, color: "#ef4444", marginTop: 6 }}>{finalPriceError}</p>}
-              </>
-            )}
           </div>
         )}
 
