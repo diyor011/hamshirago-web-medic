@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, WS_URL, Consultation, ConsultationStatus } from "@/lib/api";
-import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff } from "lucide-react";
+import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff, Bell } from "lucide-react";
 import { useDoctor } from "@/context/DoctorContext";
+import { io } from "socket.io-client";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 import { io, Socket } from "socket.io-client";
 
@@ -25,6 +26,7 @@ const STATUS_COLOR: Record<ConsultationStatus, { text: string; bg: string }> = {
 
 type Tab = "pending" | "all";
 type StatusFilter = "all" | "active" | "completed" | "canceled";
+
 
 export default function DoctorConsultationsPage() {
   const router = useRouter();
@@ -67,6 +69,10 @@ export default function DoctorConsultationsPage() {
     setLoading(false);
   }, []);
 
+  function showToast(message: string) {
+    toast.success(message);
+  }
+
   useEffect(() => { load(); }, [load]);
 
   // ── WebSocket: real-time new_consultation events ──
@@ -82,20 +88,17 @@ export default function DoctorConsultationsPage() {
     });
     socketRef.current = socket;
 
-    socket.on("new_consultation", (payload: { consultationId?: string; symptoms?: string }) => {
-      // Reload list to show new consultation
+    socket.on("new_consultation", (payload: { consultationId?: string; clientId?: string; symptoms?: string; price?: number }) => {
       load();
-      // Browser notification
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         new Notification("Новая консультация!", {
           body: payload.symptoms ? `Симптомы: ${payload.symptoms.slice(0, 100)}` : "Новый пациент ожидает",
           icon: "/logo.png",
         });
       }
-      toast.info("Новая консультация!");
+      toast.info(payload.symptoms ? `Новая консультация: ${payload.symptoms.slice(0, 60)}` : "Новая консультация!");
     });
 
-    // Request notification permission on mount
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
     }
@@ -492,6 +495,24 @@ export default function DoctorConsultationsPage() {
           })}
         </div>
       )}
+      {/* Toast notifications */}
+      <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", gap: 10 }}>
+        {toasts.map((t) => (
+          <div key={t.id} style={{
+            background: "#0f172a", color: "#fff",
+            padding: "12px 18px", borderRadius: 12,
+            fontSize: 14, fontWeight: 600,
+            display: "flex", alignItems: "center", gap: 10,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+            animation: "toastIn 250ms cubic-bezier(0.32,0.72,0,1)",
+            maxWidth: 320,
+          }}>
+            <style>{`@keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }`}</style>
+            <Bell size={16} color="#0d9488" style={{ flexShrink: 0 }} />
+            {t.message}
+          </div>
+        ))}
+      </div>
     </DashboardLayout>
   );
 }

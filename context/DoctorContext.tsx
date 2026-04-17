@@ -16,15 +16,9 @@ const DoctorContext = createContext<DoctorContextValue>({
 const STORAGE_KEY = "doctor";
 
 export function DoctorProvider({ children }: { children: React.ReactNode }) {
-  const [doctor, setDoctorState] = useState<DoctorProfile | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY);
-      return cached ? (JSON.parse(cached) as DoctorProfile) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Start with null on both server and client to avoid hydration mismatch.
+  // Load from localStorage in useEffect (client-only).
+  const [doctor, setDoctorState] = useState<DoctorProfile | null>(null);
 
   const setDoctor = useCallback((d: DoctorProfile | null) => {
     setDoctorState(d);
@@ -36,6 +30,12 @@ export function DoctorProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Seed from cache immediately so UI doesn't flash blank.
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) setDoctorState(JSON.parse(cached) as DoctorProfile);
+    } catch {}
+    // Always refresh from server.
     doctorApi.auth.me().then((d) => {
       setDoctor(d);
     }).catch(() => {

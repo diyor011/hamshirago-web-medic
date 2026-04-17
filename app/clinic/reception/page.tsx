@@ -9,8 +9,10 @@ import {
 import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   SCHEDULED:  "Запись",
@@ -44,7 +46,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   CASH: "Наличные", TERMINAL: "Терминал", ONLINE: "Online",
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────────
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -55,7 +57,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)} д назад`;
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
+// ─── Skeleton ────────────────────────────────────────────────────────────────────
 
 function Skeleton({ height = 70, radius = 14 }: { height?: number; radius?: number }) {
   return (
@@ -70,9 +72,10 @@ function Skeleton({ height = 70, radius = 14 }: { height?: number; radius?: numb
   );
 }
 
-// ─── Error banner ─────────────────────────────────────────────────────────────
+// ─── Error banner ─────────────────────────────────────────────────────────────────
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{
       background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
@@ -86,13 +89,13 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
           color: "#ef4444", background: "none", border: "none", cursor: "pointer",
         }}
       >
-        <RefreshCw size={13} /> Повторить
+        <RefreshCw size={13} /> {t("clinic.reception.retry")}
       </button>
     </div>
   );
 }
 
-// ─── Shared card style ────────────────────────────────────────────────────────
+// ─── Shared card style ────────────────────────────────────────────────────────────
 
 const baseCard: React.CSSProperties = {
   background: "#fff",
@@ -101,9 +104,11 @@ const baseCard: React.CSSProperties = {
   boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────────
 
 export default function ReceptionPage() {
+  const { t } = useTranslation();
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loadingApps, setLoadingApps] = useState(true);
@@ -140,9 +145,9 @@ export default function ReceptionPage() {
   const loadApps = useCallback(async () => {
     setLoadingApps(true); setErrApps(null);
     try { setAppointments(await clinicApi.appointments.today()); }
-    catch (e) { setErrApps(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrApps(e instanceof Error ? e.message : t("clinic.reception.errorLoad")); }
     finally { setLoadingApps(false); }
-  }, []);
+  }, [t]);
 
   const loadLeads = useCallback(async () => {
     setLoadingLeads(true); setErrLeads(null);
@@ -150,11 +155,11 @@ export default function ReceptionPage() {
       const res = await clinicApi.leads.list({ status: "NEW", limit: 5 });
       setLeads(res.data);
     } catch (e) {
-      setErrLeads(e instanceof Error ? e.message : "Ошибка");
+      setErrLeads(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
       setLoadingLeads(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadApps(); loadLeads(); }, [loadApps, loadLeads]);
 
@@ -190,7 +195,7 @@ export default function ReceptionPage() {
       await clinicApi.appointments.checkin(id);
       await loadApps();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
       setCheckingIn(null);
     }
@@ -200,7 +205,7 @@ export default function ReceptionPage() {
   const inProgress = appointments.filter((a) => a.status === "IN_PROGRESS").length;
   const done       = appointments.filter((a) => a.status === "DONE").length;
 
-  // ─── Calendar helpers ──────────────────────────────────────────────────────
+  // ─── Calendar helpers ──────────────────────────────────────────────────────────
 
   const timeSlots = useMemo(() => {
     const arr: string[] = [];
@@ -216,12 +221,12 @@ export default function ReceptionPage() {
   const calendarColumns: CalColumn[] = useMemo(() => {
     if (rooms.length > 0) return rooms.map((r) => ({ id: r.id, label: r.name }));
     if (doctors.length > 0) return doctors.map((d) => ({ id: d.doctorId, label: d.doctorName }));
-    return [{ id: "__all__", label: "Все" }];
-  }, [rooms, doctors]);
+    return [{ id: "__all__", label: t("clinic.reception.all") }];
+  }, [rooms, doctors, t]);
 
   const columnKey = (a: Appointment): string => {
-    if (rooms.length > 0) return a.roomId;
-    if (doctors.length > 0) return a.doctorId;
+    if (rooms.length > 0) return a.roomId ?? "__none__";
+    if (doctors.length > 0) return a.doctorId ?? "__none__";
     return "__all__";
   };
 
@@ -249,7 +254,7 @@ export default function ReceptionPage() {
     setCalendarDate(d);
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
@@ -283,7 +288,7 @@ export default function ReceptionPage() {
         }
       `}</style>
 
-      {/* ── Page header ─────────────────────────────────────────────────────── */}
+      {/* Page header */}
       <div style={{
         display: "flex", alignItems: "flex-start", justifyContent: "space-between",
         marginBottom: 20, flexWrap: "wrap", gap: 12,
@@ -291,7 +296,7 @@ export default function ReceptionPage() {
         {/* Title + date */}
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0, lineHeight: 1.2 }}>
-            Приём пациентов
+            {t("clinic.reception.title")}
           </h1>
           <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0", textTransform: "capitalize" }}>
             {todayLabel}
@@ -306,9 +311,9 @@ export default function ReceptionPage() {
             borderRadius: 99, padding: 3, gap: 2,
           }}>
             {([
-              { k: "list",     label: "Список",    Icon: ListIcon },
-              { k: "calendar", label: "Календарь", Icon: CalendarIcon },
-            ] as const).map(({ k, label, Icon }) => {
+              { k: "list",     labelKey: "clinic.reception.list",     Icon: ListIcon },
+              { k: "calendar", labelKey: "clinic.reception.calendar", Icon: CalendarIcon },
+            ] as const).map(({ k, labelKey, Icon }) => {
               const active = viewMode === k;
               return (
                 <button
@@ -323,13 +328,13 @@ export default function ReceptionPage() {
                     color: active ? "#fff" : "#64748b",
                   }}
                 >
-                  <Icon size={14} /> {label}
+                  <Icon size={14} /> {t(labelKey)}
                 </button>
               );
             })}
           </div>
 
-          {/* "+ Записать" button */}
+          {/* Book button */}
           <button
             onClick={() => setShowBooking(true)}
             style={{
@@ -341,32 +346,32 @@ export default function ReceptionPage() {
             onMouseEnter={(e) => (e.currentTarget.style.background = "#0f766e")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "#0d9488")}
           >
-            <Plus size={16} /> Записать
+            <Plus size={16} /> {t("clinic.reception.bookPatient")}
           </button>
         </div>
       </div>
 
-      {/* ── Quick stats strip ────────────────────────────────────────────────── */}
+      {/* Quick stats strip */}
       <div
         className="stat-strip"
         style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}
       >
         {([
           {
-            label: "Ожидают", value: waiting,
+            labelKey: "clinic.reception.waiting", value: waiting,
             bg: "#fffbeb", border: "#fde68a", numColor: "#0d9488", labelColor: "#92400e",
           },
           {
-            label: "На приёме", value: inProgress,
+            labelKey: "clinic.reception.inProgress", value: inProgress,
             bg: "#eff6ff", border: "#bfdbfe", numColor: "#2563eb", labelColor: "#1e40af",
           },
           {
-            label: "Завершено", value: done,
+            labelKey: "clinic.reception.done", value: done,
             bg: "#f0fdf4", border: "#bbf7d0", numColor: "#16a34a", labelColor: "#14532d",
           },
-        ] as const).map(({ label, value, bg, border, numColor, labelColor }) => (
+        ] as const).map(({ labelKey, value, bg, border, numColor, labelColor }) => (
           <div
-            key={label}
+            key={labelKey}
             style={{
               background: bg, border: `1px solid ${border}`,
               borderRadius: 14, padding: "16px 20px",
@@ -378,13 +383,13 @@ export default function ReceptionPage() {
               {value}
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: labelColor, marginTop: 5 }}>
-              {label}
+              {t(labelKey)}
             </div>
           </div>
         ))}
       </div>
 
-      {/* ── Calendar view ────────────────────────────────────────────────────── */}
+      {/* Calendar view */}
       {viewMode === "calendar" && (
         <div style={{ ...baseCard, padding: 16, marginBottom: 24 }}>
           {/* Date navigator */}
@@ -399,7 +404,7 @@ export default function ReceptionPage() {
                   padding: 7, borderRadius: 8, border: "1px solid #e2e8f0",
                   background: "#fff", cursor: "pointer", display: "flex",
                 }}
-                aria-label="Предыдущий день"
+                aria-label={t("clinic.reception.prevDay")}
               >
                 <ChevronLeft size={16} color="#475569" />
               </button>
@@ -410,7 +415,7 @@ export default function ReceptionPage() {
                   background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#0f766e",
                 }}
               >
-                Сегодня
+                {t("clinic.reception.todayBtn")}
               </button>
               <button
                 onClick={() => shiftDate(1)}
@@ -418,7 +423,7 @@ export default function ReceptionPage() {
                   padding: 7, borderRadius: 8, border: "1px solid #e2e8f0",
                   background: "#fff", cursor: "pointer", display: "flex",
                 }}
-                aria-label="Следующий день"
+                aria-label={t("clinic.reception.nextDay")}
               >
                 <ChevronRight size={16} color="#475569" />
               </button>
@@ -433,7 +438,7 @@ export default function ReceptionPage() {
                 color: "#64748b", display: "flex", alignItems: "center", gap: 4, fontSize: 12,
               }}
             >
-              <RefreshCw size={13} /> Обновить
+              <RefreshCw size={13} /> {t("clinic.reception.update")}
             </button>
           </div>
 
@@ -457,7 +462,7 @@ export default function ReceptionPage() {
                   background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
                   padding: "8px 6px", fontSize: 11, fontWeight: 700, color: "#64748b",
                 }}>
-                  Время
+                  {t("clinic.reception.time")}
                 </div>
                 {calendarColumns.map((c) => (
                   <div
@@ -556,17 +561,17 @@ export default function ReceptionPage() {
             style={{ background: "#fff", borderRadius: 14, padding: 20, width: "100%", maxWidth: 400 }}
           >
             <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 12 }}>
-              Запись · {selectedAppt.time}
+              {t("clinic.reception.appointment")} · {selectedAppt.time}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "#334155" }}>
-              <div><b>Пациент:</b> {selectedAppt.patientName ?? "—"}</div>
-              <div><b>Телефон:</b> {selectedAppt.patientPhone}</div>
-              <div><b>Дата:</b> {selectedAppt.date.split("-").reverse().join(".")}</div>
-              <div><b>Кабинет:</b> {rooms.find((r) => r.id === selectedAppt.roomId)?.name ?? selectedAppt.roomId}</div>
-              <div><b>Врач:</b> {doctors.find((d) => d.doctorId === selectedAppt.doctorId)?.doctorName ?? selectedAppt.doctorId}</div>
-              <div><b>Оплата:</b> {PAYMENT_LABELS[selectedAppt.paymentType] ?? selectedAppt.paymentType}</div>
+              <div><b>{t("clinic.reception.patient")}:</b> {selectedAppt.patientName ?? "—"}</div>
+              <div><b>{t("clinic.reception.phone")}:</b> {selectedAppt.patientPhone}</div>
+              <div><b>{t("clinic.reception.date")}:</b> {selectedAppt.date.split("-").reverse().join(".")}</div>
+              <div><b>{t("clinic.reception.room")}:</b> {rooms.find((r) => r.id === selectedAppt.roomId)?.name ?? selectedAppt.roomId}</div>
+              <div><b>{t("clinic.reception.doctor")}:</b> {doctors.find((d) => d.doctorId === selectedAppt.doctorId)?.doctorName ?? selectedAppt.doctorId}</div>
+              <div><b>{t("clinic.reception.payment")}:</b> {PAYMENT_LABELS[selectedAppt.paymentType ?? ""] ?? selectedAppt.paymentType ?? "—"}</div>
               <div>
-                <b>Статус:</b>{" "}
+                <b>{t("clinic.reception.status")}:</b>{" "}
                 <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, ...STATUS_STYLES[selectedAppt.status as AppointmentStatus] }}>
                   {STATUS_LABELS[selectedAppt.status as AppointmentStatus]}
                 </span>
@@ -580,27 +585,27 @@ export default function ReceptionPage() {
                   background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#475569",
                 }}
               >
-                Закрыть
+                {t("clinic.reception.close")}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── List view ────────────────────────────────────────────────────────── */}
+      {/* List view */}
       {viewMode === "list" && (
         <div
           className="reception-grid"
           style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}
         >
-          {/* ── Left: appointments list ──────────────────────────────────── */}
+          {/* Left: appointments list */}
           <div>
             {/* Section header */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14,
             }}>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                Записи на сегодня
+                {t("clinic.reception.todayAppointments")}
               </h2>
               <button
                 onClick={loadApps}
@@ -609,7 +614,7 @@ export default function ReceptionPage() {
                   background: "none", border: "none", color: "#64748b", fontSize: 12, fontWeight: 600,
                 }}
               >
-                <RefreshCw size={13} /> Обновить
+                <RefreshCw size={13} /> {t("clinic.reception.refresh")}
               </button>
             </div>
 
@@ -626,7 +631,7 @@ export default function ReceptionPage() {
               </div>
             ) : appointments.length === 0 ? (
               <div style={{ ...baseCard, padding: 50, textAlign: "center" }}>
-                <p style={{ color: "#94a3b8", fontSize: 14 }}>Записей нет</p>
+                <p style={{ color: "#94a3b8", fontSize: 14 }}>{t("clinic.reception.noAppointments")}</p>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -684,7 +689,7 @@ export default function ReceptionPage() {
                             </div>
                           )}
                           <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                            {PAYMENT_LABELS[app.paymentType] ?? app.paymentType}
+                            {PAYMENT_LABELS[app.paymentType ?? ""] ?? app.paymentType ?? "—"}
                           </div>
                         </div>
 
@@ -728,14 +733,14 @@ export default function ReceptionPage() {
             )}
           </div>
 
-          {/* ── Right: AI leads sidebar ──────────────────────────────────── */}
+          {/* Right: AI leads sidebar */}
           <div>
             {/* Sidebar header */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8, marginBottom: 14,
             }}>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                Новые лиды AI
+                {t("clinic.reception.newAiLeads")}
               </h2>
               {leads.length > 0 && (
                 <span style={{
@@ -765,7 +770,7 @@ export default function ReceptionPage() {
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
               }}>
                 <Bot size={32} color="#cbd5e1" />
-                <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>Нет новых лидов</p>
+                <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>{t("clinic.reception.noLeads")}</p>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -783,7 +788,7 @@ export default function ReceptionPage() {
                       display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4,
                     }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                        {lead.name ?? "Без имени"}
+                        {lead.name ?? t("clinic.reception.withoutName")}
                       </span>
                       <span style={{ fontSize: 11, color: "#94a3b8" }}>
                         {timeAgo(lead.createdAt)}
@@ -813,7 +818,7 @@ export default function ReceptionPage() {
                       </p>
                     )}
 
-                    {/* "Записать" button — purple outline */}
+                    {/* Book button — purple outline */}
                     <button
                       onClick={() => setShowBooking(true)}
                       style={{
@@ -833,7 +838,7 @@ export default function ReceptionPage() {
                         e.currentTarget.style.color = "#9333ea";
                       }}
                     >
-                      <CalendarPlus size={13} /> Записать
+                      <CalendarPlus size={13} /> {t("clinic.reception.bookFromLead")}
                     </button>
                   </div>
                 ))}
@@ -843,7 +848,7 @@ export default function ReceptionPage() {
         </div>
       )}
 
-      {/* ── Booking modal ────────────────────────────────────────────────────── */}
+      {/* Booking modal */}
       {showBooking && (
         <BookingModal
           open={showBooking}

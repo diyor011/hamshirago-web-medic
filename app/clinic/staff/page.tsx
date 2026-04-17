@@ -4,12 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { Plus, RefreshCw, UserX, Users } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRole } from "@/lib/clinicApi";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
-
-const ROLE_LABELS: Record<ClinicRole, string> = {
-  CEO: "Директор",
-  RECEPTION: "Регистратура",
-  DOCTOR: "Врач",
-};
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 const ROLE_STYLES: Record<ClinicRole, React.CSSProperties> = {
   CEO:       { background: "#faf5ff", color: "#9333ea" },
@@ -24,6 +20,7 @@ function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: numb
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{
       background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
@@ -34,7 +31,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
         color: "#ef4444", background: "none", border: "none", cursor: "pointer",
       }}>
-        <RefreshCw size={13} /> Повторить
+        <RefreshCw size={13} /> {t("clinic.common.retry")}
       </button>
     </div>
   );
@@ -62,6 +59,14 @@ const EMPTY_FORM: CreateForm = {
 };
 
 export default function StaffPage() {
+  const { t } = useTranslation();
+
+  const ROLE_LABELS: Record<ClinicRole, string> = {
+    CEO:       t("clinic.staff.role.ceo"),
+    RECEPTION: t("clinic.staff.role.reception"),
+    DOCTOR:    t("clinic.staff.role.doctor"),
+  };
+
   const [staff, setStaff] = useState<ClinicStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,16 +83,16 @@ export default function StaffPage() {
   const loadStaff = useCallback(async () => {
     setLoading(true); setError(null);
     try { setStaff(await clinicApi.staff.list()); }
-    catch (e) { setError(e instanceof Error ? e.message : "Ошибка загрузки"); }
+    catch (e) { setError(e instanceof Error ? e.message : t("clinic.staff.errorLoad")); }
     finally { setLoading(false); }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadStaff(); }, [loadStaff]);
 
   async function handleCreate() {
-    if (!form.name.trim()) { setCreateError("Введите имя"); return; }
-    if (!form.phone.trim()) { setCreateError("Введите телефон"); return; }
-    if (!form.password.trim()) { setCreateError("Введите пароль"); return; }
+    if (!form.name.trim()) { setCreateError(t("clinic.staff.errorName")); return; }
+    if (!form.phone.trim()) { setCreateError(t("clinic.staff.errorPhone")); return; }
+    if (!form.password.trim()) { setCreateError(t("clinic.staff.errorPassword")); return; }
     setCreating(true); setCreateError("");
     try {
       await clinicApi.staff.create({
@@ -101,7 +106,7 @@ export default function StaffPage() {
       setShowCreate(false);
       await loadStaff();
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "Ошибка создания");
+      setCreateError(e instanceof Error ? e.message : t("clinic.staff.errorCreate"));
     } finally {
       setCreating(false);
     }
@@ -116,10 +121,10 @@ export default function StaffPage() {
     setDeactivating(id);
     try {
       await clinicApi.staff.deactivate(id);
-      toast.success("Сотрудник деактивирован");
+      toast.success(t("clinic.staff.deactivated"));
       await loadStaff();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : t("clinic.common.error"));
     } finally {
       setDeactivating(null);
     }
@@ -141,8 +146,8 @@ export default function StaffPage() {
       <ToastContainer toasts={toasts} onClose={closeToast} />
       {confirmId && (
         <ConfirmDialog
-          message="Деактивировать сотрудника? Он потеряет доступ к порталу."
-          confirmLabel="Деактивировать"
+          message={t("clinic.staff.deactivateConfirm")}
+          confirmLabel={t("clinic.staff.deactivate")}
           onConfirm={() => doDeactivate(confirmId)}
           onCancel={() => setConfirmId(null)}
         />
@@ -151,8 +156,8 @@ export default function StaffPage() {
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Сотрудники</h1>
-          <p style={{ fontSize: 13, color: "#64748b" }}>Управление командой клиники</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.staff.title")}</h1>
+          <p style={{ fontSize: 13, color: "#64748b" }}>{t("clinic.staff.subtitle")}</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -162,7 +167,7 @@ export default function StaffPage() {
             border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
           }}
         >
-          <Plus size={16} /> Добавить сотрудника
+          <Plus size={16} /> {t("clinic.staff.addStaff")}
         </button>
       </div>
 
@@ -171,31 +176,31 @@ export default function StaffPage() {
       {/* Create form */}
       {showCreate && (
         <div style={{ ...card, padding: 24, marginBottom: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Новый сотрудник</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.staff.newStaff")}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Имя *</label>
-              <input style={inputStyle} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Иванов Иван" />
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.staff.name")}</label>
+              <input style={inputStyle} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t("clinic.staff.namePlaceholder")} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Телефон *</label>
-              <input style={inputStyle} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+998901234567" />
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.staff.phone")}</label>
+              <input style={inputStyle} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder={t("clinic.staff.phonePlaceholder")} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Пароль *</label>
-              <input type="password" style={inputStyle} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="Минимум 6 символов" />
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.staff.password")}</label>
+              <input type="password" style={inputStyle} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder={t("clinic.staff.passwordPlaceholder")} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Роль *</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.staff.roleLabel")}</label>
               <select style={{ ...inputStyle, background: "#fff" }} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as ClinicRole }))}>
-                <option value="DOCTOR">Врач</option>
-                <option value="RECEPTION">Регистратура</option>
-                <option value="CEO">Директор (CEO)</option>
+                <option value="DOCTOR">{t("clinic.staff.role.doctor")}</option>
+                <option value="RECEPTION">{t("clinic.staff.role.reception")}</option>
+                <option value="CEO">{t("clinic.staff.role.ceo")}</option>
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Фото URL</label>
-              <input style={inputStyle} value={form.photoUrl} onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://res.cloudinary.com/..." />
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.staff.photoUrl")}</label>
+              <input style={inputStyle} value={form.photoUrl} onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder={t("clinic.staff.photoUrlPlaceholder")} />
             </div>
           </div>
 
@@ -212,13 +217,13 @@ export default function StaffPage() {
                 opacity: creating ? 0.7 : 1,
               }}
             >
-              {creating ? "Сохранение..." : "Создать"}
+              {creating ? t("clinic.staff.saving") : t("clinic.common.create")}
             </button>
             <button
               onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); setCreateError(""); }}
               style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: "10px 24px", fontSize: 14, cursor: "pointer", color: "#64748b" }}
             >
-              Отмена
+              {t("clinic.common.cancel")}
             </button>
           </div>
         </div>
@@ -232,7 +237,7 @@ export default function StaffPage() {
       ) : staff.length === 0 ? (
         <div style={{ ...card, padding: 60, textAlign: "center" }}>
           <Users size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-          <p style={{ color: "#94a3b8", fontSize: 14 }}>Нет сотрудников</p>
+          <p style={{ color: "#94a3b8", fontSize: 14 }}>{t("clinic.staff.noStaff")}</p>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
@@ -249,7 +254,7 @@ export default function StaffPage() {
                   <span style={{
                     position: "absolute", top: 12, right: 12, fontSize: 11, fontWeight: 700,
                     background: "#fef2f2", color: "#ef4444", borderRadius: 6, padding: "2px 8px",
-                  }}>Неактивен</span>
+                  }}>{t("clinic.staff.inactive")}</span>
                 )}
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
                   {member.photoUrl ? (
@@ -298,7 +303,7 @@ export default function StaffPage() {
                       }}
                     >
                       <UserX size={13} />
-                      {deactivating === member.id ? "..." : "Деактивировать"}
+                      {deactivating === member.id ? "..." : t("clinic.staff.deactivate")}
                     </button>
                   </div>
                 )}

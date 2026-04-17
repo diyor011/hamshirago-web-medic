@@ -8,6 +8,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  prefillPhone?: string;
 }
 
 const PAYMENT_OPTIONS: { value: PaymentType; label: string }[] = [
@@ -22,7 +23,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none", fontFamily: "inherit", boxSizing: "border-box",
 };
 
-export default function BookingModal({ open, onClose, onSuccess }: Props) {
+export default function BookingModal({ open, onClose, onSuccess, prefillPhone }: Props) {
   const [doctors, setDoctors] = useState<ClinicStaff[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [allRooms, setAllRooms] = useState<ClinicRoom[]>([]);
@@ -90,14 +91,14 @@ export default function BookingModal({ open, onClose, onSuccess }: Props) {
     if (open) loadDoctors();
   }, [open, loadDoctors]);
 
-  // Reset on open
+  // Reset on open, pre-fill phone from lead if provided
   useEffect(() => {
     if (open) {
-      setPhone(""); setPatient(null); setPatientName(""); setPatientNotFound(false);
+      setPhone(prefillPhone ?? ""); setPatient(null); setPatientName(""); setPatientNotFound(false);
       setDoctorId(""); setRoomId(""); setPaymentType("CASH"); setError("");
       setDate(new Date().toISOString().slice(0, 10)); setTime("09:00");
     }
-  }, [open]);
+  }, [open, prefillPhone]);
 
   async function searchPatient() {
     if (!phone.trim()) return;

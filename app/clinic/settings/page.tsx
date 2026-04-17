@@ -145,6 +145,25 @@ export default function SettingsPage() {
     name: "", address: "", logoUrl: "",
   });
 
+  // ── Telegram ──
+  const [tgChatId, setTgChatId] = useState("");
+  const [savingTg, setSavingTg] = useState(false);
+  const [tgSaved, setTgSaved] = useState(false);
+  const [tgError, setTgError] = useState<string | null>(null);
+
+  async function handleSaveTelegram() {
+    if (!tgChatId.trim()) return;
+    setSavingTg(true); setTgError(null); setTgSaved(false);
+    try {
+      await clinicApi.me.saveTelegramChatId(tgChatId.trim());
+      setTgSaved(true);
+      setTimeout(() => setTgSaved(false), 3000);
+    } catch (e) {
+      setTgError(e instanceof Error ? e.message : "Ошибка");
+    }
+    setSavingTg(false);
+  }
+
   // ── Services ──
   const [services, setServices] = useState<ClinicService[]>([]);
   const [loadingSvc, setLoadingSvc] = useState(true);
@@ -649,6 +668,57 @@ export default function SettingsPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* ── 6. Telegram уведомления ──────────────────────────────────────────── */}
+      <div style={{ ...card, marginTop: 24 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
+          Telegram уведомления
+        </h2>
+        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.6 }}>
+          Получайте мгновенные уведомления о новых лидах от Salomat AI прямо в Telegram.
+          Напишите нашему боту <b>@HamshiraGoBot</b>, чтобы узнать свой Chat ID, затем введите его ниже.
+        </p>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>
+              TELEGRAM CHAT ID
+            </label>
+            <input
+              type="text"
+              value={tgChatId}
+              onChange={(e) => setTgChatId(e.target.value)}
+              placeholder="например: 123456789"
+              style={{
+                width: "100%", height: 42, borderRadius: 8,
+                border: "1.5px solid #e2e8f0", padding: "0 12px",
+                fontSize: 14, boxSizing: "border-box" as const, outline: "none",
+              }}
+            />
+          </div>
+          <button
+            onClick={handleSaveTelegram}
+            disabled={savingTg || !tgChatId.trim()}
+            style={{
+              background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
+              border: "none", borderRadius: 8, padding: "0 24px", height: 42,
+              fontSize: 14, fontWeight: 700,
+              cursor: savingTg || !tgChatId.trim() ? "not-allowed" : "pointer",
+              opacity: savingTg || !tgChatId.trim() ? 0.7 : 1,
+              flexShrink: 0,
+            }}
+          >
+            {savingTg ? "Сохранение..." : "Подключить"}
+          </button>
+        </div>
+        {tgSaved && (
+          <p style={{ marginTop: 10, fontSize: 13, color: "#16a34a", fontWeight: 600 }}>
+            ✓ Telegram подключён — уведомления о лидах будут приходить вам
+          </p>
+        )}
+        {tgError && (
+          <p style={{ marginTop: 10, fontSize: 13, color: "#ef4444" }}>{tgError}</p>
         )}
       </div>
     </div>

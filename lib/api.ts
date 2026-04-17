@@ -421,28 +421,7 @@ export interface DoctorSlot {
   consultationId: string | null;
 }
 
-export interface ClinicStaff {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-  companyId: string;
-}
-
-export interface ClinicAuthResponse {
-  access_token: string;
-  staff: ClinicStaff;
-}
-
-export const clinicApi = {
-  auth: {
-    login: (phone: string, password: string) =>
-      request<ClinicAuthResponse>("/clinic-auth/login", {
-        method: "POST",
-        body: JSON.stringify({ phone, password }),
-      }),
-  },
-};
+// Clinic API is in lib/clinicApi.ts — do not duplicate here
 
 export const doctorApi = {
   auth: {

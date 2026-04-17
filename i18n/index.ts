@@ -7,7 +7,10 @@ export type Language = "ru" | "uz";
 export const DEFAULT_LANGUAGE: Language = "ru";
 
 i18n.use(initReactI18next).init({
-  resources: { ru: { translation: ru }, uz: { translation: uz } },
+  resources: {
+    ru: { translation: ru },
+    uz: { translation: uz },
+  },
   lng: DEFAULT_LANGUAGE,
   fallbackLng: "ru",
   interpolation: { escapeValue: false },

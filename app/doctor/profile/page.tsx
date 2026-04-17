@@ -141,7 +141,7 @@ export default function DoctorProfilePage() {
             <div>
               <p style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>{doctor.name}</p>
               <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
-                {doctor.specialization ?? "Врач"} · {doctor.experienceYears} лет опыта
+                {doctor.specialization ?? "Врач"} · {doctor.experienceYears ?? 1} лет опыта
               </p>
             </div>
           </div>
@@ -207,9 +207,9 @@ export default function DoctorProfilePage() {
               {([
                 ["Телефон", doctor.phone],
                 ["Специализация", doctor.specialization ?? "—"],
-                ["Опыт", `${doctor.experienceYears} лет`],
+                ["Опыт", `${doctor.experienceYears ?? 1} лет`],
                 ["Цена консультации", doctor.pricePerConsultation != null ? `${doctor.pricePerConsultation.toLocaleString("ru-RU")} сум` : "—"],
-                ["Рейтинг", `★ ${Number(doctor.rating ?? 0).toFixed(1)} (${doctor.reviewCount} отзывов)`],
+                ["Рейтинг", `★ ${Number(doctor.rating ?? 0).toFixed(1)} (${doctor.reviewCount ?? 0} отзывов)`],
               ] as [string, string][]).map(([label, value]) => (
                 <div key={label}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, margin: "0 0 2px" }}>{label}</p>

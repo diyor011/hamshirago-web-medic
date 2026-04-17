@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Phone, Lock, Eye, EyeOff, AlertCircle, Building2 } from "lucide-react";
 import { clinicApi, getClinicRole } from "@/lib/clinicApi";
 
@@ -30,7 +31,7 @@ export default function ClinicAuthPage() {
   const [focused, setFocused] = useState<string | null>(null);
 
   const phoneDigits = phone.replace(/\D/g, "");
-  const canSubmit = phoneDigits.length >= 11 && password.length >= 6;
+  const canSubmit = phoneDigits.length === 12 && password.length >= 6;
 
   const inputStyle = (name: string): React.CSSProperties => ({
     width: "100%", height: 48, borderRadius: 10,
@@ -49,7 +50,9 @@ export default function ClinicAuthPage() {
     try {
       const rawPhone = "+" + phoneDigits;
       const res = await clinicApi.auth.login(rawPhone, password);
-      localStorage.setItem("clinic_token", res.token ?? res.access_token ?? "");
+      const token = res.token ?? res.access_token ?? "";
+      if (!token) throw new Error("Сервер не вернул токен. Попробуйте ещё раз.");
+      localStorage.setItem("clinic_token", token);
       localStorage.setItem("clinic_user", JSON.stringify(res.user));
       const jwtRole = getClinicRole();
       if (jwtRole === "DOCTOR" || jwtRole === "RECEPTION") {
@@ -124,7 +127,12 @@ export default function ClinicAuthPage() {
           </div>
 
           <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>Добро пожаловать</h2>
-          <p style={{ fontSize: 14, color: "#64748b", marginBottom: 32 }}>Войдите в портал клиники</p>
+          <p style={{ fontSize: 14, color: "#64748b", marginBottom: 32 }}>
+            Войдите в портал клиники или{" "}
+            <Link href="/clinic/register" style={{ color: "#0d9488", fontWeight: 600, textDecoration: "none" }}>
+              зарегистрируйте клинику
+            </Link>
+          </p>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>

@@ -118,6 +118,37 @@ export async function subscribeWebPushDoctor(): Promise<void> {
   }
 }
 
+export async function unsubscribeWebPushDoctor(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!("serviceWorker" in navigator)) return;
+
+  const token = localStorage.getItem("medic_token");
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/sw.js");
+    if (!registration) return;
+
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return;
+
+    const endpoint = subscription.endpoint;
+    await subscription.unsubscribe();
+
+    if (token) {
+      await fetch(`${BASE_URL}/doctors/web-push-subscription`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ endpoint }),
+      });
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export async function unsubscribeWebPush(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!("serviceWorker" in navigator)) return;

@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, TrendingUp, DollarSign, Users, Download } from "lucide-react";
 import { clinicApi, StatsOverview, MonthlyStats, DoctorStats } from "@/lib/clinicApi";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: number }) {
   return (
@@ -12,6 +14,7 @@ function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: numb
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{
       background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
@@ -22,14 +25,13 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
         color: "#ef4444", background: "none", border: "none", cursor: "pointer",
       }}>
-        <RefreshCw size={13} /> Повторить
+        <RefreshCw size={13} /> {t("clinic.common.retry")}
       </button>
     </div>
   );
 }
 
 type Period = "today" | "week" | "month" | "year";
-const PERIOD_LABELS: Record<Period, string> = { today: "Сегодня", week: "Неделя", month: "Месяц", year: "Год" };
 
 const AVATAR_COLORS = [
   { bg: "#eff6ff", color: "#2563eb" },
@@ -40,6 +42,15 @@ const AVATAR_COLORS = [
 ];
 
 export default function FinancePage() {
+  const { t } = useTranslation();
+
+  const PERIOD_LABELS: Record<Period, string> = {
+    today: t("clinic.finance.periodToday"),
+    week:  t("clinic.finance.periodWeek"),
+    month: t("clinic.finance.periodMonth"),
+    year:  t("clinic.finance.periodYear"),
+  };
+
   const [period, setPeriod] = useState<Period>("month");
   const [overview, setOverview] = useState<StatsOverview | null>(null);
   const [monthly, setMonthly] = useState<MonthlyStats[]>([]);
@@ -57,23 +68,23 @@ export default function FinancePage() {
   const fetchOverview = useCallback(async (p: Period) => {
     setLoadingOverview(true); setErrOverview(null);
     try { setOverview(await clinicApi.stats.overview(p)); }
-    catch (e) { setErrOverview(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrOverview(e instanceof Error ? e.message : t("clinic.finance.errorLoad")); }
     finally { setLoadingOverview(false); }
-  }, []);
+  }, [t]);
 
   const fetchMonthly = useCallback(async () => {
     setLoadingMonthly(true); setErrMonthly(null);
     try { setMonthly(await clinicApi.stats.monthly()); }
-    catch (e) { setErrMonthly(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrMonthly(e instanceof Error ? e.message : t("clinic.finance.errorLoad")); }
     finally { setLoadingMonthly(false); }
-  }, []);
+  }, [t]);
 
   const fetchDoctors = useCallback(async () => {
     setLoadingDoctors(true); setErrDoctors(null);
     try { setDoctors(await clinicApi.stats.doctors()); }
-    catch (e) { setErrDoctors(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrDoctors(e instanceof Error ? e.message : t("clinic.finance.errorLoad")); }
     finally { setLoadingDoctors(false); }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchOverview(period); }, [period, fetchOverview]);
   useEffect(() => { fetchMonthly(); fetchDoctors(); }, [fetchMonthly, fetchDoctors]);
@@ -82,13 +93,11 @@ export default function FinancePage() {
   const maxDocRevenue = Math.max(...doctors.map((d) => d.revenue), 1);
 
   function exportCSV() {
-    if (monthly.length === 0) { toast.warn("Нет данных для экспорта"); return; }
-    const header = ["Месяц", "Приёмов", "Выручка (сум)"];
+    if (monthly.length === 0) { toast.warn(t("clinic.finance.noExportData")); return; }
+    const header = [t("clinic.finance.month"), t("clinic.finance.appointmentsCount"), `${t("clinic.finance.revenueCol")} (${t("common.sum")})`];
     const rows = monthly.map((r) => [r.month, r.appointments, r.revenue]);
 
-    // Append doctor stats if available
-    const doctorHeader = ["", "", ""];
-    const doctorTitle  = ["Врач", "Приёмов", "Выручка (сум)"];
+    const doctorTitle  = [t("clinic.staff.title"), t("clinic.finance.appointmentsCount"), `${t("clinic.finance.revenueCol")} (${t("common.sum")})`];
     const doctorRows   = doctors.slice(0, 5).map((d) => [d.doctorName, d.appointments, d.revenue]);
 
     const allRows = [
@@ -121,8 +130,8 @@ export default function FinancePage() {
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Финансы</h1>
-          <p style={{ fontSize: 13, color: "#64748b" }}>Доходы и статистика клиники</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.finance.title")}</h1>
+          <p style={{ fontSize: 13, color: "#64748b" }}>{t("clinic.finance.subtitle")}</p>
         </div>
         <button
           onClick={exportCSV}
@@ -135,7 +144,7 @@ export default function FinancePage() {
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#0d9488"; (e.currentTarget as HTMLButtonElement).style.color = "#0d9488"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e2e8f0"; (e.currentTarget as HTMLButtonElement).style.color = "#475569"; }}
         >
-          <Download size={14} /> Экспорт CSV
+          <Download size={14} /> {t("clinic.finance.exportCsv")}
         </button>
       </div>
 
@@ -169,20 +178,20 @@ export default function FinancePage() {
             {
               icon: <DollarSign size={22} color="#0d9488" />,
               iconBg: "#f0fdfa",
-              value: `${(overview.revenue ?? 0).toLocaleString("ru-RU")} сум`,
-              label: "Выручка",
+              value: `${(overview.revenue ?? 0).toLocaleString("ru-RU")} ${t("common.sum")}`,
+              label: t("clinic.finance.revenue"),
             },
             {
               icon: <Users size={22} color="#2563eb" />,
               iconBg: "#eff6ff",
               value: overview.appointments,
-              label: "Приёмов",
+              label: t("clinic.finance.appointments"),
             },
             {
               icon: <TrendingUp size={22} color="#9333ea" />,
               iconBg: "#faf5ff",
               value: `${overview.cancelRate ?? 0}%`,
-              label: "Процент отмен",
+              label: t("clinic.finance.cancelRate"),
             },
           ].map(({ icon, iconBg, value, label }) => (
             <div key={label} style={card}>
@@ -205,7 +214,7 @@ export default function FinancePage() {
 
       {/* Monthly table */}
       <div style={{ ...card, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Статистика по месяцам (12 мес.)</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.finance.monthlyStats")}</h2>
 
         {errMonthly && <ErrorBanner message={errMonthly} onRetry={fetchMonthly} />}
         {loadingMonthly ? (
@@ -213,15 +222,15 @@ export default function FinancePage() {
             {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} height={18} radius={6} />)}
           </div>
         ) : monthly.length === 0 ? (
-          <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "32px 0" }}>Нет данных</p>
+          <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "32px 0" }}>{t("clinic.finance.noData")}</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <th style={{ textAlign: "left", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>Месяц</th>
-                  <th style={{ textAlign: "right", padding: "0 12px 10px", color: "#64748b", fontWeight: 600 }}>Приёмов</th>
-                  <th style={{ textAlign: "right", padding: "0 12px 10px", color: "#64748b", fontWeight: 600 }}>Выручка</th>
+                  <th style={{ textAlign: "left", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.month")}</th>
+                  <th style={{ textAlign: "right", padding: "0 12px 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.appointmentsCount")}</th>
+                  <th style={{ textAlign: "right", padding: "0 12px 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.revenueCol")}</th>
                   <th style={{ width: 160, padding: "0 0 10px" }} />
                 </tr>
               </thead>
@@ -231,7 +240,7 @@ export default function FinancePage() {
                     <td style={{ padding: "10px 0", fontWeight: 600, color: "#374151" }}>{row.month}</td>
                     <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
                     <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>
-                      {(row.revenue ?? 0).toLocaleString("ru-RU")} сум
+                      {(row.revenue ?? 0).toLocaleString("ru-RU")} {t("common.sum")}
                     </td>
                     <td style={{ padding: "10px 0 10px 16px" }}>
                       <div style={{ height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
@@ -253,7 +262,7 @@ export default function FinancePage() {
 
       {/* Top doctors */}
       <div style={card}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Топ-5 врачей по доходу</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.finance.topDoctors")}</h2>
 
         {errDoctors && <ErrorBanner message={errDoctors} onRetry={fetchDoctors} />}
         {loadingDoctors ? (
@@ -266,7 +275,7 @@ export default function FinancePage() {
             ))}
           </div>
         ) : doctors.length === 0 ? (
-          <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "32px 0" }}>Нет данных</p>
+          <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "32px 0" }}>{t("clinic.finance.noData")}</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {doctors.slice(0, 5).map((doc, idx) => {
@@ -300,7 +309,7 @@ export default function FinancePage() {
                         {doc.doctorName}
                       </span>
                       <span style={{ fontSize: 12, color: "#0d9488", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
-                        {(doc.revenue ?? 0).toLocaleString("ru-RU")} сум
+                        {(doc.revenue ?? 0).toLocaleString("ru-RU")} {t("common.sum")}
                       </span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -311,7 +320,7 @@ export default function FinancePage() {
                           width: `${pct}%`, transition: "width 0.5s ease",
                         }} />
                       </div>
-                      <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>{doc.appointments} приёмов</span>
+                      <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>{doc.appointments} {t("clinic.finance.appointmentsCount")}</span>
                     </div>
                   </div>
                 </div>

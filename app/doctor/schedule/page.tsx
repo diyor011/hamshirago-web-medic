@@ -41,6 +41,14 @@ function getDays(around: Date, count = 14): Date[] {
 }
 
 const DAY_NAMES = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const WEEK_DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+
+const QUICK_TEMPLATES = [
+  { label: "Пн–Пт, 09–17, 30 мин", days: [1,2,3,4,5], start: "09:00", end: "17:00", interval: 30 },
+  { label: "Пн–Сб, 09–13, 30 мин", days: [1,2,3,4,5,6], start: "09:00", end: "13:00", interval: 30 },
+  { label: "Пн–Пт, 14–18, 60 мин", days: [1,2,3,4,5], start: "14:00", end: "18:00", interval: 60 },
+  { label: "Сб–Вс, 10–14, 30 мин", days: [6,0], start: "10:00", end: "14:00", interval: 30 },
+];
 const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 
 export default function DoctorSchedulePage() {
@@ -68,6 +76,12 @@ export default function DoctorSchedulePage() {
   const [tplInterval, setTplInterval] = useState("30");
   const [applying, setApplying] = useState<string | null>(null);
   const [applyResult, setApplyResult] = useState<string | null>(null);
+
+  // Quick-template panel state
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [tplResult, setTplResult] = useState<string | null>(null);
+  const [applyingTpl, setApplyingTpl] = useState(false);
+  const [tplRange, setTplRange] = useState("14");
 
   const days = getDays(today, 14);
   const { toasts, toast, closeToast } = useToast();
@@ -156,6 +170,47 @@ export default function DoctorSchedulePage() {
     setDeletingId(null);
   }
 
+  function applyQuickTemplate(t: typeof QUICK_TEMPLATES[0]) {
+    setTplDays(t.days);
+    setTplStart(t.start);
+    setTplEnd(t.end);
+    setTplInterval(String(t.interval));
+    setShowTemplate(true);
+    setTplResult(null);
+  }
+
+  async function handleApplyQuickTemplate() {
+    setApplyingTpl(true);
+    setTplResult(null);
+    const range = parseInt(tplRange, 10) || 14;
+    const intervalMin = parseInt(tplInterval, 10) || 30;
+    let created = 0;
+    let failed = 0;
+    const today = new Date();
+
+    const datesToApply: string[] = [];
+    for (let i = 0; i < range; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      if (tplDays.includes(d.getDay())) {
+        datesToApply.push(toDateStr(d));
+      }
+    }
+
+    await Promise.all(
+      datesToApply.map((date) =>
+        doctorApi.slots.create({ date, startTime: tplStart, endTime: tplEnd, intervalMinutes: intervalMin })
+          .then(() => { created++; })
+          .catch(() => { failed++; })
+      )
+    );
+
+    setTplResult(`Готово: создано слотов на ${created} дн${created === 1 ? "ь" : created < 5 ? "я" : "ей"}${failed > 0 ? `, ошибок: ${failed}` : ""}`);
+    setApplyingTpl(false);
+    // Reload current day if it was in the applied range
+    loadSlots(selectedDate);
+  }
+
   const freeSlots = slots.filter((s) => !s.isBooked);
   const bookedSlots = slots.filter((s) => s.isBooked);
 
@@ -179,19 +234,135 @@ export default function DoctorSchedulePage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          style={{
-            background: "linear-gradient(135deg, #0d9488, #0f766e)",
-            color: "#fff", border: "none", borderRadius: 10,
-            padding: "10px 18px", cursor: "pointer", fontSize: 14, fontWeight: 700,
-            display: "flex", alignItems: "center", gap: 8,
-          }}
-        >
-          <Plus size={16} />
-          Создать слоты
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => { setShowTemplate(!showTemplate); setShowCreate(false); setTplResult(null); }}
+            style={{
+              background: showTemplate ? "#0d9488" : "#fff",
+              color: showTemplate ? "#fff" : "#0d9488",
+              border: "1.5px solid #0d9488", borderRadius: 10,
+              padding: "10px 16px", cursor: "pointer", fontSize: 14, fontWeight: 700,
+              display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            <Repeat size={15} />
+            Шаблоны
+            {showTemplate ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+          <button
+            onClick={() => { setShowCreate(!showCreate); setShowTemplate(false); }}
+            style={{
+              background: "linear-gradient(135deg, #0d9488, #0f766e)",
+              color: "#fff", border: "none", borderRadius: 10,
+              padding: "10px 18px", cursor: "pointer", fontSize: 14, fontWeight: 700,
+              display: "flex", alignItems: "center", gap: 8,
+            }}
+          >
+            <Plus size={16} />
+            Создать слоты
+          </button>
+        </div>
       </div>
+
+      {/* Template panel */}
+      {showTemplate && (
+        <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #ccfbf1", padding: 20, marginBottom: 20, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 14 }}>
+            Шаблоны расписания
+          </h3>
+
+          {/* Quick templates */}
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Быстрые шаблоны</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+            {QUICK_TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                onClick={() => applyQuickTemplate(t)}
+                style={{
+                  padding: "6px 14px", borderRadius: 20, border: "1.5px solid #e2e8f0",
+                  background: "#f8fafc", color: "#0f172a", fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom template */}
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Настроить</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {WEEK_DAY_LABELS.map((label, idx) => {
+              const active = tplDays.includes(idx);
+              return (
+                <button
+                  key={label}
+                  onClick={() => setTplDays((prev) => active ? prev.filter(d => d !== idx) : [...prev, idx])}
+                  style={{
+                    width: 40, height: 40, borderRadius: "50%", border: "none", cursor: "pointer",
+                    fontWeight: 700, fontSize: 13,
+                    background: active ? "#0d9488" : "#f1f5f9",
+                    color: active ? "#fff" : "#64748b",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+            {[
+              { label: "НАЧАЛО", val: tplStart, set: setTplStart, type: "time" as const },
+              { label: "КОНЕЦ",  val: tplEnd,   set: setTplEnd,   type: "time" as const },
+            ].map(({ label, val, set, type }) => (
+              <div key={label}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{label}</label>
+                <input type={type} value={val} onChange={(e) => set(e.target.value)}
+                  style={{ width: "100%", height: 40, borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "0 10px", fontSize: 14, boxSizing: "border-box" as const, outline: "none" }} />
+              </div>
+            ))}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>ИНТЕРВАЛ</label>
+              <select value={tplInterval} onChange={(e) => setTplInterval(e.target.value)}
+                style={{ width: "100%", height: 40, borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "0 8px", fontSize: 14, background: "#fff" }}>
+                {[15, 20, 30, 45, 60].map((v) => <option key={v} value={v}>{v} мин</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>НА ДНЕЙ</label>
+              <select value={tplRange} onChange={(e) => setTplRange(e.target.value)}
+                style={{ width: "100%", height: 40, borderRadius: 8, border: "1.5px solid #e2e8f0", padding: "0 8px", fontSize: 14, background: "#fff" }}>
+                {[7, 14, 21, 30].map((v) => <option key={v} value={v}>{v} дн.</option>)}
+              </select>
+            </div>
+          </div>
+
+          {tplResult && (
+            <p style={{ fontSize: 13, color: "#0d9488", fontWeight: 600, marginBottom: 10 }}>{tplResult}</p>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={handleApplyQuickTemplate}
+              disabled={applyingTpl || tplDays.length === 0}
+              style={{
+                background: "linear-gradient(135deg,#0d9488,#0f766e)", color: "#fff",
+                border: "none", borderRadius: 8, padding: "10px 20px",
+                fontSize: 14, fontWeight: 700, cursor: applyingTpl || tplDays.length === 0 ? "not-allowed" : "pointer",
+                opacity: applyingTpl || tplDays.length === 0 ? 0.7 : 1,
+              }}
+            >
+              {applyingTpl ? "Применяется..." : `Применить на ${tplRange} дней`}
+            </button>
+            <button onClick={() => setShowTemplate(false)}
+              style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, cursor: "pointer", color: "#64748b" }}>
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Date picker strip */}
       <div style={{
