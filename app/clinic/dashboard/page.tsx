@@ -2,24 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, ChevronRight, X, Download } from "lucide-react";
-import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
+import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 type Period = "today" | "week" | "month" | "year";
-
-const PERIOD_LABELS: Record<Period, string> = {
-  today: "Сегодня",
-  week: "Неделя",
-  month: "Месяц",
-  year: "Год",
-};
-
-const LEAD_STATUS_LABELS: Record<string, string> = {
-  NEW: "Новый",
-  IN_PROGRESS: "В работе",
-  DONE: "Завершён",
-  CANCELED: "Отменён",
-};
 
 const LEAD_STATUS_STYLES: Record<string, React.CSSProperties> = {
   NEW:       { background: "#eff6ff", color: "#2563eb" },
@@ -38,6 +26,7 @@ function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: numb
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{
       background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
@@ -48,7 +37,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
         color: "#ef4444", background: "none", border: "none", cursor: "pointer",
       }}>
-        <RefreshCw size={13} /> Повторить
+        <RefreshCw size={13} /> {t("clinic.common.retry")}
       </button>
     </div>
   );
@@ -72,6 +61,7 @@ interface OnboardingStep {
 }
 
 function OnboardingBanner({ steps, onDismiss }: { steps: OnboardingStep[]; onDismiss: () => void }) {
+  const { t } = useTranslation();
   const completed = steps.filter((s) => s.done).length;
   const pct = Math.round((completed / steps.length) * 100);
 
@@ -91,10 +81,10 @@ function OnboardingBanner({ steps, onDismiss }: { steps: OnboardingStep[]; onDis
 
       <div style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>
-          🚀 Настройте клинику — {completed}/{steps.length} шагов
+          🚀 {t("clinic.dashboard.onboarding.title")} — {completed}/{steps.length} шагов
         </p>
         <p style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
-          Выполните все шаги чтобы начать принимать пациентов
+          {t("clinic.dashboard.onboarding.subtitle")}
         </p>
         <div style={{ height: 6, borderRadius: 3, background: "#e2e8f0", overflow: "hidden" }}>
           <div style={{
@@ -164,6 +154,22 @@ function KpiCard({ icon, iconBg, value, label }: KpiCardProps) {
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
+
+  const PERIOD_LABELS: Record<Period, string> = {
+    today: t("clinic.finance.periodToday"),
+    week:  t("clinic.finance.periodWeek"),
+    month: t("clinic.finance.periodMonth"),
+    year:  t("clinic.finance.periodYear"),
+  };
+
+  const LEAD_STATUS_LABELS: Record<string, string> = {
+    NEW:        t("clinic.leads.status.NEW"),
+    IN_PROGRESS: t("clinic.leads.status.IN_PROGRESS"),
+    DONE:       t("clinic.leads.status.DONE"),
+    CANCELED:   t("clinic.leads.status.CANCELED"),
+  };
+
   const [period, setPeriod] = useState<Period>("today");
   const [overview, setOverview] = useState<StatsOverview | null>(null);
   const [monthly, setMonthly] = useState<MonthlyStats[]>([]);
@@ -171,12 +177,10 @@ export default function DashboardPage() {
   const [todayApps, setTodayApps] = useState<Appointment[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
 
-  // New KPI widgets: room occupancy (7d) + top doctors (30d)
-  const [roomOccupancy, setRoomOccupancy] = useState<Array<{ roomId: string; roomName: string; percent: number; appointments: number }>>([]);
-  const [topDoctors, setTopDoctors] = useState<Array<{ doctorId: string; name: string; done: number }>>([]);
+  const [roomStats, setRoomStats] = useState<Array<{ roomId: string; name: string; floor: number | null; todayAppointments: number }>>([]);
+  const [serviceStats, setServiceStats] = useState<Array<{ serviceId: string; serviceName: string; count: number }>>([]);
   const [showBooking, setShowBooking] = useState(false);
 
-  // Onboarding
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [hasStaff, setHasStaff]       = useState<boolean | null>(null);
   const [hasRooms, setHasRooms]       = useState<boolean | null>(null);
@@ -188,11 +192,7 @@ export default function DashboardPage() {
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingRooms, setLoadingRooms] = useState(true);
-  const [loadingTopDocs, setLoadingTopDocs] = useState(true);
-
-  const [exportingCSV, setExportingCSV] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [loadingServices, setLoadingServices] = useState(true);
 
   const [errOverview, setErrOverview] = useState<string | null>(null);
   const [errMonthly, setErrMonthly] = useState<string | null>(null);
@@ -200,35 +200,35 @@ export default function DashboardPage() {
   const [errQueue, setErrQueue] = useState<string | null>(null);
   const [errLeads, setErrLeads] = useState<string | null>(null);
   const [errRooms, setErrRooms] = useState<string | null>(null);
-  const [errTopDocs, setErrTopDocs] = useState<string | null>(null);
+  const [errServices, setErrServices] = useState<string | null>(null);
 
   const fetchOverview = useCallback(async (p: Period) => {
     setLoadingOverview(true); setErrOverview(null);
     try { setOverview(await clinicApi.stats.overview(p)); }
-    catch (e) { setErrOverview(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrOverview(e instanceof Error ? e.message : t("clinic.common.error")); }
     finally { setLoadingOverview(false); }
-  }, []);
+  }, [t]);
 
   const fetchMonthly = useCallback(async () => {
     setLoadingMonthly(true); setErrMonthly(null);
     try { setMonthly(await clinicApi.stats.monthly()); }
-    catch (e) { setErrMonthly(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrMonthly(e instanceof Error ? e.message : t("clinic.common.error")); }
     finally { setLoadingMonthly(false); }
-  }, []);
+  }, [t]);
 
   const fetchDoctors = useCallback(async () => {
     setLoadingDoctors(true); setErrDoctors(null);
     try { setDoctors(await clinicApi.stats.doctors()); }
-    catch (e) { setErrDoctors(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrDoctors(e instanceof Error ? e.message : t("clinic.common.error")); }
     finally { setLoadingDoctors(false); }
-  }, []);
+  }, [t]);
 
   const fetchQueue = useCallback(async () => {
     setLoadingQueue(true); setErrQueue(null);
     try { setTodayApps(await clinicApi.appointments.today()); }
-    catch (e) { setErrQueue(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrQueue(e instanceof Error ? e.message : t("clinic.common.error")); }
     finally { setLoadingQueue(false); }
-  }, []);
+  }, [t]);
 
   const fetchLeads = useCallback(async () => {
     setLoadingLeads(true); setErrLeads(null);
@@ -236,75 +236,29 @@ export default function DashboardPage() {
       const res = await clinicApi.leads.list({ limit: 5 });
       setLeads(res.data);
     }
-    catch (e) { setErrLeads(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrLeads(e instanceof Error ? e.message : t("clinic.common.error")); }
     finally { setLoadingLeads(false); }
-  }, []);
+  }, [t]);
 
-  const fetchRoomOccupancy = useCallback(async () => {
+  const fetchRoomStats = useCallback(async () => {
     setLoadingRooms(true); setErrRooms(null);
-    try {
-      const rooms: ClinicRoom[] = await clinicApi.rooms.list();
-      // last 7 days (including today)
-      const days: string[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push(d.toISOString().slice(0, 10));
-      }
-      const perDay = await Promise.all(days.map((date) => clinicApi.appointments.list({ date })));
-      const all: Appointment[] = perDay.flat();
-      // Assume workday = 8 hours = 8 slots per room per day → 56 slots per week
-      const CAPACITY_PER_WEEK = 7 * 8;
-      const counts = new Map<string, number>();
-      for (const a of all) {
-        if (a.status === "CANCELED" || a.status === "NO_SHOW") continue;
-        counts.set(a.roomId, (counts.get(a.roomId) ?? 0) + 1);
-      }
-      const occ = rooms.map((r) => {
-        const n = counts.get(r.id) ?? 0;
-        return {
-          roomId: r.id,
-          roomName: r.name,
-          appointments: n,
-          percent: Math.min(100, Math.round((n / CAPACITY_PER_WEEK) * 100)),
-        };
-      }).sort((a, b) => b.percent - a.percent);
-      setRoomOccupancy(occ);
-    } catch (e) { setErrRooms(e instanceof Error ? e.message : "Ошибка"); }
+    try { setRoomStats(await clinicApi.stats.rooms()); }
+    catch (e) { setErrRooms(e instanceof Error ? e.message : t("clinic.common.error")); }
     finally { setLoadingRooms(false); }
-  }, []);
+  }, [t]);
 
-  const fetchTopDoctors = useCallback(async () => {
-    setLoadingTopDocs(true); setErrTopDocs(null);
-    try {
-      const staff: ClinicStaff[] = await clinicApi.staff.list();
-      const doctorMap = new Map(staff.filter((s) => s.role === "DOCTOR").map((s) => [s.id, s.name]));
-      const days: string[] = [];
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push(d.toISOString().slice(0, 10));
-      }
-      const perDay = await Promise.all(days.map((date) => clinicApi.appointments.list({ date, status: "DONE" })));
-      const all: Appointment[] = perDay.flat();
-      const counts = new Map<string, number>();
-      for (const a of all) {
-        counts.set(a.doctorId, (counts.get(a.doctorId) ?? 0) + 1);
-      }
-      const top = Array.from(counts.entries())
-        .map(([doctorId, done]) => ({ doctorId, name: doctorMap.get(doctorId) ?? "Врач", done }))
-        .sort((a, b) => b.done - a.done)
-        .slice(0, 5);
-      setTopDoctors(top);
-    } catch (e) { setErrTopDocs(e instanceof Error ? e.message : "Ошибка"); }
-    finally { setLoadingTopDocs(false); }
-  }, []);
+  const fetchServiceStats = useCallback(async () => {
+    setLoadingServices(true); setErrServices(null);
+    try { setServiceStats(await clinicApi.stats.services()); }
+    catch (e) { setErrServices(e instanceof Error ? e.message : t("clinic.common.error")); }
+    finally { setLoadingServices(false); }
+  }, [t]);
 
   useEffect(() => { fetchOverview(period); }, [period, fetchOverview]);
   useEffect(() => {
     fetchMonthly(); fetchDoctors(); fetchLeads(); fetchQueue();
-    fetchRoomOccupancy(); fetchTopDoctors();
-  }, [fetchMonthly, fetchDoctors, fetchLeads, fetchQueue, fetchRoomOccupancy, fetchTopDoctors]);
+    fetchRoomStats(); fetchServiceStats();
+  }, [fetchMonthly, fetchDoctors, fetchLeads, fetchQueue, fetchRoomStats, fetchServiceStats]);
   useEffect(() => {
     const id = setInterval(fetchQueue, 10000);
     return () => clearInterval(id);
@@ -326,19 +280,20 @@ export default function DashboardPage() {
       setHasStaff(true); setHasRooms(true); setHasServices(true);
     });
   }, []);
+
   const todayDate = mounted
     ? new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
     : "";
-  const waiting = todayApps.filter((a) => ["SCHEDULED", "WAITING"].includes(a.status)).length;
+  const waiting = todayApps.filter((a) => a.status === "SCHEDULED").length;
   const inProgress = todayApps.filter((a) => ["CHECKED_IN", "IN_PROGRESS"].includes(a.status)).length;
   const done = todayApps.filter((a) => a.status === "DONE").length;
   const maxDoc = Math.max(...doctors.map((d) => d.appointments), 1);
   const maxMonth = Math.max(...monthly.map((m) => m.appointments), 1);
 
   const onboardingSteps: OnboardingStep[] = [
-    { key: "staff",    label: "Добавьте сотрудника",  hint: "Врач или регистратор", href: "/clinic/staff",    done: hasStaff    === true },
-    { key: "rooms",    label: "Создайте кабинет",     hint: "Где принимают врачи",  href: "/clinic/rooms",    done: hasRooms    === true },
-    { key: "services", label: "Добавьте услугу",      hint: "Консультация, анализ…", href: "/clinic/services", done: hasServices === true },
+    { key: "staff",    label: t("clinic.dashboard.onboarding.addStaff"),   hint: t("clinic.dashboard.onboarding.addStaffHint"),   href: "/clinic/staff",    done: hasStaff    === true },
+    { key: "rooms",    label: t("clinic.dashboard.onboarding.createRoom"),  hint: t("clinic.dashboard.onboarding.createRoomHint"),  href: "/clinic/rooms",    done: hasRooms    === true },
+    { key: "services", label: t("clinic.dashboard.onboarding.addService"),  hint: t("clinic.dashboard.onboarding.addServiceHint"),  href: "/clinic/services", done: hasServices === true },
   ];
   const allOnboardingDone = onboardingSteps.every((s) => s.done);
   const showOnboarding = !onboardingDismissed && !allOnboardingDone && hasStaff !== null;
@@ -357,27 +312,24 @@ export default function DashboardPage() {
   async function exportAppointments() {
     setExporting(true); setExportOpen(false);
     try {
-      const days: string[] = [];
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        days.push(d.toISOString().slice(0, 10));
-      }
-      const perDay = await Promise.all(days.map((date) => clinicApi.appointments.list({ date })));
-      const all: Appointment[] = perDay.flat();
+      const endDate = new Date().toISOString().slice(0, 10);
+      const startD = new Date(); startD.setDate(startD.getDate() - 29);
+      const startDate = startD.toISOString().slice(0, 10);
+      const all: Appointment[] = await clinicApi.appointments.list({ startDate, endDate });
       const rows: string[][] = [
-        ["ID", "Пациент", "Телефон", "Врач", "Дата", "Время", "Статус", "Оплата"],
+        ["ID", t("reception.patient"), t("reception.phone"), t("reception.doctor"), t("reception.date"), "Time", t("reception.status"), t("reception.payment")],
         ...all.map((a) => [
           a.id.slice(0, 8),
           a.patientName ?? "",
-          a.patientPhone ?? "",
+          a.patientPhone,
           a.doctorId ?? "",
-          a.date ?? "",
-          a.time ?? "",
-          a.status ?? "",
+          a.date,
+          a.time,
+          a.status,
           a.paymentType ?? "",
         ]),
       ];
-      downloadCSV(`appointments-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+      downloadCSV(`appointments-${endDate}.csv`, rows);
     } catch { /* ignore */ }
     finally { setExporting(false); }
   }
@@ -387,7 +339,7 @@ export default function DashboardPage() {
     try {
       const res = await clinicApi.leads.list({ limit: 500 });
       const rows: string[][] = [
-        ["ID", "Имя", "Телефон", "Статус", "Заметки", "Дата"],
+        ["ID", "Name", "Phone", "Status", "Notes", "Date"],
         ...res.data.map((l) => [
           l.id.slice(0, 8),
           l.name ?? "",
@@ -419,12 +371,10 @@ export default function DashboardPage() {
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
-      <OnboardingChecklist />
-
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Dashboard</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.dashboard.title")}</h1>
           <p style={{ fontSize: 13, color: "#64748b", textTransform: "capitalize" }}>{todayDate}</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -440,7 +390,7 @@ export default function DashboardPage() {
                 cursor: exporting ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1,
               }}
             >
-              <Download size={14} /> {exporting ? "Экспорт..." : "Экспорт"}
+              <Download size={14} /> {exporting ? t("clinic.dashboard.exporting") : t("clinic.dashboard.export")}
             </button>
             {exportOpen && (
               <>
@@ -451,8 +401,8 @@ export default function DashboardPage() {
                   boxShadow: "0 4px 16px rgba(0,0,0,0.08)", minWidth: 200, overflow: "hidden",
                 }}>
                   {[
-                    { label: "Записи за 30 дней (CSV)", fn: exportAppointments },
-                    { label: "Лиды (CSV)",               fn: exportLeads },
+                    { label: t("clinic.dashboard.exportAppointments"), fn: exportAppointments },
+                    { label: t("clinic.dashboard.exportLeads"),         fn: exportLeads },
                   ].map(({ label, fn }) => (
                     <button key={label} onClick={fn} style={{
                       display: "block", width: "100%", padding: "11px 16px",
@@ -475,7 +425,7 @@ export default function DashboardPage() {
             fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
             border: "none", cursor: "pointer",
           }}>
-            + Записать пациента
+            {t("clinic.dashboard.recordPatient")}
           </button>
         </div>
       </div>
@@ -524,10 +474,10 @@ export default function DashboardPage() {
           ))
         ) : overview ? (
           <>
-            <KpiCard icon={<Users size={22} color="#2563eb" />} iconBg="#eff6ff" value={overview.newPatients} label="Новых пациентов" />
-            <KpiCard icon={<CheckCircle size={22} color="#16a34a" />} iconBg="#f0fdf4" value={overview.appointments} label="Всего приёмов" />
-            <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${(overview.revenue ?? 0).toLocaleString("ru-RU")} сум`} label="Выручка" />
-            <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate ?? 0}%`} label="Процент отмен" />
+            <KpiCard icon={<Users size={22} color="#2563eb" />} iconBg="#eff6ff" value={overview.newPatients} label={t("clinic.dashboard.kpi.newPatients")} />
+            <KpiCard icon={<CheckCircle size={22} color="#16a34a" />} iconBg="#f0fdf4" value={overview.appointments} label={t("clinic.dashboard.kpi.appointments")} />
+            <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${(overview.revenue ?? 0).toLocaleString("ru-RU")} ${t("common.sum")}`} label={t("clinic.dashboard.kpi.revenue")} />
+            <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate ?? 0}%`} label={t("clinic.dashboard.kpi.cancelRate")} />
           </>
         ) : null}
       </div>
@@ -536,7 +486,7 @@ export default function DashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 24 }} className="clinic-grid-stack">
         {/* Monthly */}
         <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Пациенты по месяцам</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.monthlyPatients")}</h2>
           {loadingMonthly ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[1,2,3,4].map(i => <Skeleton key={i} height={18} radius={6} />)}
@@ -544,14 +494,14 @@ export default function DashboardPage() {
           ) : errMonthly ? (
             <ErrorBanner message={errMonthly} onRetry={fetchMonthly} />
           ) : monthly.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "40px 0" }}>Нет данных</div>
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "40px 0" }}>{t("clinic.dashboard.noData")}</div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <th style={{ textAlign: "left", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>Месяц</th>
-                  <th style={{ textAlign: "right", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>Приёмов</th>
-                  <th style={{ textAlign: "right", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>Выручка</th>
+                  <th style={{ textAlign: "left", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.month")}</th>
+                  <th style={{ textAlign: "right", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.appointmentsCount")}</th>
+                  <th style={{ textAlign: "right", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.revenueCol")}</th>
                   <th style={{ width: 120, padding: "0 0 10px" }} />
                 </tr>
               </thead>
@@ -560,7 +510,7 @@ export default function DashboardPage() {
                   <tr key={row.month} style={{ borderBottom: "1px solid #f8fafc" }}>
                     <td style={{ padding: "9px 0", color: "#374151", fontWeight: 600 }}>{row.month}</td>
                     <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
-                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{(row.revenue ?? 0).toLocaleString("ru-RU")} сум</td>
+                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{(row.revenue ?? 0).toLocaleString("ru-RU")} {t("common.sum")}</td>
                     <td style={{ padding: "9px 0 9px 16px" }}>
                       <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
                         <div style={{ height: "100%", borderRadius: 3, background: "#0d9488", width: `${(row.appointments / maxMonth) * 100}%` }} />
@@ -575,7 +525,7 @@ export default function DashboardPage() {
 
         {/* Queue */}
         <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Очередь сегодня</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.todayQueue")}</h2>
           {loadingQueue ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[1,2,3].map(i => <Skeleton key={i} height={60} />)}
@@ -585,9 +535,9 @@ export default function DashboardPage() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               {[
-                { icon: <Clock size={20} color="#ca8a04" />, count: waiting, label: "Ожидают", bg: "#fefce8", color: "#92400e" },
-                { icon: <Activity size={20} color="#2563eb" />, count: inProgress, label: "На приёме", bg: "#eff6ff", color: "#1e40af" },
-                { icon: <CheckCircle size={20} color="#16a34a" />, count: done, label: "Готово", bg: "#f0fdf4", color: "#14532d" },
+                { icon: <Clock size={20} color="#ca8a04" />, count: waiting, label: t("clinic.dashboard.waiting"), bg: "#fefce8", color: "#92400e" },
+                { icon: <Activity size={20} color="#2563eb" />, count: inProgress, label: t("clinic.dashboard.inProgress"), bg: "#eff6ff", color: "#1e40af" },
+                { icon: <CheckCircle size={20} color="#16a34a" />, count: done, label: t("clinic.dashboard.done"), bg: "#f0fdf4", color: "#14532d" },
               ].map(({ icon, count, label, bg, color }) => (
                 <div key={label} style={{ background: bg, borderRadius: 12, padding: "16px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                   {icon}
@@ -604,7 +554,7 @@ export default function DashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }} className="clinic-grid-stack">
         {/* Doctors */}
         <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Врачи — активность</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.doctorsActivity")}</h2>
           {loadingDoctors ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {[1,2,3].map(i => (
@@ -620,7 +570,7 @@ export default function DashboardPage() {
           ) : errDoctors ? (
             <ErrorBanner message={errDoctors} onRetry={fetchDoctors} />
           ) : doctors.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>Нет данных</div>
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noData")}</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {doctors.map((doc, idx) => {
@@ -639,7 +589,7 @@ export default function DashboardPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.doctorName}</span>
-                        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{doc.appointments} приёмов</span>
+                        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{doc.appointments} {t("clinic.dashboard.appointmentsCount")}</span>
                       </div>
                       <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
                         <div style={{ height: "100%", borderRadius: 3, background: "#0d9488", width: `${pct}%`, transition: "width 0.5s ease" }} />
@@ -654,7 +604,7 @@ export default function DashboardPage() {
 
         {/* Leads */}
         <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>Последние лиды — Salomat AI</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.latestLeads")}</h2>
           {loadingLeads ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[1,2,3,4,5].map(i => <Skeleton key={i} height={52} />)}
@@ -662,7 +612,7 @@ export default function DashboardPage() {
           ) : errLeads ? (
             <ErrorBanner message={errLeads} onRetry={fetchLeads} />
           ) : leads.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>Нет лидов</div>
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noLeads")}</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {leads.map((lead) => {
@@ -679,7 +629,7 @@ export default function DashboardPage() {
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{lead.name ?? "Без имени"}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{lead.name ?? t("clinic.dashboard.withoutName")}</span>
                         <span style={{ fontSize: 12, color: "#94a3b8" }}>{lead.phone}</span>
                       </div>
                       {summary && <p style={{ fontSize: 12, color: "#64748b", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</p>}
@@ -698,13 +648,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Extra KPI row: room occupancy + top doctors */}
+      {/* Extra KPI row: room stats today + top services */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 24 }} className="clinic-grid-stack">
-        {/* Room occupancy — 7 days */}
+        {/* Room stats */}
         <div style={card}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 18 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Загрузка кабинетов за неделю</h2>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>7 дней</span>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{t("clinic.dashboard.roomsToday")}</h2>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>{t("clinic.dashboard.appointmentsCount")}</span>
           </div>
           {loadingRooms ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -716,69 +666,80 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : errRooms ? (
-            <ErrorBanner message={errRooms} onRetry={fetchRoomOccupancy} />
-          ) : roomOccupancy.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>Нет кабинетов</div>
+            <ErrorBanner message={errRooms} onRetry={fetchRoomStats} />
+          ) : roomStats.length === 0 ? (
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noRooms")}</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {roomOccupancy.map((r) => (
-                <div key={r.roomId}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.roomName}</span>
-                    <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{r.percent}% · {r.appointments} приёмов</span>
-                  </div>
-                  <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
-                    <div style={{
-                      height: "100%", borderRadius: 3,
-                      background: r.percent >= 80 ? "#ef4444" : r.percent >= 50 ? "#0d9488" : "#94a3b8",
-                      width: `${r.percent}%`, transition: "width 0.5s ease",
-                    }} />
-                  </div>
-                </div>
-              ))}
+              {(() => {
+                const maxApps = Math.max(...roomStats.map((r) => r.todayAppointments), 1);
+                return roomStats.map((r) => {
+                  const pct = Math.round((r.todayAppointments / maxApps) * 100);
+                  return (
+                    <div key={r.roomId}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {r.name}{r.floor != null ? ` · ${r.floor} ${t("clinic.rooms.floorSuffix")}` : ""}
+                        </span>
+                        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{r.todayAppointments} {t("clinic.dashboard.appointmentsCount")}</span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%", borderRadius: 3,
+                          background: pct >= 80 ? "#ef4444" : pct >= 40 ? "#0d9488" : "#94a3b8",
+                          width: `${pct}%`, transition: "width 0.5s ease",
+                        }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
         </div>
 
-        {/* Top doctors by DONE — 30 days */}
+        {/* Top services */}
         <div style={card}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 18 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Топ врачей по визитам</h2>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>30 дней · DONE</span>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{t("clinic.dashboard.topServices")}</h2>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>{t("clinic.dashboard.byAppointments")}</span>
           </div>
-          {loadingTopDocs ? (
+          {loadingServices ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[1,2,3,4,5].map(i => <Skeleton key={i} height={44} />)}
             </div>
-          ) : errTopDocs ? (
-            <ErrorBanner message={errTopDocs} onRetry={fetchTopDoctors} />
-          ) : topDoctors.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>Нет завершённых визитов</div>
+          ) : errServices ? (
+            <ErrorBanner message={errServices} onRetry={fetchServiceStats} />
+          ) : serviceStats.length === 0 ? (
+            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noData")}</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {topDoctors.map((d, idx) => {
-                const c = avatarColors[idx % avatarColors.length];
-                return (
-                  <div key={d.doctorId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 6px", borderRadius: 10 }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                      background: "#f0fdfa", color: "#0d9488",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, fontWeight: 800,
-                    }}>{idx + 1}</div>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                      background: c.bg, color: c.color,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 14, fontWeight: 700,
-                    }}>
-                      {d.name.charAt(0).toUpperCase()}
+              {(() => {
+                const maxCount = Math.max(...serviceStats.map((s) => s.count), 1);
+                return serviceStats.slice(0, 8).map((s, idx) => {
+                  const c = avatarColors[idx % avatarColors.length];
+                  const pct = Math.round((s.count / maxCount) * 100);
+                  return (
+                    <div key={s.serviceId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px", borderRadius: 8 }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                        background: c.bg, color: c.color,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, fontWeight: 800,
+                      }}>{idx + 1}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.serviceName}</span>
+                          <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 6 }}>{s.count}</span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: "#f1f5f9", overflow: "hidden" }}>
+                          <div style={{ height: "100%", borderRadius: 2, background: "#0d9488", width: `${pct}%` }} />
+                        </div>
+                      </div>
                     </div>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#0d9488", flexShrink: 0 }}>{d.done}</span>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           )}
         </div>

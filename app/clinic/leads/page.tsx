@@ -2,32 +2,34 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, MessageSquare, Phone, CalendarPlus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { clinicApi, Lead, LeadStatus, LeadStats } from "@/lib/clinicApi";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
+import BookingModal from "@/components/clinic/BookingModal";
 
-const STATUS_LABELS: Record<LeadStatus, string> = {
+type UiLeadStatus = "NEW" | "IN_PROGRESS" | "DONE" | "CANCELED";
+
+const STATUS_LABELS: Record<UiLeadStatus, string> = {
   NEW: "Новый",
   IN_PROGRESS: "В работе",
   DONE: "Завершён",
   CANCELED: "Отменён",
 };
 
-const STATUS_STYLES: Record<LeadStatus, React.CSSProperties> = {
+const STATUS_STYLES: Record<UiLeadStatus, React.CSSProperties> = {
   NEW:         { background: "#eff6ff", color: "#2563eb" },
   IN_PROGRESS: { background: "#fefce8", color: "#ca8a04" },
   DONE:        { background: "#f0fdf4", color: "#16a34a" },
   CANCELED:    { background: "#fef2f2", color: "#ef4444" },
 };
 
-const STATUS_NEXT: Record<LeadStatus, LeadStatus | null> = {
+const STATUS_NEXT: Record<UiLeadStatus, UiLeadStatus | null> = {
   NEW: "IN_PROGRESS",
   IN_PROGRESS: "DONE",
   DONE: null,
   CANCELED: null,
 };
 
-const STATUS_NEXT_LABELS: Record<LeadStatus, string> = {
+const STATUS_NEXT_LABELS: Record<UiLeadStatus, string> = {
   NEW: "Взять в работу",
   IN_PROGRESS: "Завершить",
   DONE: "",
@@ -57,17 +59,16 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
-const ALL_STATUSES: Array<LeadStatus | "ALL"> = ["ALL", "NEW", "IN_PROGRESS", "DONE", "CANCELED"];
-const FILTER_LABELS: Record<LeadStatus | "ALL", string> = {
+const ALL_STATUSES: Array<UiLeadStatus | "ALL"> = ["ALL", "NEW", "IN_PROGRESS", "DONE", "CANCELED"];
+const FILTER_LABELS: Record<UiLeadStatus | "ALL", string> = {
   ALL: "Все", ...STATUS_LABELS,
 };
 
 export default function LeadsPage() {
-  const router = useRouter();
   const [stats, setStats] = useState<LeadStats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
-  const [filter, setFilter] = useState<LeadStatus | "ALL">("ALL");
+  const [filter, setFilter] = useState<UiLeadStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
   const LIMIT = 20;
 
@@ -76,6 +77,7 @@ export default function LeadsPage() {
   const [errStats, setErrStats] = useState<string | null>(null);
   const [errLeads, setErrLeads] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [bookingLead, setBookingLead] = useState<Lead | null>(null);
   const { toasts, toast, closeToast } = useToast();
 
   const loadStats = useCallback(async () => {
@@ -85,11 +87,11 @@ export default function LeadsPage() {
     finally { setLoadingStats(false); }
   }, []);
 
-  const loadLeads = useCallback(async (f: LeadStatus | "ALL", p: number) => {
+  const loadLeads = useCallback(async (f: UiLeadStatus | "ALL", p: number) => {
     setLoadingLeads(true); setErrLeads(null);
     try {
       const res = await clinicApi.leads.list({
-        ...(f !== "ALL" ? { status: f } : {}),
+        ...(f !== "ALL" ? { status: f as LeadStatus } : {}),
         page: p,
         limit: LIMIT,
       });
@@ -105,7 +107,7 @@ export default function LeadsPage() {
   useEffect(() => { loadStats(); }, [loadStats]);
   useEffect(() => { loadLeads(filter, page); }, [filter, page, loadLeads]);
 
-  function changeFilter(f: LeadStatus | "ALL") {
+  function changeFilter(f: UiLeadStatus | "ALL") {
     setFilter(f);
     setPage(1);
   }
@@ -151,11 +153,11 @@ export default function LeadsPage() {
           <div style={{ gridColumn: "1/-1" }}><ErrorBanner message={errStats} onRetry={loadStats} /></div>
         ) : stats ? (
           [
-            { label: "Всего", value: stats.total, bg: "#f8fafc", color: "#475569" },
-            { label: "Новых", value: stats.new, bg: "#eff6ff", color: "#2563eb" },
-            { label: "В работе", value: stats.inProgress, bg: "#fefce8", color: "#ca8a04" },
-            { label: "Завершено", value: stats.done, bg: "#f0fdf4", color: "#16a34a" },
-            { label: "Отменено", value: stats.canceled, bg: "#fef2f2", color: "#ef4444" },
+            { label: "Всего",     value: stats.total,      bg: "#f8fafc", color: "#475569" },
+            { label: "Новых",     value: stats.new,        bg: "#eff6ff", color: "#2563eb" },
+            { label: "В работе",  value: stats.inProgress, bg: "#fefce8", color: "#ca8a04" },
+            { label: "Завершено", value: stats.done,       bg: "#f0fdf4", color: "#16a34a" },
+            { label: "Отменено",  value: stats.canceled,  bg: "#fef2f2", color: "#ef4444" },
           ].map(({ label, value, bg, color }) => (
             <div key={label} style={{ ...card, padding: "16px 20px", background: bg }}>
               <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
@@ -199,7 +201,7 @@ export default function LeadsPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {leads.map((lead) => {
-            const st = lead.status as LeadStatus;
+            const st = lead.status as UiLeadStatus;
             const next = STATUS_NEXT[st];
             return (
               <div key={lead.id} style={{ ...card, padding: 18 }}>
@@ -236,7 +238,7 @@ export default function LeadsPage() {
                     {/* Record appointment */}
                     {st === "NEW" || st === "IN_PROGRESS" ? (
                       <button
-                        onClick={() => router.push("/clinic/reception")}
+                        onClick={() => setBookingLead(lead)}
                         style={{
                           display: "flex", alignItems: "center", gap: 6,
                           padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,

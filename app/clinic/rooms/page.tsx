@@ -8,8 +8,28 @@ import {
   ClinicStaff,
   RoomDoctorSchedule,
 } from "@/lib/clinicApi";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
-const DAY_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const DAY_LABELS: Record<number, string> = {
+  1: "Пн",
+  2: "Вт",
+  3: "Ср",
+  4: "Чт",
+  5: "Пт",
+  6: "Сб",
+  7: "Вс",
+};
+
+const UI_DAY_OPTIONS = [
+  { value: 1, label: DAY_LABELS[1] },
+  { value: 2, label: DAY_LABELS[2] },
+  { value: 3, label: DAY_LABELS[3] },
+  { value: 4, label: DAY_LABELS[4] },
+  { value: 5, label: DAY_LABELS[5] },
+  { value: 6, label: DAY_LABELS[6] },
+  { value: 7, label: DAY_LABELS[7] },
+];
 
 function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: number }) {
   return (
@@ -25,6 +45,7 @@ function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: numb
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{
       background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
@@ -35,7 +56,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
         color: "#ef4444", background: "none", border: "none", cursor: "pointer",
       }}>
-        <RefreshCw size={13} /> Повторить
+        <RefreshCw size={13} /> {t("clinic.common.retry")}
       </button>
     </div>
   );
@@ -54,6 +75,8 @@ interface RoomWithSchedule extends ClinicRoom {
 }
 
 export default function RoomsPage() {
+  const { t } = useTranslation();
+
   const [rooms, setRooms] = useState<RoomWithSchedule[]>([]);
   const [staff, setStaff] = useState<ClinicStaff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,16 +124,16 @@ export default function RoomsPage() {
       );
       setRooms(withSchedules);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка загрузки");
+      setError(e instanceof Error ? e.message : t("clinic.rooms.errorLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
   async function handleCreate() {
-    if (!createName.trim()) { setCreateError("Введите название кабинета"); return; }
+    if (!createName.trim()) { setCreateError(t("clinic.rooms.errorCreate")); return; }
     setCreating(true);
     setCreateError("");
     try {
@@ -123,7 +146,7 @@ export default function RoomsPage() {
       setShowCreate(false);
       await loadRooms();
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "Ошибка создания");
+      setCreateError(e instanceof Error ? e.message : t("clinic.rooms.errorCreateGeneral"));
     } finally {
       setCreating(false);
     }
@@ -131,9 +154,9 @@ export default function RoomsPage() {
 
   async function handleAssign() {
     if (!assignRoomId) return;
-    if (!assignForm.doctorId) { setAssignError("Выберите врача"); return; }
-    if (assignForm.days.length === 0) { setAssignError("Выберите хотя бы один день"); return; }
-    if (!assignForm.startTime || !assignForm.endTime) { setAssignError("Укажите время"); return; }
+    if (!assignForm.doctorId) { setAssignError(t("clinic.rooms.errorAssignDoctor")); return; }
+    if (assignForm.days.length === 0) { setAssignError(t("clinic.rooms.errorAssignDays")); return; }
+    if (!assignForm.startTime || !assignForm.endTime) { setAssignError(t("clinic.rooms.errorAssignTime")); return; }
     setAssigning(true);
     setAssignError("");
     try {
@@ -147,7 +170,7 @@ export default function RoomsPage() {
       setAssignForm({ doctorId: "", days: [], startTime: "09:00", endTime: "18:00" });
       await loadRooms();
     } catch (e) {
-      setAssignError(e instanceof Error ? e.message : "Ошибка назначения");
+      setAssignError(e instanceof Error ? e.message : t("clinic.rooms.errorAssignGeneral"));
     } finally {
       setAssigning(false);
     }
@@ -181,8 +204,8 @@ export default function RoomsPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Кабинеты</h1>
-          <p style={{ fontSize: 13, color: "#64748b" }}>Управление кабинетами и расписанием врачей</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.rooms.title")}</h1>
+          <p style={{ fontSize: 13, color: "#64748b" }}>{t("clinic.rooms.subtitle")}</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -192,7 +215,7 @@ export default function RoomsPage() {
             border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
           }}
         >
-          <Plus size={16} /> Добавить кабинет
+          <Plus size={16} /> {t("clinic.rooms.addRoom")}
         </button>
       </div>
 
@@ -201,19 +224,19 @@ export default function RoomsPage() {
       {/* Create form */}
       {showCreate && (
         <div style={{ ...card, padding: 20, marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>Новый кабинет</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>{t("clinic.rooms.newRoom")}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Название *</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.roomName")}</label>
               <input
                 style={inputStyle}
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
-                placeholder="Кабинет №1"
+                placeholder={t("clinic.rooms.roomNamePlaceholder")}
               />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Этаж</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.floor")}</label>
               <input
                 style={inputStyle}
                 type="number"
@@ -236,7 +259,7 @@ export default function RoomsPage() {
                 opacity: creating ? 0.7 : 1,
               }}
             >
-              {creating ? "Сохранение..." : "Создать"}
+              {creating ? t("clinic.common.saving") : t("clinic.common.create")}
             </button>
             <button
               onClick={() => { setShowCreate(false); setCreateName(""); setCreateFloor(""); setCreateError(""); }}
@@ -245,7 +268,7 @@ export default function RoomsPage() {
                 padding: "10px 20px", fontSize: 14, cursor: "pointer", color: "#64748b",
               }}
             >
-              Отмена
+              {t("clinic.common.cancel")}
             </button>
           </div>
         </div>
@@ -259,18 +282,18 @@ export default function RoomsPage() {
       ) : rooms.length === 0 ? (
         <div style={{ ...card, padding: 60, textAlign: "center" }}>
           <Building2 size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-          <p style={{ color: "#94a3b8", fontSize: 14 }}>Кабинеты не созданы</p>
+          <p style={{ color: "#94a3b8", fontSize: 14 }}>{t("clinic.rooms.noRooms")}</p>
         </div>
       ) : (
         <div style={{ ...card, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                <th style={{ textAlign: "left", padding: "12px 20px", color: "#64748b", fontWeight: 600 }}>Кабинет</th>
-                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>Этаж</th>
-                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>Врач</th>
-                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>Расписание</th>
-                <th style={{ textAlign: "right", padding: "12px 20px", color: "#64748b", fontWeight: 600 }}>Действия</th>
+                <th style={{ textAlign: "left", padding: "12px 20px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.roomHeader")}</th>
+                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.floorHeader")}</th>
+                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.doctorHeader")}</th>
+                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.scheduleHeader")}</th>
+                <th style={{ textAlign: "right", padding: "12px 20px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.actionsHeader")}</th>
               </tr>
             </thead>
             <tbody>
@@ -290,11 +313,11 @@ export default function RoomsPage() {
                       </div>
                     </td>
                     <td style={{ padding: "14px 16px", color: "#475569" }}>
-                      {room.floor != null ? `${room.floor} этаж` : "—"}
+                      {room.floor != null ? `${room.floor} ${t("clinic.rooms.floorSuffix")}` : "—"}
                     </td>
                     <td style={{ padding: "14px 16px" }}>
                       {sched.length === 0 ? (
-                        <span style={{ color: "#94a3b8", fontSize: 12 }}>Не назначен</span>
+                        <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("clinic.rooms.notAssigned")}</span>
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                           {sched.map((s) => (
@@ -313,12 +336,12 @@ export default function RoomsPage() {
                           {sched.map((s) => (
                             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <div style={{ display: "flex", gap: 2 }}>
-                                {s.days.map((d) => (
+                                {(s.days ?? []).map((d) => (
                                   <span key={d} style={{
                                     fontSize: 10, fontWeight: 700, padding: "1px 5px",
                                     borderRadius: 5, background: "#f0fdfa", color: "#0d9488",
                                   }}>
-                                    {DAY_LABELS[d]}
+                                    {DAY_LABELS[d] ?? String(d)}
                                   </span>
                                 ))}
                               </div>
@@ -341,7 +364,7 @@ export default function RoomsPage() {
                             cursor: "pointer",
                           }}
                         >
-                          <UserPlus size={13} /> Назначить врача
+                          <UserPlus size={13} /> {t("clinic.rooms.assignDoctor")}
                         </button>
                       </div>
                     </td>
@@ -364,32 +387,32 @@ export default function RoomsPage() {
             boxShadow: "0 20px 60px rgba(15,23,42,0.15)",
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 20 }}>
-              Назначить врача — {rooms.find((r) => r.id === assignRoomId)?.name}
+              {t("clinic.rooms.assignDoctorTitle")} — {rooms.find((r) => r.id === assignRoomId)?.name}
             </h3>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Врач *</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.doctor")}</label>
               <select
                 style={{ ...inputStyle, background: "#fff" }}
                 value={assignForm.doctorId}
                 onChange={(e) => setAssignForm((f) => ({ ...f, doctorId: e.target.value }))}
               >
-                <option value="">Выберите врача</option>
+                <option value="">{t("clinic.rooms.selectDoctor")}</option>
                 {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} — {d.specialization ?? "Без специализации"}</option>
+                  <option key={d.id} value={d.id}>{d.name} — {d.specialization ?? t("clinic.rooms.noSpecialization")}</option>
                 ))}
               </select>
             </div>
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 8 }}>Дни недели *</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 8 }}>{t("clinic.rooms.weekdays")}</label>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {DAY_LABELS.map((label, idx) => {
-                  const active = assignForm.days.includes(idx);
+                {UI_DAY_OPTIONS.map(({ label, value }) => {
+                  const active = assignForm.days.includes(value);
                   return (
                     <button
-                      key={idx}
-                      onClick={() => toggleDay(idx)}
+                      key={value}
+                      onClick={() => toggleDay(value)}
                       style={{
                         padding: "6px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600,
                         border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
@@ -407,7 +430,7 @@ export default function RoomsPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Начало</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.startTime")}</label>
                 <input
                   type="time"
                   style={inputStyle}
@@ -416,7 +439,7 @@ export default function RoomsPage() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Конец</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.endTime")}</label>
                 <input
                   type="time"
                   style={inputStyle}
@@ -439,7 +462,7 @@ export default function RoomsPage() {
                   opacity: assigning ? 0.7 : 1,
                 }}
               >
-                {assigning ? "Сохранение..." : "Назначить"}
+                {assigning ? t("clinic.common.saving") : t("clinic.rooms.assignDoctor")}
               </button>
               <button
                 onClick={() => {
@@ -452,7 +475,7 @@ export default function RoomsPage() {
                   padding: "12px 0", fontSize: 14, cursor: "pointer", color: "#64748b", fontWeight: 600,
                 }}
               >
-                Отмена
+                {t("clinic.common.cancel")}
               </button>
             </div>
           </div>

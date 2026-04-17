@@ -4,8 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, DoctorSlot } from "@/lib/api";
 import { Calendar, Plus, Trash2, Clock, CheckCircle, Repeat, ChevronDown, ChevronUp } from "lucide-react";
-<<<<<<< HEAD
-=======
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 const TEMPLATE_KEY = "doctor-slot-templates";
@@ -29,7 +27,6 @@ function loadTemplates(): SlotTemplate[] {
 function saveTemplates(templates: SlotTemplate[]) {
   localStorage.setItem(TEMPLATE_KEY, JSON.stringify(templates));
 }
->>>>>>> 47a7cbc9e7c92047b4e061c24dd3e98168b29ec0
 
 function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -79,6 +76,12 @@ export default function DoctorSchedulePage() {
   const [tplInterval, setTplInterval] = useState("30");
   const [applying, setApplying] = useState<string | null>(null);
   const [applyResult, setApplyResult] = useState<string | null>(null);
+
+  // Quick-template panel state
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [tplResult, setTplResult] = useState<string | null>(null);
+  const [applyingTpl, setApplyingTpl] = useState(false);
+  const [tplRange, setTplRange] = useState("14");
 
   const days = getDays(today, 14);
   const { toasts, toast, closeToast } = useToast();
@@ -179,7 +182,7 @@ export default function DoctorSchedulePage() {
     setTplResult(null);
   }
 
-  async function handleApplyTemplate() {
+  async function handleApplyQuickTemplate() {
     setApplyingTpl(true);
     setTplResult(null);
     const range = parseInt(tplRange, 10) || 14;
@@ -345,7 +348,7 @@ export default function DoctorSchedulePage() {
 
           <div style={{ display: "flex", gap: 8 }}>
             <button
-              onClick={handleApplyTemplate}
+              onClick={handleApplyQuickTemplate}
               disabled={applyingTpl || tplDays.length === 0}
               style={{
                 background: "linear-gradient(135deg,#0d9488,#0f766e)", color: "#fff",

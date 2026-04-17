@@ -8,7 +8,9 @@ import {
   User, MapPin, FileText, Calendar, ChevronRight, ChevronLeft, CheckCircle2,
 } from "lucide-react";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshira-backend-production.up.railway.app";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "https://hamshirago-production-0a65.up.railway.app";
 
 function formatPhone(raw: string): string {
   let digits = raw.replace(/\D/g, "");
@@ -92,17 +94,32 @@ export default function ClinicRegisterPage() {
       if (licenseNumber.trim()) body.licenseNumber = licenseNumber.trim();
       if (licenseExpiry) body.licenseExpiry = licenseExpiry;
 
-      const res = await fetch(`${BASE_URL}/clinic/register`, {
+      const res = await fetch(`${BASE_URL}/clinic-auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message || "Ошибка регистрации");
+        const msg = Array.isArray(data?.message) ? data.message.join(", ") : data?.message;
+        throw new Error(msg || "Ошибка регистрации");
       }
+
+      // Auto-save token so user doesn't need to re-login
+      const data = await res.json().catch(() => ({}));
+      if (data?.token) {
+        localStorage.setItem("clinic_token", data.token);
+        localStorage.setItem("clinic_user", JSON.stringify(data.user ?? {}));
+      }
+
       setSuccess(true);
-      setTimeout(() => router.push("/clinic/auth"), 2500);
+      setTimeout(() => {
+        if (data?.token) {
+          router.push("/clinic/dashboard");
+        } else {
+          router.push("/clinic/auth");
+        }
+      }, 2500);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка регистрации");
     } finally {
@@ -122,7 +139,7 @@ export default function ClinicRegisterPage() {
             <CheckCircle2 size={40} color="#fff" />
           </div>
           <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 10 }}>Клиника зарегистрирована!</h2>
-          <p style={{ fontSize: 15, color: "#64748b" }}>Перенаправляем на страницу входа...</p>
+          <p style={{ fontSize: 15, color: "#64748b" }}>Перенаправляем на портал...</p>
         </div>
       </div>
     );
@@ -325,7 +342,7 @@ export default function ClinicRegisterPage() {
           {step === 2 && (
             <>
               <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>Аккаунт руководителя</h2>
-              <p style={{ fontSize: 13, color: "#64748b", marginBottom: 28 }}>CEO — главный администратор клиники (роль CEO)</p>
+              <p style={{ fontSize: 13, color: "#64748b", marginBottom: 28 }}>CEO — главный администратор клиники</p>
 
               <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <Field label="ФИО руководителя *">

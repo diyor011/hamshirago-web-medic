@@ -3,16 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Pencil, Check, X, Trash2, RefreshCw, Stethoscope } from "lucide-react";
 import { clinicApi, ClinicService } from "@/lib/clinicApi";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 type ServiceCategory = "ALL" | "CONSULTATION" | "LAB" | "DIAGNOSTIC" | "PROCEDURE";
-
-const CATEGORIES: { value: ServiceCategory; label: string; color: string; bg: string }[] = [
-  { value: "ALL",          label: "Все",           color: "#475569", bg: "#f1f5f9" },
-  { value: "CONSULTATION", label: "Консультация",  color: "#0d9488", bg: "#f0fdfa" },
-  { value: "LAB",          label: "Лаборатория",   color: "#2563eb", bg: "#eff6ff" },
-  { value: "DIAGNOSTIC",   label: "Диагностика",   color: "#9333ea", bg: "#faf5ff" },
-  { value: "PROCEDURE",    label: "Процедура",     color: "#ea580c", bg: "#fff7ed" },
-];
 
 interface ServiceForm {
   name: string;
@@ -34,11 +28,12 @@ function Skeleton() {
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <span style={{ fontSize: 13, color: "#ef4444" }}>{message}</span>
       <button onClick={onRetry} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#ef4444", background: "none", border: "none", cursor: "pointer" }}>
-        <RefreshCw size={13} /> Повторить
+        <RefreshCw size={13} /> {t("clinic.common.retry")}
       </button>
     </div>
   );
@@ -56,6 +51,16 @@ const card: React.CSSProperties = {
 };
 
 export default function ServicesPage() {
+  const { t } = useTranslation();
+
+  const CATEGORIES: { value: ServiceCategory; label: string; color: string; bg: string }[] = [
+    { value: "ALL",          label: t("clinic.services.categories.all"),          color: "#475569", bg: "#f1f5f9" },
+    { value: "CONSULTATION", label: t("clinic.services.categories.consultation"),  color: "#0d9488", bg: "#f0fdfa" },
+    { value: "LAB",          label: t("clinic.services.categories.lab"),           color: "#2563eb", bg: "#eff6ff" },
+    { value: "DIAGNOSTIC",   label: t("clinic.services.categories.diagnostic"),    color: "#9333ea", bg: "#faf5ff" },
+    { value: "PROCEDURE",    label: t("clinic.services.categories.procedure"),     color: "#ea580c", bg: "#fff7ed" },
+  ];
+
   const [services, setServices]       = useState<ClinicService[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
@@ -75,13 +80,13 @@ export default function ServicesPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try { setServices(await clinicApi.services.list()); }
-    catch (e) { setError(e instanceof Error ? e.message : "Ошибка загрузки"); }
+    catch (e) { setError(e instanceof Error ? e.message : t("clinic.services.errorLoad")); }
     finally { setLoading(false); }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = filter === "ALL" ? services : services.filter((s) => (s as any).category === filter);
+  const filtered = filter === "ALL" ? services : services.filter((s) => s.category === filter);
 
   const stats = {
     total:    services.filter((s) => s.isActive).length,
@@ -90,7 +95,7 @@ export default function ServicesPage() {
 
   async function handleCreate() {
     if (!form.name.trim() || !form.price || !form.durationMinutes) {
-      setCreateError("Заполните все поля"); return;
+      setCreateError(t("clinic.services.errorFillAll")); return;
     }
     setCreating(true); setCreateError("");
     try {
@@ -102,7 +107,7 @@ export default function ServicesPage() {
       });
       setShowCreate(false); setForm(EMPTY_FORM);
       await load();
-    } catch (e) { setCreateError(e instanceof Error ? e.message : "Ошибка"); }
+    } catch (e) { setCreateError(e instanceof Error ? e.message : t("clinic.services.errorCreate")); }
     finally { setCreating(false); }
   }
 
@@ -133,7 +138,7 @@ export default function ServicesPage() {
       name: svc.name,
       price: String(svc.price),
       durationMinutes: String(svc.durationMinutes),
-      category: ((svc as any).category as Exclude<ServiceCategory, "ALL">) ?? "CONSULTATION",
+      category: (svc.category as Exclude<ServiceCategory, "ALL">) ?? "CONSULTATION",
     });
   }
 
@@ -146,8 +151,8 @@ export default function ServicesPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Услуги</h1>
-          <p style={{ fontSize: 13, color: "#64748b" }}>Управление услугами клиники</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.services.title")}</h1>
+          <p style={{ fontSize: 13, color: "#64748b" }}>{t("clinic.services.subtitle")}</p>
         </div>
         <button
           onClick={() => { setShowCreate(true); setForm(EMPTY_FORM); setCreateError(""); }}
@@ -158,15 +163,15 @@ export default function ServicesPage() {
             border: "none", cursor: "pointer",
           }}
         >
-          <Plus size={15} /> Добавить услугу
+          <Plus size={15} /> {t("clinic.services.addService")}
         </button>
       </div>
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Активных услуг", value: stats.total,    color: "#0d9488", bg: "#f0fdfa" },
-          { label: "Неактивных",     value: stats.inactive, color: "#94a3b8", bg: "#f1f5f9" },
+          { label: t("clinic.services.activeCount"), value: stats.total,    color: "#0d9488", bg: "#f0fdfa" },
+          { label: t("clinic.services.inactiveCount"), value: stats.inactive, color: "#94a3b8", bg: "#f1f5f9" },
         ].map(({ label, value, color, bg }) => (
           <div key={label} style={{ ...card, padding: "16px 20px" }}>
             <div style={{ fontSize: 24, fontWeight: 800, color }}>{value}</div>
@@ -178,14 +183,14 @@ export default function ServicesPage() {
       {/* Create form */}
       {showCreate && (
         <div style={{ ...card, marginBottom: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 14 }}>Новая услуга</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 14 }}>{t("clinic.services.newService")}</h3>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Название *</label>
-              <input style={inputStyle} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Консультация терапевта" />
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.name")}</label>
+              <input style={inputStyle} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t("clinic.services.namePlaceholder")} />
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Категория *</label>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.category")}</label>
               <select style={{ ...inputStyle, cursor: "pointer" }} value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as Exclude<ServiceCategory, "ALL"> }))}>
                 {CATEGORIES.filter((c) => c.value !== "ALL").map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -193,21 +198,21 @@ export default function ServicesPage() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Цена (UZS) *</label>
-              <input type="number" min={0} style={inputStyle} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="150000" />
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.price")}</label>
+              <input type="number" min={0} style={inputStyle} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder={t("clinic.services.pricePlaceholder")} />
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Длит. (мин) *</label>
-              <input type="number" min={1} style={inputStyle} value={form.durationMinutes} onChange={(e) => setForm((f) => ({ ...f, durationMinutes: e.target.value }))} placeholder="30" />
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.duration")}</label>
+              <input type="number" min={1} style={inputStyle} value={form.durationMinutes} onChange={(e) => setForm((f) => ({ ...f, durationMinutes: e.target.value }))} placeholder={t("clinic.services.durationPlaceholder")} />
             </div>
           </div>
           {createError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 10 }}>{createError}</p>}
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={handleCreate} disabled={creating} style={{ background: "#0d9488", color: "#fff", border: "none", borderRadius: 8, padding: "8px 20px", fontSize: 13, fontWeight: 700, cursor: creating ? "not-allowed" : "pointer", opacity: creating ? 0.7 : 1 }}>
-              {creating ? "Создание..." : "Создать"}
+              {creating ? t("clinic.common.creating") : t("clinic.common.create")}
             </button>
             <button onClick={() => { setShowCreate(false); setCreateError(""); }} style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: "8px 20px", fontSize: 13, cursor: "pointer", color: "#64748b" }}>
-              Отмена
+              {t("clinic.common.cancel")}
             </button>
           </div>
         </div>
@@ -225,7 +230,7 @@ export default function ServicesPage() {
             {c.label}
             {c.value !== "ALL" && (
               <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700 }}>
-                {services.filter((s) => (s as any).category === c.value).length}
+                {services.filter((s) => s.category === c.value).length}
               </span>
             )}
           </button>
@@ -244,7 +249,7 @@ export default function ServicesPage() {
           <div style={{ textAlign: "center", padding: "48px 0" }}>
             <Stethoscope size={32} color="#e2e8f0" style={{ margin: "0 auto 12px" }} />
             <p style={{ fontSize: 14, color: "#94a3b8" }}>
-              {filter === "ALL" ? "Нет услуг. Добавьте первую." : "Нет услуг в этой категории."}
+              {filter === "ALL" ? t("clinic.services.noServices") : t("clinic.services.noServicesInCategory")}
             </p>
           </div>
         ) : (
@@ -252,18 +257,18 @@ export default function ServicesPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <th style={{ textAlign: "left",   padding: "0 0 12px",    color: "#64748b", fontWeight: 600 }}>Название</th>
-                  <th style={{ textAlign: "left",   padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>Категория</th>
-                  <th style={{ textAlign: "right",  padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>Цена</th>
-                  <th style={{ textAlign: "right",  padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>Длит.</th>
-                  <th style={{ textAlign: "center", padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>Статус</th>
+                  <th style={{ textAlign: "left",   padding: "0 0 12px",    color: "#64748b", fontWeight: 600 }}>{t("clinic.services.name")}</th>
+                  <th style={{ textAlign: "left",   padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>{t("clinic.services.category")}</th>
+                  <th style={{ textAlign: "right",  padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>{t("clinic.services.price")}</th>
+                  <th style={{ textAlign: "right",  padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>{t("clinic.services.duration")}</th>
+                  <th style={{ textAlign: "center", padding: "0 12px 12px", color: "#64748b", fontWeight: 600 }}>{t("clinic.services.status")}</th>
                   <th style={{ width: 90 }} />
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((svc) => {
                   const isEditing = editingId === svc.id;
-                  const cm = catMeta((svc as any).category ?? "CONSULTATION");
+                  const cm = catMeta(svc.category ?? "CONSULTATION");
                   return (
                     <tr key={svc.id} style={{ borderBottom: "1px solid #f8fafc", opacity: svc.isActive ? 1 : 0.5 }}>
                       {/* Name */}
@@ -285,7 +290,7 @@ export default function ServicesPage() {
                         {isEditing ? (
                           <input type="number" min={0} style={{ ...inputStyle, width: 110, textAlign: "right" }} value={editForm.price} onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))} />
                         ) : (
-                          <span style={{ color: "#374151", fontWeight: 600 }}>{svc.price.toLocaleString("ru-RU")} сум</span>
+                          <span style={{ color: "#374151", fontWeight: 600 }}>{svc.price.toLocaleString("ru-RU")} {t("common.sum")}</span>
                         )}
                       </td>
                       {/* Duration */}
@@ -293,7 +298,7 @@ export default function ServicesPage() {
                         {isEditing ? (
                           <input type="number" min={1} style={{ ...inputStyle, width: 80, textAlign: "right" }} value={editForm.durationMinutes} onChange={(e) => setEditForm((f) => ({ ...f, durationMinutes: e.target.value }))} />
                         ) : (
-                          <span style={{ color: "#374151" }}>{svc.durationMinutes} мин</span>
+                          <span style={{ color: "#374151" }}>{svc.durationMinutes} {t("clinic.services.durationMin")}</span>
                         )}
                       </td>
                       {/* Status */}
@@ -304,7 +309,7 @@ export default function ServicesPage() {
                             ? { background: "#f0fdf4", color: "#16a34a" }
                             : { background: "#f1f5f9", color: "#94a3b8" }),
                         }}>
-                          {svc.isActive ? "Активна" : "Неактивна"}
+                          {svc.isActive ? t("clinic.services.active") : t("clinic.services.inactive")}
                         </span>
                       </td>
                       {/* Actions */}

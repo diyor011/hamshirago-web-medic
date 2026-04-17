@@ -31,7 +31,7 @@ export default function ClinicAuthPage() {
   const [focused, setFocused] = useState<string | null>(null);
 
   const phoneDigits = phone.replace(/\D/g, "");
-  const canSubmit = phoneDigits.length >= 11 && password.length >= 6;
+  const canSubmit = phoneDigits.length === 12 && password.length >= 6;
 
   const inputStyle = (name: string): React.CSSProperties => ({
     width: "100%", height: 48, borderRadius: 10,
@@ -50,12 +50,12 @@ export default function ClinicAuthPage() {
     try {
       const rawPhone = "+" + phoneDigits;
       const res = await clinicApi.auth.login(rawPhone, password);
-      localStorage.setItem("clinic_token", res.token ?? res.access_token ?? "");
+      const token = res.token ?? res.access_token ?? "";
+      if (!token) throw new Error("Сервер не вернул токен. Попробуйте ещё раз.");
+      localStorage.setItem("clinic_token", token);
       localStorage.setItem("clinic_user", JSON.stringify(res.user));
       const jwtRole = getClinicRole();
-      if (jwtRole === "DOCTOR") {
-        router.replace("/doctor");
-      } else if (jwtRole === "RECEPTION") {
+      if (jwtRole === "RECEPTION") {
         router.replace("/clinic/reception");
       } else {
         router.replace("/clinic/dashboard");
