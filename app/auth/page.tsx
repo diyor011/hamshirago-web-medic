@@ -45,6 +45,8 @@ export default function AuthPage() {
   const [focused, setFocused] = useState<string | null>(null);
   const [isClinic, setIsClinic] = useState(false);
   const [clinicRole, setClinicRole] = useState<ClinicRole>("DOCTOR");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     // Check if already logged in — redirect to correct dashboard based on role
@@ -210,7 +212,7 @@ export default function AuthPage() {
                   color: mode === m ? "#0d9488" : "#94a3b8",
                   boxShadow: mode === m ? "0 1px 6px rgba(0,0,0,0.08)" : "none",
                 }}>
-                  {m === "login" ? t("auth.login") : t("auth.register")}
+                  {mounted ? (m === "login" ? t("auth.login") : t("auth.register")) : (m === "login" ? "Войти" : "Регистрация")}
                 </button>
               ))}
             </div>
@@ -331,7 +333,9 @@ export default function AuthPage() {
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
               )}
-              {loading ? t("auth.wait") : mode === "login" ? t("auth.login") : t("auth.register")}
+              {mounted
+                ? (loading ? t("auth.wait") : mode === "login" ? t("auth.login") : t("auth.register"))
+                : (loading ? "..." : mode === "login" ? "Войти" : "Регистрация")}
             </button>
           </form>
         </div>
