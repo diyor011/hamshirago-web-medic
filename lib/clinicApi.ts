@@ -46,7 +46,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401 && !path.startsWith("/clinic-auth/")) {
     clearClinicSession();
-    window.location.replace("/clinic/auth");
+    window.location.replace("/auth");
     return new Promise<T>(() => {});
   }
 

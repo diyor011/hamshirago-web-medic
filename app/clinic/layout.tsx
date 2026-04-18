@@ -174,9 +174,9 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       return;
     }
     const token = getClinicToken();
-    if (!token) { router.replace("/clinic/auth"); return; }
+    if (!token) { router.replace("/auth"); return; }
     const r = getClinicRole();
-    if (!r) { router.replace("/clinic/auth"); return; }
+    if (!r) { router.replace("/auth"); return; }
     setRole(r);
 
     // Role-based route guard
@@ -189,7 +189,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
   function handleLogout() {
     clearClinicSession();
-    router.replace("/clinic/auth");
+    router.replace("/auth");
   }
 
   // Close mobile sidebar on route change
