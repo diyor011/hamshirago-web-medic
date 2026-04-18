@@ -124,6 +124,9 @@ export default function ReceptionPage() {
   const [calendarAppts, setCalendarAppts] = useState<Appointment[]>([]);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+  const [finalPriceModal, setFinalPriceModal] = useState<{ apptId: string; priceMin: number; priceMax: number } | null>(null);
+  const [finalPriceInput, setFinalPriceInput] = useState("");
+  const [finalPriceLoading, setFinalPriceLoading] = useState(false);
   const { toasts, toast, closeToast } = useToast();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -193,6 +196,27 @@ export default function ReceptionPage() {
     const id = setInterval(loadApps, 30000);
     return () => clearInterval(id);
   }, [loadApps]);
+
+  async function handleSetFinalPrice() {
+    if (!finalPriceModal) return;
+    const val = parseInt(finalPriceInput.replace(/\D/g, ""), 10);
+    if (!val || val < finalPriceModal.priceMin || val > finalPriceModal.priceMax) {
+      toast.error(`Введите сумму от ${finalPriceModal.priceMin.toLocaleString()} до ${finalPriceModal.priceMax.toLocaleString()} UZS`);
+      return;
+    }
+    setFinalPriceLoading(true);
+    try {
+      await clinicApi.appointments.setFinalPrice(finalPriceModal.apptId, val);
+      toast.success("Итоговая цена сохранена");
+      setFinalPriceModal(null);
+      setFinalPriceInput("");
+      await loadApps();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setFinalPriceLoading(false);
+    }
+  }
 
   async function handleCheckin(id: string) {
     setCheckingIn(id);
@@ -264,6 +288,55 @@ export default function ReceptionPage() {
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
       <ToastContainer toasts={toasts} onClose={closeToast} />
+
+      {/* Final price modal */}
+      {finalPriceModal && (
+        <div
+          onClick={() => setFinalPriceModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 360 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>Итоговая цена</h3>
+            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+              Диапазон: {finalPriceModal.priceMin.toLocaleString()} — {finalPriceModal.priceMax.toLocaleString()} UZS
+            </p>
+            <input
+              type="number"
+              value={finalPriceInput}
+              onChange={(e) => setFinalPriceInput(e.target.value)}
+              placeholder={`${finalPriceModal.priceMin.toLocaleString()} – ${finalPriceModal.priceMax.toLocaleString()}`}
+              min={finalPriceModal.priceMin}
+              max={finalPriceModal.priceMax}
+              autoFocus
+              style={{
+                width: "100%", height: 48, borderRadius: 10, border: "1.5px solid #0d9488",
+                padding: "0 14px", fontSize: 15, color: "#0f172a", outline: "none",
+                boxSizing: "border-box", marginBottom: 16,
+              }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleSetFinalPrice}
+                disabled={finalPriceLoading}
+                style={{
+                  flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
+                  background: "linear-gradient(135deg,#0d9488,#0f766e)", color: "#fff",
+                  fontSize: 14, fontWeight: 700, cursor: finalPriceLoading ? "not-allowed" : "pointer",
+                  opacity: finalPriceLoading ? 0.7 : 1,
+                }}
+              >
+                {finalPriceLoading ? "Сохраняем..." : "Сохранить"}
+              </button>
+              <button
+                onClick={() => setFinalPriceModal(null)}
+                style={{ padding: "12px 20px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#64748b" }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes shimmer {
           0%   { background-position: 200% 0; }
@@ -729,6 +802,36 @@ export default function ReceptionPage() {
                               <CheckSquare size={13} />
                               {isLoading ? "..." : "Check In"}
                             </button>
+                          )}
+
+                          {/* Final price button — for range-price appointments without finalPrice */}
+                          {app.priceMin != null && app.priceMax != null && !app.finalPrice && (st === "IN_PROGRESS" || st === "DONE") && (
+                            <button
+                              onClick={() => {
+                                setFinalPriceModal({ apptId: app.id, priceMin: app.priceMin!, priceMax: app.priceMax! });
+                                setFinalPriceInput("");
+                              }}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer",
+                              }}
+                            >
+                              💰 Ввести цену
+                            </button>
+                          )}
+
+                          {/* Show finalPrice if set */}
+                          {app.finalPrice != null && (
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#0d9488" }}>
+                              {app.finalPrice.toLocaleString()} UZS
+                            </span>
+                          )}
+                          {/* Show range if finalPrice not set */}
+                          {app.priceMin != null && app.priceMax != null && !app.finalPrice && st !== "IN_PROGRESS" && st !== "DONE" && (
+                            <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                              {app.priceMin.toLocaleString()}–{app.priceMax.toLocaleString()}
+                            </span>
                           )}
                         </div>
                       </div>
