@@ -142,10 +142,15 @@ export default function ReceptionPage() {
   const fmtDateRu = (d: Date) =>
     d.toLocaleDateString("ru-RU", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 
+  const isForbidden = (e: unknown) =>
+    e instanceof Error && (e.message.includes("прав") || e.message.toLowerCase().includes("forbidden"));
+
   const loadApps = useCallback(async () => {
     setLoadingApps(true); setErrApps(null);
     try { setAppointments(await clinicApi.appointments.today()); }
-    catch (e) { setErrApps(e instanceof Error ? e.message : t("clinic.reception.errorLoad")); }
+    catch (e) {
+      if (!isForbidden(e)) setErrApps(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
+    }
     finally { setLoadingApps(false); }
   }, [t]);
 
@@ -155,7 +160,7 @@ export default function ReceptionPage() {
       const res = await clinicApi.leads.list({ status: "NEW", limit: 5 });
       setLeads(res.data);
     } catch (e) {
-      setErrLeads(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
+      if (!isForbidden(e)) setErrLeads(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
       setLoadingLeads(false);
     }
