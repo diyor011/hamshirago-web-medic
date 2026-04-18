@@ -119,6 +119,8 @@ export default function AuthPage() {
     transition: "all 0.15s",
   });
 
+  if (!mounted) return <div style={{ minHeight: "100vh", background: "#f8fafc" }} />;
+
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex" }}>
       {/* Left panel — desktop only */}
@@ -212,7 +214,7 @@ export default function AuthPage() {
                   color: mode === m ? "#0d9488" : "#94a3b8",
                   boxShadow: mode === m ? "0 1px 6px rgba(0,0,0,0.08)" : "none",
                 }}>
-                  {mounted ? (m === "login" ? t("auth.login") : t("auth.register")) : (m === "login" ? "Войти" : "Регистрация")}
+                  {m === "login" ? t("auth.login") : t("auth.register")}
                 </button>
               ))}
             </div>
@@ -333,9 +335,7 @@ export default function AuthPage() {
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
               )}
-              {mounted
-                ? (loading ? t("auth.wait") : mode === "login" ? t("auth.login") : t("auth.register"))
-                : (loading ? "..." : mode === "login" ? "Войти" : "Регистрация")}
+              {loading ? t("auth.wait") : mode === "login" ? t("auth.login") : t("auth.register")}
             </button>
           </form>
         </div>
