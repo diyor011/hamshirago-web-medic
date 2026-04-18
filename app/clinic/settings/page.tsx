@@ -271,8 +271,8 @@ export default function SettingsPage() {
   // ── Service actions ──
   async function handleCreateService() {
     if (!svcForm.name.trim()) { setCreateSvcError("Введите название"); return; }
-    if (!svcForm.price || isNaN(Number(svcForm.price))) { setCreateSvcError("Введите цену"); return; }
     if (!svcForm.durationMinutes || isNaN(Number(svcForm.durationMinutes))) { setCreateSvcError("Введите длительность"); return; }
+    if (!svcForm.price || isNaN(Number(svcForm.price))) { setCreateSvcError("Введите цену"); return; }
     setCreatingSvc(true); setCreateSvcError("");
     try {
       await clinicApi.services.create({
@@ -567,7 +567,7 @@ export default function SettingsPage() {
 
         {showCreateSvc && (
           <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Название *</label>
                 <input style={inputStyle} value={svcForm.name} onChange={(e) => setSvcForm((f) => ({ ...f, name: e.target.value }))} placeholder="Консультация терапевта" />
@@ -579,13 +579,14 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Цена (UZS) *</label>
-                <input type="number" min={0} style={inputStyle} value={svcForm.price} onChange={(e) => setSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="150000" />
-              </div>
-              <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Длит. (мин) *</label>
                 <input type="number" min={1} style={inputStyle} value={svcForm.durationMinutes} onChange={(e) => setSvcForm((f) => ({ ...f, durationMinutes: e.target.value }))} placeholder="30" />
               </div>
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Цена (UZS) *</label>
+              <input type="number" min={0} style={{ ...inputStyle, maxWidth: 200 }} value={svcForm.price} onChange={(e) => setSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="150000" />
             </div>
             {createSvcError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 8 }}>{createSvcError}</p>}
             <div style={{ display: "flex", gap: 8 }}>

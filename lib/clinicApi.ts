@@ -135,6 +135,8 @@ export interface ClinicService {
   name: string;
   category: string;
   price: number;
+  priceMin?: number | null;
+  priceMax?: number | null;
   durationMinutes: number | null;
   isActive: boolean;
 }

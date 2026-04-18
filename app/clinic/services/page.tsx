@@ -94,7 +94,7 @@ export default function ServicesPage() {
   };
 
   async function handleCreate() {
-    if (!form.name.trim() || !form.price || !form.durationMinutes) {
+    if (!form.name.trim() || !form.durationMinutes || !form.price) {
       setCreateError(t("clinic.services.errorFillAll")); return;
     }
     setCreating(true); setCreateError("");
@@ -134,12 +134,7 @@ export default function ServicesPage() {
 
   function startEdit(svc: ClinicService) {
     setEditingId(svc.id);
-    setEditForm({
-      name: svc.name,
-      price: String(svc.price),
-      durationMinutes: String(svc.durationMinutes),
-      category: (svc.category as Exclude<ServiceCategory, "ALL">) ?? "CONSULTATION",
-    });
+    setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes), category: (svc.category as Exclude<ServiceCategory, "ALL">) ?? "CONSULTATION" });
   }
 
   const catMeta = (cat: string) => CATEGORIES.find((c) => c.value === cat) ?? CATEGORIES[1];
@@ -184,7 +179,7 @@ export default function ServicesPage() {
       {showCreate && (
         <div style={{ ...card, marginBottom: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 14 }}>{t("clinic.services.newService")}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.name")}</label>
               <input style={inputStyle} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t("clinic.services.namePlaceholder")} />
@@ -198,13 +193,14 @@ export default function ServicesPage() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.price")}</label>
-              <input type="number" min={0} style={inputStyle} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder={t("clinic.services.pricePlaceholder")} />
-            </div>
-            <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.duration")}</label>
               <input type="number" min={1} style={inputStyle} value={form.durationMinutes} onChange={(e) => setForm((f) => ({ ...f, durationMinutes: e.target.value }))} placeholder={t("clinic.services.durationPlaceholder")} />
             </div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.price")} (UZS)</label>
+            <input type="number" min={0} style={{ ...inputStyle, maxWidth: 200 }} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder={t("clinic.services.pricePlaceholder")} />
           </div>
           {createError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 10 }}>{createError}</p>}
           <div style={{ display: "flex", gap: 8 }}>
