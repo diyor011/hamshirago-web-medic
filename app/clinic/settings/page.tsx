@@ -685,7 +685,7 @@ export default function SettingsPage() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => { setEditingSvc(svc.id); setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes), category: "CONSULTATION" }); }} style={{ padding: "5px 8px", borderRadius: 7, background: "#f8fafc", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><Pencil size={13} /></button>
+                          <button onClick={() => { setEditingSvc(svc.id); setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes), category: "CONSULTATION", isRangePrice: false, priceMin: "", priceMax: "" }); }} style={{ padding: "5px 8px", borderRadius: 7, background: "#f8fafc", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><Pencil size={13} /></button>
                           {svc.isActive && (
                             <button onClick={() => handleDeactivateService(svc.id)} disabled={deactivatingSvc === svc.id} style={{ padding: "5px 8px", borderRadius: 7, background: "#fef2f2", border: "1px solid #fecaca", cursor: "pointer", color: "#ef4444" }}><Trash2 size={13} /></button>
                           )}

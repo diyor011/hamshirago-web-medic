@@ -146,7 +146,7 @@ export default function ServicesPage() {
 
   function startEdit(svc: ClinicService) {
     setEditingId(svc.id);
-    setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes), category: (svc.category as Exclude<ServiceCategory, "ALL">) ?? "CONSULTATION" });
+    setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes), category: (svc.category as Exclude<ServiceCategory, "ALL">) ?? "CONSULTATION", isRangePrice: false, priceMin: "", priceMax: "" });
   }
 
   const catMeta = (cat: string) => CATEGORIES.find((c) => c.value === cat) ?? CATEGORIES[1];

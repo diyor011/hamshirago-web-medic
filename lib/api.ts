@@ -363,6 +363,7 @@ export interface Review {
 export interface DoctorAuthResponse {
   access_token: string;
   doctor: DoctorProfile;
+  loginType?: "doctor" | "clinic";
 }
 
 export interface RegisterDoctorDto {
