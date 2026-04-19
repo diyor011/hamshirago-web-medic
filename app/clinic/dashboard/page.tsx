@@ -134,19 +134,19 @@ function OnboardingBanner({ steps, onDismiss }: { steps: OnboardingStep[]; onDis
 function KpiCard({ icon, iconBg, value, label }: KpiCardProps) {
   return (
     <div style={{
-      background: "#fff", borderRadius: 16, padding: "20px 20px",
+      background: "#fff", borderRadius: 16, padding: "16px",
       border: "1px solid #f1f5f9", boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div style={{
-          width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
+          width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
           background: iconBg, display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           {icon}
         </div>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", lineHeight: 1.1 }}>{value}</div>
-          <div style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>{label}</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", lineHeight: 1.1 }}>{value}</div>
+          <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
         </div>
       </div>
     </div>
@@ -459,7 +459,7 @@ export default function DashboardPage() {
       {errOverview && <div style={{ marginBottom: 20 }}><ErrorBanner message={errOverview} onRetry={() => fetchOverview(period)} /></div>}
 
       {/* KPI Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+      <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 24 }}>
         {loadingOverview ? (
           [1,2,3,4].map(i => (
             <div key={i} style={card}>
@@ -474,8 +474,8 @@ export default function DashboardPage() {
           ))
         ) : overview ? (
           <>
-            <KpiCard icon={<Users size={22} color="#2563eb" />} iconBg="#eff6ff" value={overview.newPatients} label={t("clinic.dashboard.kpi.newPatients")} />
-            <KpiCard icon={<CheckCircle size={22} color="#16a34a" />} iconBg="#f0fdf4" value={overview.appointments} label={t("clinic.dashboard.kpi.appointments")} />
+            <KpiCard icon={<Users size={22} color="#2563eb" />} iconBg="#eff6ff" value={overview.newPatients ?? 0} label={t("clinic.dashboard.kpi.newPatients")} />
+            <KpiCard icon={<CheckCircle size={22} color="#16a34a" />} iconBg="#f0fdf4" value={overview.appointments ?? 0} label={t("clinic.dashboard.kpi.appointments")} />
             <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${(overview.revenue ?? 0).toLocaleString("ru-RU")} ${t("common.sum")}`} label={t("clinic.dashboard.kpi.revenue")} />
             <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate ?? 0}%`} label={t("clinic.dashboard.kpi.cancelRate")} />
           </>
@@ -747,6 +747,10 @@ export default function DashboardPage() {
 
       <style>{`
         @media (max-width: 900px) { .clinic-grid-stack { grid-template-columns: 1fr !important; } }
+        @media (max-width: 480px) {
+          .clinic-grid-stack { gap: 12px !important; }
+          .kpi-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+        }
       `}</style>
 
       <BookingModal

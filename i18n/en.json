@@ -221,7 +221,9 @@
     "errorLatRange": "Latitude must be between -90 and 90",
     "errorLngRange": "Longitude must be between -180 and 180"
   },
-  "language": { "title": "Language / Til" },
+  "language": {
+    "title": "Language / Til"
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",
@@ -306,7 +308,11 @@
       "phonePlaceholder": "+998901234567",
       "password": "Password *",
       "passwordPlaceholder": "Minimum 6 characters",
-      "role": "Role *",
+      "role": {
+        "ceo": "Director (CEO)",
+        "reception": "Registration",
+        "doctor": "Doctor"
+      },
       "photoUrl": "Photo URL",
       "photoUrlPlaceholder": "https://res.cloudinary.com/...",
       "deactivate": "Deactivate",
@@ -318,12 +324,7 @@
       "errorPhone": "Enter phone",
       "errorPassword": "Enter password",
       "errorCreate": "Error creating",
-      "errorLoad": "Error loading",
-      "role": {
-        "ceo": "Director (CEO)",
-        "reception": "Registration",
-        "doctor": "Doctor"
-      }
+      "errorLoad": "Error loading"
     },
     "services": {
       "title": "Services",
@@ -426,16 +427,15 @@
       "date": "Date",
       "room": "Room",
       "doctor": "Doctor",
-      "payment": "Payment",
-      "status": "Status",
-      "close": "Close",
-      "withoutName": "No name",
-      "bookFromLead": "Book",
       "payment": {
         "CASH": "Cash",
         "TERMINAL": "Terminal",
         "ONLINE": "Online"
       },
+      "status": "Status",
+      "close": "Close",
+      "withoutName": "No name",
+      "bookFromLead": "Book",
       "errorLoad": "Error",
       "retry": "Retry"
     },
@@ -508,6 +508,38 @@
         "DONE": "Completed",
         "CANCELED": "Canceled"
       }
+    },
+    "booking": {
+      "title": "Book Patient",
+      "patientPhone": "Patient phone",
+      "find": "Find",
+      "finding": "...",
+      "visits": "visits in history",
+      "noName": "No name",
+      "patientNotFoundMsg": "Patient not found. Enter name manually.",
+      "patientNamePlaceholder": "Patient name",
+      "doctor": "Doctor",
+      "selectDoctor": "Select doctor",
+      "loadingDoctors": "Loading...",
+      "room": "Room",
+      "selectRoom": "Select room",
+      "loadingSchedule": "Loading schedule...",
+      "noSchedule": "Doctor schedule not configured — select room manually",
+      "noRooms": "No rooms available — create a room first",
+      "floor": "floor",
+      "date": "Date",
+      "time": "Time",
+      "paymentType": "Payment type",
+      "submit": "Book",
+      "submitting": "Booking...",
+      "cancel": "Cancel",
+      "errorPhone": "Enter phone number",
+      "errorDoctor": "Select a doctor",
+      "errorDate": "Select a date",
+      "errorTime": "Enter time",
+      "errorRoom": "Select a room",
+      "errorTimeRange": "Time outside doctor schedule ({{start}}–{{end}})",
+      "errorCreate": "Error creating appointment"
     }
   }
 }

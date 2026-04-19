@@ -221,7 +221,9 @@
     "errorLatRange": "Широта должна быть от -90 до 90",
     "errorLngRange": "Долгота должна быть от -180 до 180"
   },
-  "language": { "title": "Язык / Til" },
+  "language": {
+    "title": "Язык / Til"
+  },
   "common": {
     "loading": "Загрузка...",
     "error": "Ошибка",
@@ -352,7 +354,11 @@
         "diagnostic": "Диагностика",
         "procedure": "Процедура"
       },
+      "rangePrice": "Диапазон цен (итог после операции)",
+      "priceMin": "Мин. цена",
+      "priceMax": "Макс. цена",
       "errorFillAll": "Заполните все поля",
+      "errorPriceRange": "Мин. цена должна быть меньше макс.",
       "errorCreate": "Ошибка",
       "errorLoad": "Ошибка загрузки"
     },
@@ -429,6 +435,8 @@
       "payment": "Оплата",
       "status": "Статус",
       "close": "Закрыть",
+      "startReception": "Начать приём",
+      "finishReception": "Завершить",
       "withoutName": "Без имени",
       "bookFromLead": "Записать",
       "paymentLabels": {
@@ -508,6 +516,38 @@
         "DONE": "Завершён",
         "CANCELED": "Отменён"
       }
+    },
+    "booking": {
+      "title": "Записать пациента",
+      "patientPhone": "Телефон пациента",
+      "find": "Найти",
+      "finding": "...",
+      "visits": "визитов в истории",
+      "noName": "Без имени",
+      "patientNotFoundMsg": "Пациент не найден. Введите имя вручную.",
+      "patientNamePlaceholder": "Имя пациента",
+      "doctor": "Врач",
+      "selectDoctor": "Выберите врача",
+      "loadingDoctors": "Загрузка...",
+      "room": "Кабинет",
+      "selectRoom": "Выберите кабинет",
+      "loadingSchedule": "Загрузка расписания...",
+      "noSchedule": "Расписание врача не настроено — выберите кабинет вручную",
+      "noRooms": "Нет доступных кабинетов — сначала создайте кабинет",
+      "floor": "этаж",
+      "date": "Дата",
+      "time": "Время",
+      "paymentType": "Тип оплаты",
+      "submit": "Записать",
+      "submitting": "Создание записи...",
+      "cancel": "Отмена",
+      "errorPhone": "Введите номер телефона",
+      "errorDoctor": "Выберите врача",
+      "errorDate": "Выберите дату",
+      "errorTime": "Укажите время",
+      "errorRoom": "Выберите кабинет",
+      "errorTimeRange": "Время вне графика врача ({{start}}–{{end}})",
+      "errorCreate": "Ошибка создания записи"
     }
   }
 }

@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { X, Search, User } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRoom, PaymentType, PatientInfo, DoctorRoomSlot, Appointment } from "@/lib/clinicApi";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 interface Props {
   open: boolean;
@@ -11,10 +13,10 @@ interface Props {
   prefillPhone?: string;
 }
 
-const PAYMENT_OPTIONS: { value: PaymentType; label: string }[] = [
-  { value: "CASH", label: "Наличные" },
-  { value: "TERMINAL", label: "Терминал" },
-  { value: "ONLINE", label: "Online" },
+const PAYMENT_KEYS: { value: PaymentType; labelKey: string }[] = [
+  { value: "CASH", labelKey: "clinic.reception.paymentLabels.CASH" },
+  { value: "TERMINAL", labelKey: "clinic.reception.paymentLabels.TERMINAL" },
+  { value: "ONLINE", labelKey: "clinic.reception.paymentLabels.ONLINE" },
 ];
 
 const inputStyle: React.CSSProperties = {
@@ -24,6 +26,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function BookingModal({ open, onClose, onSuccess, prefillPhone }: Props) {
+  const { t } = useTranslation();
   const [doctors, setDoctors] = useState<ClinicStaff[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [allRooms, setAllRooms] = useState<ClinicRoom[]>([]);
@@ -115,16 +118,16 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   }
 
   async function handleSubmit() {
-    if (!phone.trim()) { setError("Введите номер телефона"); return; }
-    if (!doctorId) { setError("Выберите врача"); return; }
-    if (!date) { setError("Выберите дату"); return; }
-    if (!time) { setError("Укажите время"); return; }
-    if (!roomId) { setError("Выберите кабинет"); return; }
+    if (!phone.trim()) { setError(t("clinic.booking.errorPhone")); return; }
+    if (!doctorId) { setError(t("clinic.booking.errorDoctor")); return; }
+    if (!date) { setError(t("clinic.booking.errorDate")); return; }
+    if (!time) { setError(t("clinic.booking.errorTime")); return; }
+    if (!roomId) { setError(t("clinic.booking.errorRoom")); return; }
 
     // Validate time is within doctor's room schedule window
     const slot = roomSlots.find((s) => s.roomId === roomId);
     if (slot && (time < slot.startTime || time > slot.endTime)) {
-      setError(`Время вне графика врача (${slot.startTime}–${slot.endTime})`);
+      setError(t("clinic.booking.errorTimeRange", { start: slot.startTime, end: slot.endTime }));
       return;
     }
 
@@ -157,7 +160,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         onSuccess();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка создания записи");
+      setError(e instanceof Error ? e.message : t("clinic.booking.errorCreate"));
     } finally {
       setSubmitting(false);
     }
@@ -176,7 +179,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
       }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>Записать пациента</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>{t("clinic.booking.title")}</h2>
           <button
             onClick={onClose}
             style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: "#64748b", display: "flex" }}
@@ -188,7 +191,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         {/* Phone search */}
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
-            Телефон пациента *
+            {t("clinic.booking.patientPhone")} *
           </label>
           <div style={{ display: "flex", gap: 8 }}>
             <input
@@ -208,7 +211,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                 opacity: searchingPatient ? 0.6 : 1,
               }}
             >
-              <Search size={14} /> {searchingPatient ? "..." : "Найти"}
+              <Search size={14} /> {searchingPatient ? t("clinic.booking.finding") : t("clinic.booking.find")}
             </button>
           </div>
 
@@ -221,8 +224,8 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
             }}>
               <User size={16} color="#16a34a" />
               <div>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#166534", margin: 0 }}>{patient.name ?? "Без имени"}</p>
-                <p style={{ fontSize: 11, color: "#4ade80", margin: 0 }}>{patient.appointments.length} визитов в истории</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#166534", margin: 0 }}>{patient.name ?? t("clinic.booking.noName")}</p>
+                <p style={{ fontSize: 11, color: "#4ade80", margin: 0 }}>{patient.appointments.length} {t("clinic.booking.visits")}</p>
               </div>
             </div>
           )}
@@ -234,13 +237,13 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                 padding: "8px 14px", borderRadius: 10,
                 background: "#fffbeb", border: "1px solid #fde68a", marginBottom: 8,
               }}>
-                <p style={{ fontSize: 12, color: "#92400e", margin: 0 }}>Пациент не найден. Введите имя вручную.</p>
+                <p style={{ fontSize: 12, color: "#92400e", margin: 0 }}>{t("clinic.booking.patientNotFoundMsg")}</p>
               </div>
               <input
                 style={inputStyle}
                 value={patientName}
                 onChange={(e) => setPatientName(e.target.value)}
-                placeholder="Имя пациента"
+                placeholder={t("clinic.booking.patientNamePlaceholder")}
               />
             </div>
           )}
@@ -248,14 +251,14 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
 
         {/* Doctor */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Врач *</label>
+          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.booking.doctor")} *</label>
           <select
             style={{ ...inputStyle, background: "#fff" }}
             value={doctorId}
             onChange={(e) => setDoctorId(e.target.value)}
             disabled={loadingDoctors}
           >
-            <option value="">{loadingDoctors ? "Загрузка..." : "Выберите врача"}</option>
+            <option value="">{loadingDoctors ? t("clinic.booking.loadingDoctors") : t("clinic.booking.selectDoctor")}</option>
             {doctors.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}{d.specialization ? ` — ${d.specialization}` : ""}
@@ -268,11 +271,11 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         {doctorId && (
           <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
-              Кабинет *
+              {t("clinic.booking.room")} *
             </label>
             {loadingRooms ? (
               <div style={{ ...inputStyle, color: "#94a3b8", display: "flex", alignItems: "center" }}>
-                Загрузка расписания...
+                {t("clinic.booking.loadingSchedule")}
               </div>
             ) : roomSlots.length > 0 ? (
               <select
@@ -280,27 +283,27 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
               >
-                <option value="">Выберите кабинет</option>
+                <option value="">{t("clinic.booking.selectRoom")}</option>
                 {roomSlots.map((s) => (
                   <option key={`${s.roomId}-${s.startTime}`} value={s.roomId}>
-                    {s.roomName}{s.floor != null ? ` (${s.floor} этаж)` : ""} · {s.startTime}–{s.endTime}
+                    {s.roomName}{s.floor != null ? ` (${s.floor} ${t("clinic.booking.floor")})` : ""} · {s.startTime}–{s.endTime}
                   </option>
                 ))}
               </select>
             ) : allRooms.length > 0 ? (
               <>
                 <div style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", marginBottom: 6 }}>
-                  Расписание врача не настроено — выберите кабинет вручную
+                  {t("clinic.booking.noSchedule")}
                 </div>
                 <select
                   style={{ ...inputStyle, background: "#fff" }}
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
                 >
-                  <option value="">Выберите кабинет</option>
+                  <option value="">{t("clinic.booking.selectRoom")}</option>
                   {allRooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.name}{r.floor != null ? ` (${r.floor} этаж)` : ""}
+                      {r.name}{r.floor != null ? ` (${r.floor} ${t("clinic.booking.floor")})` : ""}
                     </option>
                   ))}
                 </select>
@@ -310,7 +313,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                 ...inputStyle, background: "#fef2f2", border: "1.5px solid #fecaca",
                 color: "#ef4444", fontSize: 13, display: "flex", alignItems: "center",
               }}>
-                Нет доступных кабинетов — сначала создайте кабинет
+                {t("clinic.booking.noRooms")}
               </div>
             )}
           </div>
@@ -319,7 +322,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         {/* Date & Time */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Дата *</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.booking.date")} *</label>
             <input
               type="date"
               style={inputStyle}
@@ -329,7 +332,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
             />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Время *</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.booking.time")} *</label>
             <input
               type="time"
               style={inputStyle}
@@ -341,9 +344,9 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
 
         {/* Payment */}
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 8 }}>Тип оплаты *</label>
+          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 8 }}>{t("clinic.booking.paymentType")} *</label>
           <div style={{ display: "flex", gap: 8 }}>
-            {PAYMENT_OPTIONS.map(({ value, label }) => {
+            {PAYMENT_KEYS.map(({ value, labelKey }) => {
               const active = paymentType === value;
               return (
                 <button
@@ -358,7 +361,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                     position: "relative",
                   }}
                 >
-                  {label}
+                  {t(labelKey)}
                 </button>
               );
             })}
@@ -379,7 +382,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
               opacity: submitting ? 0.7 : 1,
             }}
           >
-            {submitting ? "Создание записи..." : "Записать"}
+            {submitting ? t("clinic.booking.submitting") : t("clinic.booking.submit")}
           </button>
           <button
             onClick={onClose}
@@ -388,7 +391,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
               padding: "12px 0", fontSize: 14, cursor: "pointer", color: "#64748b", fontWeight: 600,
             }}
           >
-            Отмена
+            {t("clinic.booking.cancel")}
           </button>
         </div>
       </div>
