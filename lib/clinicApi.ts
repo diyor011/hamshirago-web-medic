@@ -371,6 +371,7 @@ function normalizeOverview(raw: {
   leadsByStatus: Array<{ status: string; count: number | string }>;
   conversionRate: number;
   commission: number;
+  revenue?: number;
   period: string;
   startDate: string;
 }): StatsOverview {
@@ -394,13 +395,13 @@ function normalizeOverview(raw: {
     startDate: raw.startDate,
     newPatients: Number(raw.totalPatients) || 0,
     appointments,
-    revenue: Number(raw.commission) || 0,
+    revenue: Number(raw.revenue ?? raw.commission) || 0,
     cancelRate: appointments > 0 ? Math.round((canceled / appointments) * 100) : 0,
   };
 }
 
 function normalizeMonthly(
-  rows: Array<{ month: string; patientCount: number | string }>,
+  rows: Array<{ month: string; patientCount: number | string; revenue?: number | string }>,
 ): MonthlyStats[] {
   return (rows ?? []).map((r) => {
     const patientCount = Number(r.patientCount) || 0;
@@ -408,13 +409,13 @@ function normalizeMonthly(
       month: r.month,
       patientCount,
       appointments: patientCount,
-      revenue: 0,
+      revenue: Number(r.revenue) || 0,
     };
   });
 }
 
 function normalizeDoctorStats(
-  rows: Array<{ doctorId: string; name: string; patientCount: number | string }>,
+  rows: Array<{ doctorId: string; name: string; patientCount: number | string; revenue?: number | string }>,
 ): DoctorStats[] {
   return (rows ?? []).map((r) => {
     const appointments = Number(r.patientCount) || 0;
@@ -424,7 +425,7 @@ function normalizeDoctorStats(
       patientCount: appointments,
       doctorName: r.name,
       appointments,
-      revenue: 0,
+      revenue: Number(r.revenue) || 0,
     };
   });
 }
