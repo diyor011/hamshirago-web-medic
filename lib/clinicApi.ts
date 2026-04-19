@@ -35,14 +35,27 @@ export function clearClinicSession(): void {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getClinicToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Сервер не отвечает. Проверьте подключение.");
+    }
+    throw err;
+  }
+  clearTimeout(timeoutId);
 
   if (res.status === 401 && !path.startsWith("/clinic-auth/")) {
     clearClinicSession();
