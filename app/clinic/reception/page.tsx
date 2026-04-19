@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   RefreshCw, CheckSquare, CalendarPlus, List as ListIcon,
   Calendar as CalendarIcon, ChevronLeft, ChevronRight,
-  Bot, Phone, Plus, Clock, User,
+  Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle,
 } from "lucide-react";
 import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
@@ -116,6 +116,7 @@ export default function ReceptionPage() {
   const [errApps, setErrApps] = useState<string | null>(null);
   const [errLeads, setErrLeads] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
@@ -146,7 +147,7 @@ export default function ReceptionPage() {
     d.toLocaleDateString("ru-RU", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 
   const isForbidden = (e: unknown) =>
-    e instanceof Error && (e.message.includes("прав") || e.message.toLowerCase().includes("forbidden"));
+    e instanceof Error && (e.message.includes("прав") || e.message.toLowerCase().includes("forbidden") || e.message === "UNAUTHORIZED");
 
   const loadApps = useCallback(async () => {
     setLoadingApps(true); setErrApps(null);
@@ -227,6 +228,18 @@ export default function ReceptionPage() {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
       setCheckingIn(null);
+    }
+  }
+
+  async function handleUpdateStatus(id: string, status: AppointmentStatus) {
+    setUpdatingStatus(id);
+    try {
+      await clinicApi.appointments.updateStatus(id, status);
+      await loadApps();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
+    } finally {
+      setUpdatingStatus(null);
     }
   }
 
@@ -364,10 +377,16 @@ export default function ReceptionPage() {
           .calendar-grid { font-size: 11px; }
           .stat-strip { grid-template-columns: 1fr 1fr !important; }
         }
+        @media (max-width: 480px) {
+          .stat-strip { grid-template-columns: 1fr !important; gap: 8px !important; }
+          .reception-header { flex-direction: column !important; align-items: flex-start !important; }
+          .reception-header-actions { width: 100%; justify-content: flex-start !important; flex-wrap: wrap !important; }
+          .appt-card { padding: 12px !important; }
+        }
       `}</style>
 
       {/* Page header */}
-      <div style={{
+      <div className="reception-header" style={{
         display: "flex", alignItems: "flex-start", justifyContent: "space-between",
         marginBottom: 20, flexWrap: "wrap", gap: 12,
       }}>
@@ -382,7 +401,7 @@ export default function ReceptionPage() {
         </div>
 
         {/* Right controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="reception-header-actions" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {/* Pill toggle */}
           <div style={{
             display: "inline-flex", background: "#fff", border: "1px solid #e2e8f0",
@@ -784,7 +803,7 @@ export default function ReceptionPage() {
                             {STATUS_LABELS[st]}
                           </span>
 
-                          {/* Check In button — only for SCHEDULED */}
+                          {/* Check In button — SCHEDULED */}
                           {canCheckin && (
                             <button
                               onClick={() => handleCheckin(app.id)}
@@ -794,13 +813,49 @@ export default function ReceptionPage() {
                                 padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
                                 background: isLoading ? "#e2e8f0" : "#0d9488",
                                 color: isLoading ? "#94a3b8" : "#fff",
-                                border: "none",
-                                opacity: isLoading ? 0.7 : 1,
-                                transition: "background 150ms ease",
+                                border: "none", opacity: isLoading ? 0.7 : 1, transition: "background 150ms ease",
                               }}
                             >
                               <CheckSquare size={13} />
                               {isLoading ? "..." : "Check In"}
+                            </button>
+                          )}
+
+                          {/* На приёме button — CHECKED_IN */}
+                          {st === "CHECKED_IN" && (
+                            <button
+                              onClick={() => handleUpdateStatus(app.id, "IN_PROGRESS")}
+                              disabled={updatingStatus === app.id}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                cursor: updatingStatus === app.id ? "not-allowed" : "pointer",
+                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                background: updatingStatus === app.id ? "#e2e8f0" : "#3b82f6",
+                                color: updatingStatus === app.id ? "#94a3b8" : "#fff",
+                                border: "none", opacity: updatingStatus === app.id ? 0.7 : 1, transition: "background 150ms ease",
+                              }}
+                            >
+                              <PlayCircle size={13} />
+                              {updatingStatus === app.id ? "..." : t("clinic.reception.startReception")}
+                            </button>
+                          )}
+
+                          {/* Готово button — IN_PROGRESS */}
+                          {st === "IN_PROGRESS" && (
+                            <button
+                              onClick={() => handleUpdateStatus(app.id, "DONE")}
+                              disabled={updatingStatus === app.id}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                cursor: updatingStatus === app.id ? "not-allowed" : "pointer",
+                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                background: updatingStatus === app.id ? "#e2e8f0" : "#16a34a",
+                                color: updatingStatus === app.id ? "#94a3b8" : "#fff",
+                                border: "none", opacity: updatingStatus === app.id ? 0.7 : 1, transition: "background 150ms ease",
+                              }}
+                            >
+                              <CheckCircle size={13} />
+                              {updatingStatus === app.id ? "..." : t("clinic.reception.finishReception")}
                             </button>
                           )}
 
