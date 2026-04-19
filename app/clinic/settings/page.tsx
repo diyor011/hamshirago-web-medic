@@ -128,8 +128,8 @@ const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: "DIAGNOSTIC",   label: "Диагностика" },
   { value: "PROCEDURE",    label: "Процедура" },
 ];
-interface ServiceForm { name: string; price: string; durationMinutes: string; category: ServiceCategory; }
-const EMPTY_SVC: ServiceForm = { name: "", price: "", durationMinutes: "", category: "CONSULTATION" };
+interface ServiceForm { name: string; price: string; durationMinutes: string; category: ServiceCategory; isRangePrice: boolean; priceMin: string; priceMax: string; }
+const EMPTY_SVC: ServiceForm = { name: "", price: "", durationMinutes: "", category: "CONSULTATION", isRangePrice: false, priceMin: "", priceMax: "" };
 
 export default function SettingsPage() {
   const { setClinic } = useClinic();
@@ -272,14 +272,23 @@ export default function SettingsPage() {
   async function handleCreateService() {
     if (!svcForm.name.trim()) { setCreateSvcError("Введите название"); return; }
     if (!svcForm.durationMinutes || isNaN(Number(svcForm.durationMinutes))) { setCreateSvcError("Введите длительность"); return; }
-    if (!svcForm.price || isNaN(Number(svcForm.price))) { setCreateSvcError("Введите цену"); return; }
+    if (svcForm.isRangePrice) {
+      if (!svcForm.priceMin || isNaN(Number(svcForm.priceMin))) { setCreateSvcError("Введите минимальную цену"); return; }
+      if (!svcForm.priceMax || isNaN(Number(svcForm.priceMax))) { setCreateSvcError("Введите максимальную цену"); return; }
+    } else {
+      if (!svcForm.price || isNaN(Number(svcForm.price))) { setCreateSvcError("Введите цену"); return; }
+    }
     setCreatingSvc(true); setCreateSvcError("");
     try {
       await clinicApi.services.create({
         name: svcForm.name.trim(),
-        price: parseInt(svcForm.price, 10),
+        price: svcForm.isRangePrice ? parseInt(svcForm.priceMin, 10) : parseInt(svcForm.price, 10),
         durationMinutes: parseInt(svcForm.durationMinutes, 10),
         category: svcForm.category,
+        ...(svcForm.isRangePrice ? {
+          priceMin: parseInt(svcForm.priceMin, 10),
+          priceMax: parseInt(svcForm.priceMax, 10),
+        } : {}),
       });
       setSvcForm(EMPTY_SVC); setShowCreateSvc(false);
       await loadServices();
@@ -585,8 +594,27 @@ export default function SettingsPage() {
             </div>
 
             <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Цена (UZS) *</label>
-              <input type="number" min={0} style={{ ...inputStyle, maxWidth: 200 }} value={svcForm.price} onChange={(e) => setSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="150000" />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>Цена (UZS) *</label>
+                <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={svcForm.isRangePrice}
+                    onChange={(e) => setSvcForm((f) => ({ ...f, isRangePrice: e.target.checked }))}
+                    style={{ cursor: "pointer" }}
+                  />
+                  Диапазон цен
+                </label>
+              </div>
+              {svcForm.isRangePrice ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input type="number" min={0} style={{ ...inputStyle, maxWidth: 160 }} value={svcForm.priceMin} onChange={(e) => setSvcForm((f) => ({ ...f, priceMin: e.target.value }))} placeholder="от 100000" />
+                  <span style={{ fontSize: 13, color: "#64748b" }}>—</span>
+                  <input type="number" min={0} style={{ ...inputStyle, maxWidth: 160 }} value={svcForm.priceMax} onChange={(e) => setSvcForm((f) => ({ ...f, priceMax: e.target.value }))} placeholder="до 300000" />
+                </div>
+              ) : (
+                <input type="number" min={0} style={{ ...inputStyle, maxWidth: 200 }} value={svcForm.price} onChange={(e) => setSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="150000" />
+              )}
             </div>
             {createSvcError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 8 }}>{createSvcError}</p>}
             <div style={{ display: "flex", gap: 8 }}>

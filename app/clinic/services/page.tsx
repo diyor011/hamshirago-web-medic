@@ -13,9 +13,12 @@ interface ServiceForm {
   price: string;
   durationMinutes: string;
   category: Exclude<ServiceCategory, "ALL">;
+  isRangePrice: boolean;
+  priceMin: string;
+  priceMax: string;
 }
 
-const EMPTY_FORM: ServiceForm = { name: "", price: "", durationMinutes: "", category: "CONSULTATION" };
+const EMPTY_FORM: ServiceForm = { name: "", price: "", durationMinutes: "", category: "CONSULTATION", isRangePrice: false, priceMin: "", priceMax: "" };
 
 function Skeleton() {
   return (
@@ -94,16 +97,25 @@ export default function ServicesPage() {
   };
 
   async function handleCreate() {
-    if (!form.name.trim() || !form.durationMinutes || !form.price) {
+    if (!form.name.trim() || !form.durationMinutes) {
       setCreateError(t("clinic.services.errorFillAll")); return;
+    }
+    if (form.isRangePrice) {
+      if (!form.priceMin || !form.priceMax) { setCreateError(t("clinic.services.errorFillAll")); return; }
+    } else {
+      if (!form.price) { setCreateError(t("clinic.services.errorFillAll")); return; }
     }
     setCreating(true); setCreateError("");
     try {
       await clinicApi.services.create({
         name: form.name.trim(),
-        price: Number(form.price),
+        price: form.isRangePrice ? Number(form.priceMin) : Number(form.price),
         durationMinutes: Number(form.durationMinutes),
         category: form.category,
+        ...(form.isRangePrice ? {
+          priceMin: Number(form.priceMin),
+          priceMax: Number(form.priceMax),
+        } : {}),
       });
       setShowCreate(false); setForm(EMPTY_FORM);
       await load();
@@ -199,8 +211,27 @@ export default function ServicesPage() {
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>{t("clinic.services.price")} (UZS)</label>
-            <input type="number" min={0} style={{ ...inputStyle, maxWidth: 200 }} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder={t("clinic.services.pricePlaceholder")} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>{t("clinic.services.price")} (UZS)</label>
+              <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={form.isRangePrice}
+                  onChange={(e) => setForm((f) => ({ ...f, isRangePrice: e.target.checked }))}
+                  style={{ cursor: "pointer" }}
+                />
+                Диапазон
+              </label>
+            </div>
+            {form.isRangePrice ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="number" min={0} style={{ ...inputStyle, maxWidth: 160 }} value={form.priceMin} onChange={(e) => setForm((f) => ({ ...f, priceMin: e.target.value }))} placeholder="от 100000" />
+                <span style={{ fontSize: 13, color: "#64748b" }}>—</span>
+                <input type="number" min={0} style={{ ...inputStyle, maxWidth: 160 }} value={form.priceMax} onChange={(e) => setForm((f) => ({ ...f, priceMax: e.target.value }))} placeholder="до 300000" />
+              </div>
+            ) : (
+              <input type="number" min={0} style={{ ...inputStyle, maxWidth: 200 }} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder={t("clinic.services.pricePlaceholder")} />
+            )}
           </div>
           {createError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 10 }}>{createError}</p>}
           <div style={{ display: "flex", gap: 8 }}>

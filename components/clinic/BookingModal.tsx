@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { X, Search, User } from "lucide-react";
-import { clinicApi, ClinicStaff, ClinicRoom, PaymentType, PatientInfo, DoctorRoomSlot } from "@/lib/clinicApi";
+import { clinicApi, ClinicStaff, ClinicRoom, PaymentType, PatientInfo, DoctorRoomSlot, Appointment } from "@/lib/clinicApi";
 
 interface Props {
   open: boolean;
@@ -135,7 +135,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         || (patient?.name ?? "")
         || phone.trim();
 
-      await clinicApi.appointments.create({
+      const appointment: Appointment = await clinicApi.appointments.create({
         patientPhone: phone.trim(),
         patientName: resolvedName,
         doctorId: doctorId || undefined,
@@ -144,7 +144,18 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         time,
         paymentType,
       });
-      onSuccess();
+
+      if (paymentType === "ONLINE") {
+        try {
+          const { paymentUrl } = await clinicApi.payments.initiateClinic(appointment.id);
+          window.location.href = paymentUrl;
+        } catch {
+          // Payment initiation failed — still consider booking a success
+          onSuccess();
+        }
+      } else {
+        onSuccess();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка создания записи");
     } finally {
@@ -334,24 +345,20 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
           <div style={{ display: "flex", gap: 8 }}>
             {PAYMENT_OPTIONS.map(({ value, label }) => {
               const active = paymentType === value;
-              const isOnline = value === "ONLINE";
               return (
                 <button
                   key={value}
-                  onClick={() => !isOnline && setPaymentType(value)}
-                  title={isOnline ? "Скоро — онлайн-оплата будет доступна в ближайшем обновлении" : undefined}
+                  onClick={() => setPaymentType(value)}
                   style={{
                     flex: 1, padding: "9px 0", borderRadius: 10, fontSize: 13, fontWeight: 600,
                     border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
-                    background: isOnline ? "#f8fafc" : active ? "#f0fdfa" : "#fff",
-                    color: isOnline ? "#cbd5e1" : active ? "#0d9488" : "#475569",
-                    cursor: isOnline ? "not-allowed" : "pointer",
-                    opacity: isOnline ? 0.6 : 1,
+                    background: active ? "#f0fdfa" : "#fff",
+                    color: active ? "#0d9488" : "#475569",
+                    cursor: "pointer",
                     position: "relative",
                   }}
                 >
                   {label}
-                  {isOnline && <span style={{ display: "block", fontSize: 9, color: "#94a3b8", marginTop: 1 }}>Скоро</span>}
                 </button>
               );
             })}

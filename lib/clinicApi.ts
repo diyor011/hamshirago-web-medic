@@ -530,7 +530,7 @@ export const clinicApi = {
 
   services: {
     list: () => request<ClinicService[]>("/clinic/services"),
-    create: (dto: { name: string; price: number; durationMinutes: number; category?: string }) =>
+    create: (dto: { name: string; price: number; durationMinutes: number; category?: string; priceMin?: number | null; priceMax?: number | null }) =>
       request<ClinicService>("/clinic/services", {
         method: "POST",
         body: JSON.stringify(dto),
@@ -637,6 +637,14 @@ export const clinicApi = {
       request<Array<{ roomId: string; name: string; floor: number | null; todayAppointments: number }>>("/clinic/stats/rooms"),
     services: () =>
       request<Array<{ serviceId: string; serviceName: string; count: number }>>("/clinic/stats/services"),
+  },
+
+  payments: {
+    initiateClinic: (appointmentId: string) =>
+      request<{ paymentUrl: string; orderId?: string }>(
+        `/payments/clinic-appointment/${appointmentId}/initiate`,
+        { method: "POST" },
+      ),
   },
 
   patients: {
