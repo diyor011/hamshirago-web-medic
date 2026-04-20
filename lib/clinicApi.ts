@@ -152,6 +152,7 @@ export interface ClinicService {
   priceMax?: number | null;
   durationMinutes: number | null;
   isActive: boolean;
+  doctorId?: string | null;
 }
 
 export type AppointmentStatus =
@@ -543,8 +544,11 @@ export const clinicApi = {
   },
 
   services: {
-    list: () => request<ClinicService[]>("/clinic/services"),
-    create: (dto: { name: string; price: number; durationMinutes: number; category?: string; priceMin?: number | null; priceMax?: number | null }) =>
+    list: (doctorId?: string | null) => {
+      const q = doctorId ? `?doctorId=${encodeURIComponent(doctorId)}` : "";
+      return request<ClinicService[]>(`/clinic/services${q}`);
+    },
+    create: (dto: { name: string; price: number; durationMinutes: number; category?: string; priceMin?: number | null; priceMax?: number | null; doctorId?: string | null }) =>
       request<ClinicService>("/clinic/services", {
         method: "POST",
         body: JSON.stringify(dto),
