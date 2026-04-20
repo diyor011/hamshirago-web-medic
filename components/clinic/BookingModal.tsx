@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { X, Search, User } from "lucide-react";
-import { clinicApi, ClinicStaff, ClinicRoom, PaymentType, PatientInfo, DoctorRoomSlot, Appointment } from "@/lib/clinicApi";
+import { clinicApi, ClinicStaff, ClinicRoom, ClinicService, PaymentType, PatientInfo, DoctorRoomSlot, Appointment } from "@/lib/clinicApi";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 
@@ -41,6 +41,9 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   // Booking form
   const [doctorId, setDoctorId] = useState("");
   const [roomId, setRoomId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [services, setServices] = useState<ClinicService[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState("09:00");
   const [paymentType, setPaymentType] = useState<PaymentType>("CASH");
@@ -50,6 +53,27 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
 
   const [roomSlots, setRoomSlots] = useState<DoctorRoomSlot[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
+
+  // Load services when doctor changes; fallback to clinic-wide if no doctor-specific services
+  useEffect(() => {
+    if (!doctorId) { setServices([]); setServiceId(""); return; }
+    let cancelled = false;
+    setLoadingServices(true);
+    clinicApi.services.list(doctorId)
+      .then(async (byDoctor) => {
+        if (cancelled) return;
+        if (byDoctor.length > 0) {
+          setServices(byDoctor.filter((s) => s.isActive));
+        } else {
+          const all = await clinicApi.services.list();
+          if (!cancelled) setServices(all.filter((s) => s.isActive && !s.doctorId));
+        }
+        setServiceId("");
+      })
+      .catch(() => { if (!cancelled) setServices([]); })
+      .finally(() => { if (!cancelled) setLoadingServices(false); });
+    return () => { cancelled = true; };
+  }, [doctorId]);
 
   // Load available rooms when doctor + date are set
   useEffect(() => {
@@ -98,7 +122,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   useEffect(() => {
     if (open) {
       setPhone(prefillPhone ?? ""); setPatient(null); setPatientName(""); setPatientNotFound(false);
-      setDoctorId(""); setRoomId(""); setPaymentType("CASH"); setError("");
+      setDoctorId(""); setRoomId(""); setServiceId(""); setServices([]); setPaymentType("CASH"); setError("");
       setDate(new Date().toISOString().slice(0, 10)); setTime("09:00");
     }
   }, [open, prefillPhone]);
@@ -143,6 +167,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         patientName: resolvedName,
         doctorId: doctorId || undefined,
         roomId: roomId || undefined,
+        serviceId: serviceId || undefined,
         date,
         time,
         paymentType,
@@ -266,6 +291,38 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
             ))}
           </select>
         </div>
+
+        {/* Service (loaded by doctorId) */}
+        {doctorId && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
+              Услуга
+            </label>
+            {loadingServices ? (
+              <div style={{ ...inputStyle, color: "#94a3b8", display: "flex", alignItems: "center" }}>
+                Загрузка услуг…
+              </div>
+            ) : (
+              <select
+                style={{ ...inputStyle, background: "#fff" }}
+                value={serviceId}
+                onChange={(e) => setServiceId(e.target.value)}
+              >
+                <option value="">— Выберите услугу (необязательно)</option>
+                {services.map((s) => {
+                  const priceText = s.priceMin != null && s.priceMax != null
+                    ? `${s.priceMin.toLocaleString("ru-RU")} – ${s.priceMax.toLocaleString("ru-RU")} сум`
+                    : `${s.price.toLocaleString("ru-RU")} сум`;
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {s.name} · {priceText}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          </div>
+        )}
 
         {/* Room (based on doctor's schedule) */}
         {doctorId && (

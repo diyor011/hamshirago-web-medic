@@ -188,6 +188,7 @@ export interface CreateAppointmentDto {
   patientName: string;
   doctorId?: string;
   roomId?: string;
+  serviceId?: string;
   date: string;
   time: string;
   paymentType?: PaymentType;
