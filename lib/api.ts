@@ -1,23 +1,17 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app";
 export const WS_URL = BASE_URL;
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("medic_token");
-}
-
 export function getUserRole(): "medic" | "doctor" {
   if (typeof window === "undefined") return "medic";
   return (localStorage.getItem("user_role") as "medic" | "doctor") ?? "medic";
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
@@ -30,6 +24,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     localStorage.removeItem("doctor");
+    localStorage.removeItem("user_role");
     window.location.replace("/auth");
     return new Promise<T>(() => {}); // страница уходит на /auth, подавляем дальнейшую обработку
   }
@@ -57,7 +52,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const medicApi = {
   auth: {
     login: (phone: string, password: string) =>
-      request<MedicAuthResponse>("/medics/login", {
+      request<MedicAuthResponse>("/medics/login/cookie", {
         method: "POST",
         body: JSON.stringify({ phone, password }),
       }),
@@ -88,13 +83,12 @@ export const medicApi = {
 
   documents: {
     upload: (facePhoto: File, licensePhoto: File) => {
-      const token = getToken();
       const form = new FormData();
       form.append("facePhoto", facePhoto);
       form.append("licensePhoto", licensePhoto);
       return fetch(`${BASE_URL}/medics/documents`, {
         method: "POST",
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: "include",
         body: form,
       }).then(async (res) => {
         if (!res.ok) {
@@ -143,12 +137,11 @@ export const medicApi = {
 
   photo: {
     upload: (file: File) => {
-      const token = getToken();
       const form = new FormData();
       form.append("photo", file);
       return fetch(`${BASE_URL}/medics/profile-photo`, {
         method: "POST",
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: "include",
         body: form,
       }).then(async (res) => {
         if (!res.ok) {
@@ -427,7 +420,7 @@ export interface DoctorSlot {
 export const doctorApi = {
   auth: {
     login: (phone: string, password: string) =>
-      request<DoctorAuthResponse>("/doctors/login", {
+      request<DoctorAuthResponse>("/doctors/login/cookie", {
         method: "POST",
         body: JSON.stringify({ phone, password }),
       }),

@@ -50,9 +50,8 @@ export default function AuthPage() {
 
   useEffect(() => {
     // Check if already logged in — redirect to correct dashboard based on role
-    const token = localStorage.getItem("medic_token");
-    if (token) {
-      const savedRole = localStorage.getItem("user_role");
+    const savedRole = localStorage.getItem("user_role");
+    if (savedRole) {
       if (savedRole === "doctor") router.replace("/doctor/consultations");
       else if (savedRole === "clinic") router.replace("/clinic/dashboard");
       else router.replace("/");
@@ -88,7 +87,6 @@ export default function AuthPage() {
           localStorage.setItem("clinic_user", JSON.stringify(res.doctor));
           router.replace("/clinic/reception");
         } else {
-          localStorage.setItem("medic_token", res.access_token);
           localStorage.setItem("doctor", JSON.stringify(res.doctor));
           localStorage.setItem("user_role", "doctor");
           router.push("/doctor/consultations");
@@ -97,7 +95,6 @@ export default function AuthPage() {
         const res = mode === "login"
           ? await medicApi.auth.login(rawPhone, password)
           : await medicApi.auth.register({ name, phone: rawPhone, password, experienceYears: Number(experience) || 0 });
-        localStorage.setItem("medic_token", res.access_token);
         localStorage.setItem("medic", JSON.stringify(res.medic));
         localStorage.setItem("user_role", "medic");
         subscribeWebPush();
