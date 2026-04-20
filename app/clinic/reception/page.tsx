@@ -130,7 +130,14 @@ export default function ReceptionPage() {
   const [finalPriceLoading, setFinalPriceLoading] = useState(false);
   const { toasts, toast, closeToast } = useToast();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const [clinicUser, setClinicUser] = useState<{ id: string; role: string } | null>(null);
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const raw = localStorage.getItem("clinic_user");
+      if (raw) setClinicUser(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
 
   // Today label for header — deferred to client to avoid hydration mismatch
   const todayLabel = mounted
@@ -859,8 +866,30 @@ export default function ReceptionPage() {
                             </button>
                           )}
 
-                          {/* Final price button — for range-price appointments without finalPrice */}
-                          {app.priceMin != null && app.priceMax != null && !app.finalPrice && (st === "IN_PROGRESS" || st === "DONE") && (
+                          {/* ✓ finalPrice badge */}
+                          {app.finalPrice != null && (
+                            <span style={{
+                              fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 99,
+                              background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0",
+                              whiteSpace: "nowrap",
+                            }}>
+                              ✓ {app.finalPrice.toLocaleString("ru-RU")} сум
+                            </span>
+                          )}
+
+                          {/* Price range badge (no finalPrice, not actionable) */}
+                          {app.priceMin != null && app.priceMax != null && !app.finalPrice && st !== "IN_PROGRESS" && st !== "DONE" && (
+                            <span style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>
+                              {app.priceMin.toLocaleString("ru-RU")}–{app.priceMax.toLocaleString("ru-RU")}
+                            </span>
+                          )}
+
+                          {/* 💰 Ввести цену button — only CEO or DOCTOR (own appt only) */}
+                          {app.priceMin != null && app.priceMax != null && !app.finalPrice &&
+                           (st === "IN_PROGRESS" || st === "DONE") &&
+                           clinicUser != null &&
+                           clinicUser.role !== "RECEPTION" &&
+                           (clinicUser.role !== "DOCTOR" || app.doctorId === clinicUser.id) && (
                             <button
                               onClick={() => {
                                 setFinalPriceModal({ apptId: app.id, priceMin: app.priceMin!, priceMax: app.priceMax! });
@@ -870,23 +899,11 @@ export default function ReceptionPage() {
                                 display: "flex", alignItems: "center", gap: 5,
                                 padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
                                 background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer",
+                                whiteSpace: "nowrap",
                               }}
                             >
-                              💰 Ввести цену
+                              💰 Ввести цену ({app.priceMin.toLocaleString("ru-RU")}–{app.priceMax.toLocaleString("ru-RU")})
                             </button>
-                          )}
-
-                          {/* Show finalPrice if set */}
-                          {app.finalPrice != null && (
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "#0d9488" }}>
-                              {app.finalPrice.toLocaleString()} UZS
-                            </span>
-                          )}
-                          {/* Show range if finalPrice not set */}
-                          {app.priceMin != null && app.priceMax != null && !app.finalPrice && st !== "IN_PROGRESS" && st !== "DONE" && (
-                            <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                              {app.priceMin.toLocaleString()}–{app.priceMax.toLocaleString()}
-                            </span>
                           )}
                         </div>
                       </div>
