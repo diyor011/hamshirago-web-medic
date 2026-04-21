@@ -1,6 +1,21 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app";
 export const WS_URL = BASE_URL;
 
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = fetch(`${BASE_URL}/auth/refresh-token`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => { refreshPromise = null; });
+  return refreshPromise;
+}
+
 export function getUserRole(): "medic" | "doctor" {
   if (typeof window === "undefined") return "medic";
   return (localStorage.getItem("user_role") as "medic" | "doctor") ?? "medic";
@@ -68,12 +83,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       !path.startsWith("/medics/register") &&
       !path.startsWith("/doctors/login") &&
       !path.startsWith("/doctors/register")) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      const retry = await fetch(`${BASE_URL}${path}`, {
+        ...options,
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...options.headers },
+      });
+      if (retry.ok) {
+        const text = await retry.text();
+        if (!text.trim()) return undefined as T;
+        return JSON.parse(text) as T;
+      }
+    }
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     localStorage.removeItem("doctor");
     localStorage.removeItem("user_role");
     window.location.replace("/auth");
-    return new Promise<T>(() => {}); // страница уходит на /auth, подавляем дальнейшую обработку
+    return new Promise<T>(() => {});
   }
   if (res.status === 429) throw new Error("TOO_MANY_REQUESTS");
   if (res.status === 402) {
