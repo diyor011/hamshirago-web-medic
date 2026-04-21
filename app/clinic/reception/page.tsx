@@ -118,7 +118,7 @@ export default function ReceptionPage() {
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
   const [rooms, setRooms] = useState<ClinicRoom[]>([]);
   const [doctors, setDoctors] = useState<DoctorStats[]>([]);
@@ -130,6 +130,16 @@ export default function ReceptionPage() {
   const [finalPriceLoading, setFinalPriceLoading] = useState(false);
   const { toasts, toast, closeToast } = useToast();
   const [mounted, setMounted] = useState(false);
+
+  // Quick booking (CLINIC-R3)
+  const [quickBook, setQuickBook] = useState<{ time: string; date: string; roomId: string | null; doctorId: string | null; colLabel: string } | null>(null);
+  const [quickName, setQuickName] = useState("");
+  const [quickPhone, setQuickPhone] = useState("");
+  const [quickLoading, setQuickBookLoading] = useState(false);
+
+  // Calendar date picker (CLINIC-R5)
+  const [showCalPicker, setShowCalPicker] = useState(false);
+  const [pickerViewDate, setPickerViewDate] = useState(() => new Date());
   const [clinicUser, setClinicUser] = useState<{ id: string; role: string } | null>(null);
   useEffect(() => {
     setMounted(true);
@@ -303,6 +313,43 @@ export default function ReceptionPage() {
     setCalendarDate(d);
   };
 
+  // CLINIC-R2: room → doctor name from today's appointments
+  const roomDoctorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    calendarAppts.forEach((a) => {
+      if (a.roomId && a.doctorId && !map[a.roomId]) {
+        const doc = doctors.find((d) => d.doctorId === a.doctorId);
+        if (doc) map[a.roomId] = doc.doctorName;
+      }
+    });
+    return map;
+  }, [calendarAppts, doctors]);
+
+  // CLINIC-R3: quick book handler
+  async function handleQuickBook() {
+    if (!quickBook || !quickName.trim() || !quickPhone.trim()) return;
+    setQuickBookLoading(true);
+    try {
+      await clinicApi.appointments.create({
+        patientName: quickName.trim(),
+        patientPhone: quickPhone.trim(),
+        doctorId: quickBook.doctorId ?? undefined,
+        roomId: quickBook.roomId ?? undefined,
+        date: quickBook.date,
+        time: quickBook.time,
+      });
+      toast.success("Запись добавлена");
+      setQuickBook(null);
+      setQuickName("");
+      setQuickPhone("");
+      await loadCalendar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setQuickBookLoading(false);
+    }
+  }
+
   // ─── Render ──────────────────────────────────────────────────────────────────────
 
   return (
@@ -357,6 +404,70 @@ export default function ReceptionPage() {
           </div>
         </div>
       )}
+      {/* Calendar picker close overlay (CLINIC-R5) */}
+      {showCalPicker && (
+        <div onClick={() => setShowCalPicker(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
+      )}
+
+      {/* Quick booking modal (CLINIC-R3) */}
+      {quickBook && (
+        <div
+          onClick={() => setQuickBook(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 360 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>Новая запись</h3>
+            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
+              {quickBook.time} · {quickBook.colLabel}
+              {quickBook.doctorId && doctors.find(d => d.doctorId === quickBook.doctorId) &&
+                ` · ${doctors.find(d => d.doctorId === quickBook.doctorId)!.doctorName}`}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              <input
+                autoFocus
+                value={quickName}
+                onChange={(e) => setQuickName(e.target.value)}
+                placeholder="Имя клиента"
+                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#0d9488")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
+              />
+              <input
+                value={quickPhone}
+                onChange={(e) => setQuickPhone(e.target.value)}
+                placeholder="+998 xx xxx xx xx"
+                type="tel"
+                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#0d9488")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
+                onKeyDown={(e) => e.key === "Enter" && handleQuickBook()}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleQuickBook}
+                disabled={quickLoading || !quickName.trim() || !quickPhone.trim()}
+                style={{
+                  flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
+                  background: quickLoading || !quickName.trim() || !quickPhone.trim() ? "#e2e8f0" : "linear-gradient(135deg,#0d9488,#0f766e)",
+                  color: quickLoading || !quickName.trim() || !quickPhone.trim() ? "#94a3b8" : "#fff",
+                  fontSize: 14, fontWeight: 700,
+                  cursor: quickLoading || !quickName.trim() || !quickPhone.trim() ? "not-allowed" : "pointer",
+                }}
+              >
+                {quickLoading ? "Сохраняем..." : "Добавить"}
+              </button>
+              <button
+                onClick={() => setQuickBook(null)}
+                style={{ padding: "12px 20px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#64748b" }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes shimmer {
           0%   { background-position: 200% 0; }
@@ -496,52 +607,86 @@ export default function ReceptionPage() {
       {/* Calendar view */}
       {viewMode === "calendar" && (
         <div style={{ ...baseCard, padding: 16, marginBottom: 24 }}>
-          {/* Date navigator */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            marginBottom: 14, flexWrap: "wrap", gap: 10,
-          }}>
+          {/* Date navigator (CLINIC-R5) */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button
-                onClick={() => shiftDate(-1)}
-                style={{
-                  padding: 7, borderRadius: 8, border: "1px solid #e2e8f0",
-                  background: "#fff", cursor: "pointer", display: "flex",
-                }}
-                aria-label={t("clinic.reception.prevDay")}
-              >
+              <button onClick={() => shiftDate(-1)} style={{ padding: 7, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex" }}>
                 <ChevronLeft size={16} color="#475569" />
               </button>
               <button
                 onClick={() => setCalendarDate(new Date())}
-                style={{
-                  padding: "7px 14px", borderRadius: 8, border: "1px solid #e2e8f0",
-                  background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#0f766e",
-                }}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#0f766e" }}
               >
                 {t("clinic.reception.todayBtn")}
               </button>
-              <button
-                onClick={() => shiftDate(1)}
-                style={{
-                  padding: 7, borderRadius: 8, border: "1px solid #e2e8f0",
-                  background: "#fff", cursor: "pointer", display: "flex",
-                }}
-                aria-label={t("clinic.reception.nextDay")}
-              >
+              <button onClick={() => shiftDate(1)} style={{ padding: 7, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex" }}>
                 <ChevronRight size={16} color="#475569" />
               </button>
+
+              {/* Date picker trigger */}
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => { setShowCalPicker((v) => !v); setPickerViewDate(new Date(calendarDate)); }}
+                  style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e2e8f0", background: showCalPicker ? "#0d9488" : "#fff", color: showCalPicker ? "#fff" : "#0f172a", cursor: "pointer", fontSize: 13, fontWeight: 700, textTransform: "capitalize" }}
+                >
+                  {mounted ? fmtDateRu(calendarDate) : ""}
+                </button>
+
+                {showCalPicker && (() => {
+                  const today = new Date();
+                  const y = pickerViewDate.getFullYear();
+                  const m = pickerViewDate.getMonth();
+                  const firstDay = new Date(y, m, 1).getDay();
+                  const offset = firstDay === 0 ? 6 : firstDay - 1;
+                  const daysInMonth = new Date(y, m + 1, 0).getDate();
+                  const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+                  const cells = Array.from({ length: offset + daysInMonth }, (_, i) => i < offset ? null : i - offset + 1);
+                  return (
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 300, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", width: 280 }}>
+                      {/* Header: year nav */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                        <button onClick={() => setPickerViewDate(new Date(y - 1, m, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>‹‹</button>
+                        <button onClick={() => setPickerViewDate(new Date(y, m - 1, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>‹</button>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>{monthNames[m]} {y}</span>
+                        <button onClick={() => setPickerViewDate(new Date(y, m + 1, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>›</button>
+                        <button onClick={() => setPickerViewDate(new Date(y + 1, m, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>››</button>
+                      </div>
+                      {/* Day names */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
+                        {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => (
+                          <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "#94a3b8", padding: "2px 0" }}>{d}</div>
+                        ))}
+                      </div>
+                      {/* Cells */}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+                        {cells.map((day, i) => {
+                          if (!day) return <div key={`e-${i}`} />;
+                          const date = new Date(y, m, day);
+                          const isActive = date.toDateString() === calendarDate.toDateString();
+                          const isToday = date.toDateString() === today.toDateString();
+                          return (
+                            <button
+                              key={day}
+                              onClick={() => { setCalendarDate(date); setShowCalPicker(false); }}
+                              style={{
+                                border: "none", borderRadius: 8, padding: "6px 0", cursor: "pointer", fontSize: 12, fontWeight: isActive || isToday ? 800 : 500,
+                                background: isActive ? "#0d9488" : "transparent",
+                                color: isActive ? "#fff" : isToday ? "#0d9488" : "#0f172a",
+                                outline: isToday && !isActive ? "1.5px solid #0d9488" : "none",
+                              }}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", textTransform: "capitalize" }}>
-              {mounted ? fmtDateRu(calendarDate) : ""}
-            </div>
-            <button
-              onClick={loadCalendar}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                color: "#64748b", display: "flex", alignItems: "center", gap: 4, fontSize: 12,
-              }}
-            >
+
+            <button onClick={loadCalendar} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
               <RefreshCw size={13} /> {t("clinic.reception.update")}
             </button>
           </div>
@@ -574,11 +719,20 @@ export default function ReceptionPage() {
                     style={{
                       background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
                       borderLeft: "1px solid #e2e8f0", padding: "8px 10px",
-                      fontSize: 12, fontWeight: 700, color: "#0f172a",
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                     }}
                   >
-                    {c.label}
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {c.label}
+                    </div>
+                    {/* CLINIC-R2: doctor name under room */}
+                    {rooms.length > 0 && roomDoctorMap[c.id] && (
+                      <div style={{ fontSize: 10, color: "#0d9488", fontWeight: 600, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {roomDoctorMap[c.id]}
+                      </div>
+                    )}
+                    {rooms.length === 0 && (
+                      <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>врач</div>
+                    )}
                   </div>
                 ))}
 
@@ -596,6 +750,9 @@ export default function ReceptionPage() {
                       const cellAppts = calendarAppts.filter(
                         (a) => columnKey(a) === c.id && slotIndexFor(a.time) === rowIdx
                       );
+                      const doctorIdForCol = rooms.length > 0
+                        ? (calendarAppts.find(a => a.roomId === c.id)?.doctorId ?? null)
+                        : (rooms.length === 0 && doctors.length > 0 ? c.id : null);
                       return (
                         <div
                           key={`${c.id}-${slot}`}
@@ -616,17 +773,39 @@ export default function ReceptionPage() {
                                   textAlign: "left", cursor: "pointer",
                                   background: col.bg, border: `1px solid ${col.bd}`, color: col.fg,
                                   borderRadius: 6, padding: "4px 6px", fontSize: 11, fontWeight: 600,
-                                  lineHeight: 1.2,
+                                  lineHeight: 1.3,
                                 }}
                                 title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${STATUS_LABELS[a.status as AppointmentStatus]}`}
                               >
                                 <div style={{ fontWeight: 800 }}>{a.time}</div>
-                                <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {a.patientName ?? a.patientPhone}
-                                </div>
+                                {/* CLINIC-R4: show name AND phone */}
+                                {a.patientName && (
+                                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.patientName}</div>
+                                )}
+                                <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.8 }}>{a.patientPhone}</div>
                               </button>
                             );
                           })}
+                          {/* CLINIC-R3: empty slot — click to quick-book */}
+                          {cellAppts.length === 0 && (
+                            <button
+                              onClick={() => {
+                                setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
+                                setQuickName("");
+                                setQuickPhone("");
+                              }}
+                              style={{
+                                flex: 1, minHeight: 26, background: "transparent", border: "1px dashed #e2e8f0",
+                                borderRadius: 6, cursor: "pointer", fontSize: 10, color: "#cbd5e1",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                transition: "all 150ms",
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "#f0fdf4"; e.currentTarget.style.borderColor = "#0d9488"; e.currentTarget.style.color = "#0d9488"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#cbd5e1"; }}
+                            >
+                              +
+                            </button>
+                          )}
                         </div>
                       );
                     })}
