@@ -615,9 +615,15 @@ export default function ReceptionPage() {
               </button>
               <button
                 onClick={() => setCalendarDate(new Date())}
-                style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "#0f766e" }}
+                style={{
+                  padding: "7px 14px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer", fontSize: 12, fontWeight: 700,
+                  background: mounted && calendarDate.toDateString() === new Date().toDateString() ? "#0d9488" : "#fff",
+                  color: mounted && calendarDate.toDateString() === new Date().toDateString() ? "#fff" : "#0f766e",
+                }}
               >
-                {t("clinic.reception.todayBtn")}
+                {mounted && calendarDate.toDateString() !== new Date().toDateString()
+                  ? calendarDate.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
+                  : t("clinic.reception.todayBtn")}
               </button>
               <button onClick={() => shiftDate(1)} style={{ padding: 7, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex" }}>
                 <ChevronRight size={16} color="#475569" />
