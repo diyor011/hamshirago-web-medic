@@ -303,8 +303,11 @@ export default function SettingsPage() {
     try {
       await clinicApi.services.update(id, {
         name: editForm.name.trim(),
-        price: parseInt(editForm.price, 10),
+        price: editForm.isRangePrice ? parseInt(editForm.priceMin, 10) : parseInt(editForm.price, 10),
         durationMinutes: parseInt(editForm.durationMinutes, 10),
+        ...(editForm.isRangePrice
+          ? { priceMin: parseInt(editForm.priceMin, 10), priceMax: parseInt(editForm.priceMax, 10) }
+          : { priceMin: null, priceMax: null }),
       });
       setEditingSvc(null); await loadServices();
     } catch (e) {
@@ -659,9 +662,20 @@ export default function SettingsPage() {
                   </td>
                   <td style={{ padding: "10px 8px", textAlign: "right" }}>
                     {editingSvc === svc.id ? (
-                      <input type="number" min={0} style={{ ...inputStyle, padding: "6px 10px", textAlign: "right" }} value={editForm.price} onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))} />
+                      editForm.isRangePrice ? (
+                        <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                          <input type="number" min={0} placeholder="от" style={{ ...inputStyle, padding: "6px 8px", textAlign: "right", width: 72 }} value={editForm.priceMin} onChange={(e) => setEditForm((f) => ({ ...f, priceMin: e.target.value }))} />
+                          <input type="number" min={0} placeholder="до" style={{ ...inputStyle, padding: "6px 8px", textAlign: "right", width: 72 }} value={editForm.priceMax} onChange={(e) => setEditForm((f) => ({ ...f, priceMax: e.target.value }))} />
+                        </div>
+                      ) : (
+                        <input type="number" min={0} style={{ ...inputStyle, padding: "6px 10px", textAlign: "right" }} value={editForm.price} onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))} />
+                      )
                     ) : (
-                      <span style={{ color: "#374151" }}>{svc.price.toLocaleString("ru-RU")} сум</span>
+                      <span style={{ color: "#374151" }}>
+                        {svc.priceMin != null && svc.priceMax != null
+                          ? `${svc.priceMin.toLocaleString("ru-RU")}–${svc.priceMax.toLocaleString("ru-RU")} сум`
+                          : `${svc.price.toLocaleString("ru-RU")} сум`}
+                      </span>
                     )}
                   </td>
                   <td style={{ padding: "10px 8px", textAlign: "right" }}>
@@ -685,7 +699,7 @@ export default function SettingsPage() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => { setEditingSvc(svc.id); setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes), category: "CONSULTATION", isRangePrice: false, priceMin: "", priceMax: "" }); }} style={{ padding: "5px 8px", borderRadius: 7, background: "#f8fafc", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><Pencil size={13} /></button>
+                          <button onClick={() => { const hasRange = svc.priceMin != null && svc.priceMax != null; setEditingSvc(svc.id); setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes ?? ""), category: "CONSULTATION", isRangePrice: hasRange, priceMin: hasRange ? String(svc.priceMin) : "", priceMax: hasRange ? String(svc.priceMax) : "" }); }} style={{ padding: "5px 8px", borderRadius: 7, background: "#f8fafc", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><Pencil size={13} /></button>
                           {svc.isActive && (
                             <button onClick={() => handleDeactivateService(svc.id)} disabled={deactivatingSvc === svc.id} style={{ padding: "5px 8px", borderRadius: 7, background: "#fef2f2", border: "1px solid #fecaca", cursor: "pointer", color: "#ef4444" }}><Trash2 size={13} /></button>
                           )}
