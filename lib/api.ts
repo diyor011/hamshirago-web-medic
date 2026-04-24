@@ -136,6 +136,10 @@ export const medicApi = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    logout: () =>
+      request<{ ok: boolean }>("/medics/logout/cookie", { method: "POST" }),
+    refresh: () =>
+      request<{ access_token: string }>("/auth/refresh-token", { method: "POST" }),
     me: () => request<Medic>(`/medics/me?_=${Date.now()}`),
     updateProfile: (name: string) =>
       request<Medic>("/medics/profile", {
@@ -489,6 +493,10 @@ export const doctorApi = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    logout: () =>
+      request<{ ok: boolean }>("/doctors/logout/cookie", { method: "POST" }),
+    refresh: () =>
+      request<{ access_token: string }>("/auth/refresh-token", { method: "POST" }),
     me: () => request<DoctorProfile>(`/doctors/me?_=${Date.now()}`),
     updateProfile: (dto: Partial<RegisterDoctorDto>) =>
       request<DoctorProfile>("/doctors/profile", {

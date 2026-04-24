@@ -306,8 +306,9 @@ export default function DashboardPage() {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     unsubscribeWebPush();
+    try { await medicApi.auth.logout(); } catch { /* ignore — cookie will expire */ }
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     router.push("/auth");
