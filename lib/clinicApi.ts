@@ -677,4 +677,5 @@ export const clinicApi = {
         appointments: (res.visits ?? []).map(normalizeAppointment),
       })),
   },
+
 };

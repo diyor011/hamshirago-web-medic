@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { X, Search, User } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRoom, ClinicService, PaymentType, PatientInfo, DoctorRoomSlot, Appointment } from "@/lib/clinicApi";
 import { useTranslation } from "react-i18next";
@@ -14,16 +14,13 @@ interface Props {
 }
 
 const PAYMENT_KEYS: { value: PaymentType; labelKey: string }[] = [
-  { value: "CASH", labelKey: "clinic.reception.paymentLabels.CASH" },
+  { value: "CASH",     labelKey: "clinic.reception.paymentLabels.CASH" },
   { value: "TERMINAL", labelKey: "clinic.reception.paymentLabels.TERMINAL" },
-  { value: "ONLINE", labelKey: "clinic.reception.paymentLabels.ONLINE" },
+  { value: "ONLINE",   labelKey: "clinic.reception.paymentLabels.ONLINE" },
 ];
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "10px 12px", borderRadius: 10,
-  border: "1.5px solid #e2e8f0", fontSize: 14, color: "#0f172a",
-  outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-};
+const inputCls = "w-full px-3 py-2.5 rounded-xl border-[1.5px] border-[#e2e8f0] text-sm text-slate-900 outline-none font-[inherit] box-border";
+const labelCls = "text-xs font-semibold text-slate-500 block mb-1.5";
 
 export default function BookingModal({ open, onClose, onSuccess, prefillPhone }: Props) {
   const { t } = useTranslation();
@@ -47,14 +44,31 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState("09:00");
   const [paymentType, setPaymentType] = useState<PaymentType>("CASH");
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const [roomSlots, setRoomSlots] = useState<DoctorRoomSlot[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // Load services when doctor changes; fallback to clinic-wide if no doctor-specific services
+  // min time for time input — if today, don't allow past times
+  const minTime = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (date !== today) return undefined;
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  }, [date]);
+
+  // CLINIC-FE-2: SMS reminder indicator — today + within 3 hours
+  const showSmsReminder = useMemo(() => {
+    if (!date || !time) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    if (date !== today) return false;
+    const [hh, mm] = time.split(":").map(Number);
+    const apptMs = new Date().setHours(hh, mm, 0, 0);
+    const diffHours = (apptMs - Date.now()) / 3_600_000;
+    return diffHours > 0 && diffHours <= 3;
+  }, [date, time]);
+
   useEffect(() => {
     if (!doctorId) { setServices([]); setServiceId(""); return; }
     let cancelled = false;
@@ -75,26 +89,19 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
     return () => { cancelled = true; };
   }, [doctorId]);
 
-  // Load available rooms when doctor + date are set
   useEffect(() => {
     if (!doctorId || !date) { setRoomSlots([]); setRoomId(""); return; }
     let cancelled = false;
     setLoadingRooms(true);
-    clinicApi.rooms
-      .forDoctor(doctorId, date)
+    clinicApi.rooms.forDoctor(doctorId, date)
       .then((slots) => {
         if (cancelled) return;
         setRoomSlots(slots);
-        // Auto-select first if only one room
         if (slots.length === 1) setRoomId(slots[0].roomId);
         else setRoomId("");
       })
-      .catch(() => {
-        if (!cancelled) setRoomSlots([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingRooms(false);
-      });
+      .catch(() => { if (!cancelled) setRoomSlots([]); })
+      .finally(() => { if (!cancelled) setLoadingRooms(false); });
     return () => { cancelled = true; };
   }, [doctorId, date]);
 
@@ -107,18 +114,12 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
       ]);
       setDoctors(all.filter((s) => s.role === "DOCTOR" && s.isActive));
       setAllRooms(rooms);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingDoctors(false);
-    }
+    } catch { /* ignore */ }
+    finally { setLoadingDoctors(false); }
   }, []);
 
-  useEffect(() => {
-    if (open) loadDoctors();
-  }, [open, loadDoctors]);
+  useEffect(() => { if (open) loadDoctors(); }, [open, loadDoctors]);
 
-  // Reset on open, pre-fill phone from lead if provided
   useEffect(() => {
     if (open) {
       setPhone(prefillPhone ?? ""); setPatient(null); setPatientName(""); setPatientNotFound(false);
@@ -143,12 +144,23 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
 
   async function handleSubmit() {
     if (!phone.trim()) { setError(t("clinic.booking.errorPhone")); return; }
-    if (!doctorId) { setError(t("clinic.booking.errorDoctor")); return; }
-    if (!date) { setError(t("clinic.booking.errorDate")); return; }
-    if (!time) { setError(t("clinic.booking.errorTime")); return; }
-    if (!roomId) { setError(t("clinic.booking.errorRoom")); return; }
+    if (!doctorId)     { setError(t("clinic.booking.errorDoctor")); return; }
+    if (!date)         { setError(t("clinic.booking.errorDate")); return; }
+    if (!time)         { setError(t("clinic.booking.errorTime")); return; }
+    if (!roomId)       { setError(t("clinic.booking.errorRoom")); return; }
 
-    // Validate time is within doctor's room schedule window
+    // Нельзя записать на прошедшее время
+    const todayISO = new Date().toISOString().slice(0, 10);
+    if (date === todayISO) {
+      const now = new Date();
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      const [hh, mm] = time.split(":").map(Number);
+      if (hh * 60 + mm <= nowMins) {
+        setError("Нельзя записать на прошедшее время");
+        return;
+      }
+    }
+
     const slot = roomSlots.find((s) => s.roomId === roomId);
     if (slot && (time < slot.startTime || time > slot.endTime)) {
       setError(t("clinic.booking.errorTimeRange", { start: slot.startTime, end: slot.endTime }));
@@ -157,20 +169,14 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
 
     setSubmitting(true); setError("");
     try {
-      // patientName is required by backend — fall back to phone if no name known
-      const resolvedName = patientName.trim()
-        || (patient?.name ?? "")
-        || phone.trim();
-
+      const resolvedName = patientName.trim() || (patient?.name ?? "") || phone.trim();
       const appointment: Appointment = await clinicApi.appointments.create({
         patientPhone: phone.trim(),
         patientName: resolvedName,
         doctorId: doctorId || undefined,
         roomId: roomId || undefined,
         serviceId: serviceId || undefined,
-        date,
-        time,
-        paymentType,
+        date, time, paymentType,
       });
 
       if (paymentType === "ONLINE") {
@@ -178,7 +184,6 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
           const { paymentUrl } = await clinicApi.payments.initiateClinic(appointment.id);
           window.location.href = paymentUrl;
         } catch {
-          // Payment initiation failed — still consider booking a success
           onSuccess();
         }
       } else {
@@ -194,33 +199,33 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   if (!open) return null;
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 100,
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 520,
-        boxShadow: "0 20px 60px rgba(15,23,42,0.18)", maxHeight: "90vh", overflowY: "auto",
-      }}>
+    <div
+      className="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-5"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl p-7 w-full max-w-[520px] shadow-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>{t("clinic.booking.title")}</h2>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-extrabold text-slate-900 m-0">
+            {t("clinic.booking.title")}
+          </h2>
           <button
             onClick={onClose}
-            style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: "#64748b", display: "flex" }}
+            className="bg-slate-100 border-none rounded-lg p-2 cursor-pointer text-slate-500 flex items-center"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Phone search */}
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
-            {t("clinic.booking.patientPhone")} *
-          </label>
-          <div style={{ display: "flex", gap: 8 }}>
+        <div className="mb-[18px]">
+          <label className={labelCls}>{t("clinic.booking.patientPhone")} *</label>
+          <div className="flex gap-2">
             <input
-              style={{ ...inputStyle, flex: 1 }}
+              className={`${inputCls} flex-1`}
               value={phone}
               onChange={(e) => { setPhone(e.target.value); setPatient(null); setPatientNotFound(false); }}
               placeholder="+998901234567"
@@ -229,43 +234,32 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
             <button
               onClick={searchPatient}
               disabled={searchingPatient}
-              style={{
-                padding: "10px 14px", borderRadius: 10, background: "#f0fdfa",
-                border: "1.5px solid #ccfbf1", cursor: "pointer", color: "#0d9488",
-                display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-                opacity: searchingPatient ? 0.6 : 1,
-              }}
+              className={`px-3.5 py-2.5 rounded-xl bg-teal-50 border border-teal-100 cursor-pointer text-teal-600 flex items-center gap-1.5 text-xs font-semibold transition-opacity ${searchingPatient ? "opacity-60" : ""}`}
             >
-              <Search size={14} /> {searchingPatient ? t("clinic.booking.finding") : t("clinic.booking.find")}
+              <Search size={14} />
+              {searchingPatient ? t("clinic.booking.finding") : t("clinic.booking.find")}
             </button>
           </div>
 
           {/* Patient found */}
           {patient && (
-            <div style={{
-              marginTop: 10, padding: "10px 14px", borderRadius: 10,
-              background: "#f0fdf4", border: "1px solid #bbf7d0",
-              display: "flex", alignItems: "center", gap: 10,
-            }}>
-              <User size={16} color="#16a34a" />
+            <div className="mt-2.5 px-3.5 py-2.5 rounded-xl bg-green-50 border border-green-200 flex items-center gap-2.5">
+              <User size={16} className="text-green-600 shrink-0" />
               <div>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#166534", margin: 0 }}>{patient.name ?? t("clinic.booking.noName")}</p>
-                <p style={{ fontSize: 11, color: "#4ade80", margin: 0 }}>{patient.appointments.length} {t("clinic.booking.visits")}</p>
+                <p className="text-sm font-bold text-green-800 m-0">{patient.name ?? t("clinic.booking.noName")}</p>
+                <p className="text-xs text-green-400 m-0">{patient.appointments.length} {t("clinic.booking.visits")}</p>
               </div>
             </div>
           )}
 
-          {/* Patient not found — allow manual name */}
+          {/* Patient not found */}
           {patientNotFound && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{
-                padding: "8px 14px", borderRadius: 10,
-                background: "#fffbeb", border: "1px solid #fde68a", marginBottom: 8,
-              }}>
-                <p style={{ fontSize: 12, color: "#92400e", margin: 0 }}>{t("clinic.booking.patientNotFoundMsg")}</p>
+            <div className="mt-2.5">
+              <div className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 mb-2">
+                <p className="text-xs text-amber-800 m-0">{t("clinic.booking.patientNotFoundMsg")}</p>
               </div>
               <input
-                style={inputStyle}
+                className={inputCls}
                 value={patientName}
                 onChange={(e) => setPatientName(e.target.value)}
                 placeholder={t("clinic.booking.patientNamePlaceholder")}
@@ -275,15 +269,17 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         </div>
 
         {/* Doctor */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.booking.doctor")} *</label>
+        <div className="mb-3.5">
+          <label className={labelCls}>{t("clinic.booking.doctor")} *</label>
           <select
-            style={{ ...inputStyle, background: "#fff" }}
+            className={`${inputCls} bg-white`}
             value={doctorId}
             onChange={(e) => setDoctorId(e.target.value)}
             disabled={loadingDoctors}
           >
-            <option value="">{loadingDoctors ? t("clinic.booking.loadingDoctors") : t("clinic.booking.selectDoctor")}</option>
+            <option value="">
+              {loadingDoctors ? t("clinic.booking.loadingDoctors") : t("clinic.booking.selectDoctor")}
+            </option>
             {doctors.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}{d.specialization ? ` — ${d.specialization}` : ""}
@@ -292,19 +288,15 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
           </select>
         </div>
 
-        {/* Service (loaded by doctorId) */}
+        {/* Service */}
         {doctorId && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
-              Услуга
-            </label>
+          <div className="mb-3.5">
+            <label className={labelCls}>Услуга</label>
             {loadingServices ? (
-              <div style={{ ...inputStyle, color: "#94a3b8", display: "flex", alignItems: "center" }}>
-                Загрузка услуг…
-              </div>
+              <div className={`${inputCls} text-slate-400 flex items-center`}>Загрузка услуг…</div>
             ) : (
               <select
-                style={{ ...inputStyle, background: "#fff" }}
+                className={`${inputCls} bg-white`}
                 value={serviceId}
                 onChange={(e) => setServiceId(e.target.value)}
               >
@@ -314,9 +306,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                     ? `${s.priceMin.toLocaleString("ru-RU")} – ${s.priceMax.toLocaleString("ru-RU")} сум`
                     : `${s.price.toLocaleString("ru-RU")} сум`;
                   return (
-                    <option key={s.id} value={s.id}>
-                      {s.name} · {priceText}
-                    </option>
+                    <option key={s.id} value={s.id}>{s.name} · {priceText}</option>
                   );
                 })}
               </select>
@@ -324,19 +314,17 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
           </div>
         )}
 
-        {/* Room (based on doctor's schedule) */}
+        {/* Room */}
         {doctorId && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
-              {t("clinic.booking.room")} *
-            </label>
+          <div className="mb-3.5">
+            <label className={labelCls}>{t("clinic.booking.room")} *</label>
             {loadingRooms ? (
-              <div style={{ ...inputStyle, color: "#94a3b8", display: "flex", alignItems: "center" }}>
+              <div className={`${inputCls} text-slate-400 flex items-center`}>
                 {t("clinic.booking.loadingSchedule")}
               </div>
             ) : roomSlots.length > 0 ? (
               <select
-                style={{ ...inputStyle, background: "#fff" }}
+                className={`${inputCls} bg-white`}
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
               >
@@ -349,11 +337,11 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
               </select>
             ) : allRooms.length > 0 ? (
               <>
-                <div style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", marginBottom: 6 }}>
+                <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-1.5">
                   {t("clinic.booking.noSchedule")}
                 </div>
                 <select
-                  style={{ ...inputStyle, background: "#fff" }}
+                  className={`${inputCls} bg-white`}
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
                 >
@@ -366,10 +354,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                 </select>
               </>
             ) : (
-              <div style={{
-                ...inputStyle, background: "#fef2f2", border: "1.5px solid #fecaca",
-                color: "#ef4444", fontSize: 13, display: "flex", alignItems: "center",
-              }}>
+              <div className="w-full px-3 py-2.5 rounded-xl bg-red-50 border-[1.5px] border-red-200 text-sm text-red-500 flex items-center">
                 {t("clinic.booking.noRooms")}
               </div>
             )}
@@ -377,46 +362,55 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         )}
 
         {/* Date & Time */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+        <div className="grid grid-cols-2 gap-3 mb-3.5">
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.booking.date")} *</label>
+            <label className={labelCls}>{t("clinic.booking.date")} *</label>
             <input
               type="date"
-              style={inputStyle}
+              className={inputCls}
               value={date}
               min={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.booking.time")} *</label>
+            <label className={labelCls}>{t("clinic.booking.time")} *</label>
             <input
               type="time"
-              style={inputStyle}
+              className={inputCls}
               value={time}
+              min={minTime}
               onChange={(e) => setTime(e.target.value)}
             />
           </div>
         </div>
 
+        {/* CLINIC-FE-2: SMS reminder indicator */}
+        {showSmsReminder && (
+          <div className="flex items-center gap-2 bg-green-50 border border-green-300 rounded-xl px-3.5 py-2 mb-3.5">
+            <span className="text-base">📱</span>
+            <div>
+              <p className="text-xs font-bold text-green-700 m-0">SMS-напоминание</p>
+              <p className="text-[11px] text-green-800 m-0">Пациент получит напоминание за 1 час до приёма</p>
+            </div>
+          </div>
+        )}
+
         {/* Payment */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 8 }}>{t("clinic.booking.paymentType")} *</label>
-          <div style={{ display: "flex", gap: 8 }}>
+        <div className="mb-5">
+          <label className={labelCls}>{t("clinic.booking.paymentType")} *</label>
+          <div className="flex gap-2">
             {PAYMENT_KEYS.map(({ value, labelKey }) => {
               const active = paymentType === value;
               return (
                 <button
                   key={value}
                   onClick={() => setPaymentType(value)}
-                  style={{
-                    flex: 1, padding: "9px 0", borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
-                    background: active ? "#f0fdfa" : "#fff",
-                    color: active ? "#0d9488" : "#475569",
-                    cursor: "pointer",
-                    position: "relative",
-                  }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer border-[1.5px] transition-colors ${
+                    active
+                      ? "border-teal-600 bg-teal-50 text-teal-600"
+                      : "border-[#e2e8f0] bg-white text-slate-500"
+                  }`}
                 >
                   {t(labelKey)}
                 </button>
@@ -425,30 +419,22 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
           </div>
         </div>
 
-        {error && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 14 }}>{error}</p>}
+        {error && <p className="text-sm text-red-500 mb-3.5">{error}</p>}
 
         {/* Submit */}
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="flex gap-2">
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            style={{
-              flex: 1, background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-              border: "none", borderRadius: 10, padding: "12px 0",
-              fontSize: 14, fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer",
-              opacity: submitting ? 0.7 : 1,
-            }}
+            className={`flex-1 bg-gradient-to-br from-teal-600 to-teal-700 text-white border-none rounded-xl py-3 text-sm font-bold transition-opacity ${submitting ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
           >
             {submitting ? t("clinic.booking.submitting") : t("clinic.booking.submit")}
           </button>
           <button
             onClick={onClose}
-            style={{
-              flex: 1, background: "#f1f5f9", border: "none", borderRadius: 10,
-              padding: "12px 0", fontSize: 14, cursor: "pointer", color: "#64748b", fontWeight: 600,
-            }}
+            className="flex-1 bg-slate-100 border-none rounded-xl py-3 text-sm cursor-pointer text-slate-500 font-semibold"
           >
-            {t("clinic.booking.cancel")}
+            {t("clinic.common.cancel")}
           </button>
         </div>
       </div>

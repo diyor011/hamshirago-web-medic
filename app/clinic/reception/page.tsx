@@ -117,6 +117,7 @@ export default function ReceptionPage() {
   const [errLeads, setErrLeads] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [initiatingPayment, setInitiatingPayment] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
@@ -165,6 +166,16 @@ export default function ReceptionPage() {
 
   const isForbidden = (e: unknown) =>
     e instanceof Error && (e.message.includes("прав") || e.message.toLowerCase().includes("forbidden") || e.message === "UNAUTHORIZED");
+
+  // Проверка: слот уже прошёл (только для сегодняшней даты)
+  const isSlotPast = useCallback((slotTime: string, dateISO: string): boolean => {
+    if (!mounted) return false;
+    const todayISO = fmtDateISO(new Date());
+    if (dateISO !== todayISO) return false;
+    const [hh, mm] = slotTime.split(":").map(Number);
+    const now = new Date();
+    return hh * 60 + mm <= now.getHours() * 60 + now.getMinutes();
+  }, [mounted]);
 
   const loadApps = useCallback(async () => {
     setLoadingApps(true); setErrApps(null);
@@ -248,6 +259,18 @@ export default function ReceptionPage() {
     }
   }
 
+  async function handleInitiatePayment(id: string) {
+    setInitiatingPayment(id);
+    try {
+      const { paymentUrl } = await clinicApi.payments.initiateClinic(id);
+      window.open(paymentUrl, "_blank");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка оплаты");
+    } finally {
+      setInitiatingPayment(null);
+    }
+  }
+
   async function handleUpdateStatus(id: string, status: AppointmentStatus) {
     setUpdatingStatus(id);
     try {
@@ -328,6 +351,11 @@ export default function ReceptionPage() {
   // CLINIC-R3: quick book handler
   async function handleQuickBook() {
     if (!quickBook || !quickName.trim() || !quickPhone.trim()) return;
+    if (isSlotPast(quickBook.time, quickBook.date)) {
+      toast.error("Нельзя записать на прошедшее время");
+      setQuickBook(null);
+      return;
+    }
     setQuickBookLoading(true);
     try {
       await clinicApi.appointments.create({
@@ -793,25 +821,37 @@ export default function ReceptionPage() {
                             );
                           })}
                           {/* CLINIC-R3: empty slot — click to quick-book */}
-                          {cellAppts.length === 0 && (
-                            <button
-                              onClick={() => {
-                                setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
-                                setQuickName("");
-                                setQuickPhone("");
-                              }}
-                              style={{
-                                flex: 1, minHeight: 26, background: "transparent", border: "1px dashed #e2e8f0",
-                                borderRadius: 6, cursor: "pointer", fontSize: 10, color: "#cbd5e1",
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                transition: "all 150ms",
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = "#f0fdf4"; e.currentTarget.style.borderColor = "#0d9488"; e.currentTarget.style.color = "#0d9488"; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#cbd5e1"; }}
-                            >
-                              +
-                            </button>
-                          )}
+                          {cellAppts.length === 0 && (() => {
+                            const past = isSlotPast(slot, fmtDateISO(calendarDate));
+                            if (past) {
+                              return (
+                                <div style={{
+                                  flex: 1, minHeight: 26, borderRadius: 6,
+                                  background: "repeating-linear-gradient(135deg,#f8fafc 0px,#f8fafc 4px,#f1f5f9 4px,#f1f5f9 8px)",
+                                  opacity: 0.5,
+                                }} title="Время прошло" />
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => {
+                                  setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
+                                  setQuickName("");
+                                  setQuickPhone("");
+                                }}
+                                style={{
+                                  flex: 1, minHeight: 26, background: "transparent", border: "1px dashed #e2e8f0",
+                                  borderRadius: 6, cursor: "pointer", fontSize: 10, color: "#cbd5e1",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  transition: "all 150ms",
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = "#f0fdf4"; e.currentTarget.style.borderColor = "#0d9488"; e.currentTarget.style.color = "#0d9488"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#cbd5e1"; }}
+                              >
+                                +
+                              </button>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -1048,6 +1088,22 @@ export default function ReceptionPage() {
                             >
                               <CheckCircle size={13} />
                               {updatingStatus === app.id ? "..." : t("clinic.reception.finishReception")}
+                            </button>
+                          )}
+
+                          {/* CLINIC-FE-3: Оплатить онлайн — ONLINE payment not yet paid */}
+                          {app.paymentType === "ONLINE" && app.finalPrice == null &&
+                           !["CANCELED", "NO_SHOW"].includes(st) && (
+                            <button
+                              onClick={() => handleInitiatePayment(app.id)}
+                              disabled={initiatingPayment === app.id}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] rounded-lg text-xs font-bold border-none whitespace-nowrap transition-opacity ${
+                                initiatingPayment === app.id
+                                  ? "bg-slate-200 text-slate-400 cursor-not-allowed opacity-70"
+                                  : "bg-gradient-to-br from-violet-600 to-violet-700 text-white cursor-pointer"
+                              }`}
+                            >
+                              💳 {initiatingPayment === app.id ? "..." : "Оплатить онлайн"}
                             </button>
                           )}
 
