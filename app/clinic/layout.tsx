@@ -142,11 +142,8 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const isAuthPage = pathname === "/clinic/auth" || pathname === "/clinic/register";
 
-  const [mounted, setMounted] = useState(false);
   const [role, setRole] = useState<ClinicRole | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (isAuthPage) {
@@ -171,12 +168,11 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
     router.replace("/auth");
   }
 
-  if (!mounted) return null;
-
+  // role=null on both server and client first render → same HTML → no hydration mismatch
   if (!role && !isAuthPage) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-[2.5px] border-teal-600 border-t-transparent animate-spin" />
+        <div className="w-8 h-8 rounded-full border-[2.5px] border-slate-200 border-t-teal-600 animate-spin" />
       </div>
     );
   }
