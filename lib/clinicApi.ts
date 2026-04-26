@@ -63,6 +63,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error("UNAUTHORIZED");
   }
 
+  if (res.status === 403) {
+    throw new Error("Недостаточно прав для выполнения этого действия");
+  }
+
   if (!res.ok) {
     const error = await res
       .json()

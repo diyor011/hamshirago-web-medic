@@ -6,7 +6,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight,
   Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle,
 } from "lucide-react";
-import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
+import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats, getClinicRole } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
@@ -144,6 +144,8 @@ export default function ReceptionPage() {
   const [showCalPicker, setShowCalPicker] = useState(false);
   const [pickerViewDate, setPickerViewDate] = useState(() => new Date());
   const [clinicUser, setClinicUser] = useState<{ id: string; role: string } | null>(null);
+  // Синхронное чтение роли — нет гонки состояний при рендере кнопок
+  const clinicRole = getClinicRole();
   useEffect(() => {
     setMounted(true);
     try {
@@ -204,8 +206,11 @@ export default function ReceptionPage() {
 
   useEffect(() => {
     clinicApi.rooms.list().then(setRooms).catch(() => setRooms([]));
-    clinicApi.stats.doctors().then(setDoctors).catch(() => setDoctors([]));
-  }, []);
+    // stats/doctors доступен только CEO — для DOCTOR/RECEPTION пропускаем вызов
+    if (clinicRole === "CEO") {
+      clinicApi.stats.doctors().then(setDoctors).catch(() => setDoctors([]));
+    }
+  }, [clinicRole]);
 
   const loadCalendar = useCallback(async () => {
     setLoadingCalendar(true);
@@ -1123,9 +1128,10 @@ export default function ReceptionPage() {
                             </span>
                           )}
 
-                          {/* CLINIC-FE-3: Оплатить онлайн — ONLINE not yet paid */}
+                          {/* CLINIC-FE-3: Оплатить онлайн — ONLINE not yet paid, только CEO/RECEPTION */}
                           {app.paymentType === "ONLINE" && app.paymentStatus !== "paid" &&
-                           !["CANCELED", "NO_SHOW"].includes(st) && (
+                           !["CANCELED", "NO_SHOW"].includes(st) &&
+                           clinicRole !== "DOCTOR" && clinicRole !== null && (
                             <button
                               onClick={() => handleInitiatePayment(app.id)}
                               disabled={initiatingPayment === app.id}
