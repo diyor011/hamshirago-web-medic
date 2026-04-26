@@ -118,6 +118,8 @@ export default function ReceptionPage() {
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [initiatingPayment, setInitiatingPayment] = useState<string | null>(null);
+  const [pendingPaymentIds, setPendingPaymentIds] = useState<Set<string>>(new Set());
+  const [checkingPayment, setCheckingPayment] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
@@ -264,10 +266,29 @@ export default function ReceptionPage() {
     try {
       const { paymentUrl } = await clinicApi.payments.initiateClinic(id);
       window.open(paymentUrl, "_blank");
+      setPendingPaymentIds((prev) => new Set(prev).add(id));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка оплаты");
     } finally {
       setInitiatingPayment(null);
+    }
+  }
+
+  async function handleCheckPayment(id: string) {
+    setCheckingPayment(id);
+    try {
+      const { status } = await clinicApi.payments.getClinicStatus(id);
+      if (status === "paid") {
+        toast.success("Оплата подтверждена!");
+        setPendingPaymentIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
+        await loadApps();
+      } else {
+        toast.error("Оплата ещё не поступила. Попробуйте позже.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка проверки оплаты");
+    } finally {
+      setCheckingPayment(null);
     }
   }
 
@@ -1091,19 +1112,52 @@ export default function ReceptionPage() {
                             </button>
                           )}
 
-                          {/* CLINIC-FE-3: Оплатить онлайн — ONLINE payment not yet paid */}
-                          {app.paymentType === "ONLINE" && app.finalPrice == null &&
+                          {/* CLINIC-FE-3: PAID badge */}
+                          {app.paymentType === "ONLINE" && app.paymentStatus === "paid" && (
+                            <span style={{
+                              fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 99,
+                              background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0",
+                              whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4,
+                            }}>
+                              ✓ Оплачено
+                            </span>
+                          )}
+
+                          {/* CLINIC-FE-3: Оплатить онлайн — ONLINE not yet paid */}
+                          {app.paymentType === "ONLINE" && app.paymentStatus !== "paid" &&
                            !["CANCELED", "NO_SHOW"].includes(st) && (
                             <button
                               onClick={() => handleInitiatePayment(app.id)}
                               disabled={initiatingPayment === app.id}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] rounded-lg text-xs font-bold border-none whitespace-nowrap transition-opacity ${
-                                initiatingPayment === app.id
-                                  ? "bg-slate-200 text-slate-400 cursor-not-allowed opacity-70"
-                                  : "bg-gradient-to-br from-violet-600 to-violet-700 text-white cursor-pointer"
-                              }`}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                background: initiatingPayment === app.id ? "#e2e8f0" : "linear-gradient(135deg,#7c3aed,#6d28d9)",
+                                color: initiatingPayment === app.id ? "#94a3b8" : "#fff",
+                                border: "none", cursor: initiatingPayment === app.id ? "not-allowed" : "pointer",
+                                opacity: initiatingPayment === app.id ? 0.7 : 1, whiteSpace: "nowrap",
+                              }}
                             >
                               💳 {initiatingPayment === app.id ? "..." : "Оплатить онлайн"}
+                            </button>
+                          )}
+
+                          {/* CLINIC-FE-3: Проверить оплату — shown after payment URL was opened */}
+                          {pendingPaymentIds.has(app.id) && app.paymentStatus !== "paid" && (
+                            <button
+                              onClick={() => handleCheckPayment(app.id)}
+                              disabled={checkingPayment === app.id}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
+                                background: checkingPayment === app.id ? "#e2e8f0" : "#f0fdf4",
+                                color: checkingPayment === app.id ? "#94a3b8" : "#16a34a",
+                                border: "1px solid #bbf7d0",
+                                cursor: checkingPayment === app.id ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {checkingPayment === app.id ? "⏳ Проверяем…" : "✓ Проверить оплату"}
                             </button>
                           )}
 

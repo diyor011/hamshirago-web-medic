@@ -174,6 +174,7 @@ export interface Appointment {
   date: string;
   time: string;
   paymentType: PaymentType | null;
+  paymentStatus?: "unpaid" | "paid" | "refunded" | null;
   status: AppointmentStatus;
   cancelReason?: string | null;
   createdAt: string;
@@ -272,6 +273,14 @@ export interface PatientInfo {
   visits: Appointment[];
   name: string;
   appointments: Appointment[];
+}
+
+export interface PatientSearchResult {
+  id: string;
+  phone: string;
+  name: string;
+  lastVisit: string | null;
+  allergies: string | null;
 }
 
 function normalizeAppointmentStatus(status: string | undefined | null): AppointmentStatus {
@@ -664,6 +673,10 @@ export const clinicApi = {
         `/payments/clinic-appointment/${appointmentId}/initiate`,
         { method: "POST" },
       ),
+    getClinicStatus: (appointmentId: string) =>
+      request<{ status: "unpaid" | "paid" | "refunded"; paymentUrl?: string }>(
+        `/payments/clinic-appointment/${appointmentId}/status`,
+      ),
   },
 
   patients: {
@@ -676,6 +689,10 @@ export const clinicApi = {
         name: res.patient?.name ?? "",
         appointments: (res.visits ?? []).map(normalizeAppointment),
       })),
+    search: (q: string) =>
+      request<PatientSearchResult[]>(
+        `/clinic/patients/search?q=${encodeURIComponent(q)}`,
+      ),
   },
 
 };
