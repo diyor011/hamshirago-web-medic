@@ -48,75 +48,58 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
   const { clinic } = useClinic();
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
+  const isCeo = role === "CEO";
 
   const receptionRoleLabel =
     role === "CEO" ? "CEO" : role === "RECEPTION" ? t("clinic.nav.reception") : role;
 
   return (
-    <aside style={{
-      width: 240, minHeight: "100vh", background: "#fff",
-      borderRight: "1px solid #e2e8f0", display: "flex",
-      flexDirection: "column", position: "fixed", top: 0, left: 0, zIndex: 50,
-    }}>
+    <aside className="w-60 min-h-screen bg-white border-r border-slate-200 flex flex-col fixed top-0 left-0 z-50">
       {/* Logo / Clinic branding */}
-      <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #f1f5f9" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {clinic?.logoUrl ? (
-            <img
-              src={clinic.logoUrl}
-              alt={clinic.name}
-              style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "1px solid #e2e8f0", flexShrink: 0 }}
-            />
-          ) : (
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: "linear-gradient(135deg, #0d9488, #0f766e)",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            }}>
-              <Building2 size={18} color="#fff" />
-            </div>
-          )}
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {clinic?.name ?? "HamshiraGo"}
-            </p>
-            <p style={{ fontSize: 11, color: "#64748b" }}>Clinic Portal</p>
+      <div className="px-5 py-6 border-b border-slate-100 flex items-center gap-2.5">
+        {clinic?.logoUrl ? (
+          <img
+            src={clinic.logoUrl}
+            alt={clinic.name}
+            className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-600 to-teal-700 flex items-center justify-center shrink-0">
+            <Building2 size={18} color="#fff" />
           </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-[15px] font-extrabold text-slate-900 leading-tight truncate">
+            {clinic?.name ?? "HamshiraGo"}
+          </p>
+          <p className="text-[11px] text-slate-500">Clinic Portal</p>
         </div>
       </div>
 
       {/* Role badge */}
-      <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9" }}>
-        <span style={{
-          display: "inline-flex", alignItems: "center", gap: 6,
-          fontSize: 12, fontWeight: 600, color: "#0d9488",
-          background: "#f0fdfa", borderRadius: 6, padding: "4px 10px",
-        }}>
+      <div className="px-5 py-3 border-b border-slate-100">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 bg-teal-50 rounded-md px-2.5 py-1">
           {receptionRoleLabel}
         </span>
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: "12px 12px" }}>
+      <nav className="flex-1 p-3 flex flex-col">
         {visible.map(({ href, labelKey, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
               href={href}
-              style={{
-                width: "100%", display: "flex", alignItems: "center", gap: 10,
-                padding: "10px 12px", borderRadius: 10,
-                textDecoration: "none", marginBottom: 2,
-                background: active ? "#f0fdfa" : "transparent",
-                color: active ? "#0d9488" : "#475569",
-                fontWeight: active ? 700 : 500,
-                fontSize: 14, transition: "all 0.15s",
-              }}
-              onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "#f8fafc"; }}
-              onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              className={[
+                "flex items-center no-underline rounded-xl transition-all duration-150",
+                isCeo ? "gap-3.5 px-3.5 py-3.5 text-base mb-1" : "gap-2.5 px-3 py-2.5 text-sm mb-0.5",
+                active
+                  ? "bg-teal-50 text-teal-600 font-bold border-l-[3px] border-teal-600"
+                  : "text-slate-500 font-medium border-l-[3px] border-transparent hover:bg-slate-50",
+              ].join(" ")}
             >
-              <Icon size={17} strokeWidth={active ? 2.5 : 2} />
+              <Icon size={isCeo ? 22 : 17} strokeWidth={active ? 2.5 : 2} />
               {t(labelKey)}
             </Link>
           );
@@ -124,20 +107,18 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
       </nav>
 
       {/* Language toggle + Logout */}
-      <div style={{ padding: "12px 12px", borderTop: "1px solid #f1f5f9" }}>
-        {/* Language switcher */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 8, padding: "0 0" }}>
+      <div className="p-3 border-t border-slate-100">
+        <div className="flex gap-1.5 mb-2">
           {(["ru", "uz"] as const).map((lang) => (
             <button
               key={lang}
               onClick={() => setLanguage(lang)}
-              style={{
-                flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                border: `1.5px solid ${language === lang ? "#0d9488" : "#e2e8f0"}`,
-                background: language === lang ? "#f0fdfa" : "#fff",
-                color: language === lang ? "#0d9488" : "#94a3b8",
-                cursor: "pointer", transition: "all 0.15s",
-              }}
+              className={[
+                "flex-1 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all duration-150",
+                language === lang
+                  ? "border-[1.5px] border-teal-600 bg-teal-50 text-teal-600"
+                  : "border-[1.5px] border-slate-200 bg-white text-slate-400",
+              ].join(" ")}
             >
               {lang.toUpperCase()}
             </button>
@@ -146,11 +127,7 @@ function SidebarInner({ role, pathname, onLogout }: { role: ClinicRole; pathname
 
         <button
           onClick={onLogout}
-          style={{
-            width: "100%", display: "flex", alignItems: "center", gap: 10,
-            padding: "10px 12px", borderRadius: 10, border: "none", cursor: "pointer",
-            background: "transparent", color: "#ef4444", fontSize: 14, fontWeight: 500,
-          }}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-0 cursor-pointer bg-transparent text-red-500 text-sm font-medium hover:bg-red-50 transition-colors duration-150"
         >
           <LogOut size={17} />
           {t("clinic.nav.logout")}
@@ -165,8 +142,11 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const isAuthPage = pathname === "/clinic/auth" || pathname === "/clinic/register";
 
+  const [mounted, setMounted] = useState(false);
   const [role, setRole] = useState<ClinicRole | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (isAuthPage) {
@@ -179,7 +159,6 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
     if (!r) { router.replace("/auth"); return; }
     setRole(r);
 
-    // Role-based route guard
     const ceoOnly = ["/clinic/dashboard", "/clinic/rooms", "/clinic/services", "/clinic/staff", "/clinic/finance", "/clinic/settings"];
     if ((r === "RECEPTION" || r === "DOCTOR") && ceoOnly.some((p) => pathname.startsWith(p))) {
       router.replace("/clinic/reception");
@@ -192,15 +171,12 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
     router.replace("/auth");
   }
 
-  // Close mobile sidebar on route change
-  // (useEffect on pathname would cause re-render loop — using inline is fine)
+  if (!mounted) return null;
 
-  // Only block non-auth pages while resolving auth
   if (!role && !isAuthPage) {
     return (
-      <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="animate-spin" style={{ width: 32, height: 32, borderRadius: "50%", border: "2.5px solid #0d9488", borderTopColor: "transparent", animation: "spin 0.8s linear infinite" }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-[2.5px] border-teal-600 border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -212,9 +188,9 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   return (
     <ContextErrorBoundary zone="Clinic">
       <ClinicProvider>
-        <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
+        <div className="flex min-h-screen bg-slate-50">
           {/* Desktop sidebar */}
-          <div className="clinic-sidebar">
+          <div className="hidden md:block">
             <SidebarInner role={role!} pathname={pathname} onLogout={handleLogout} />
           </div>
 
@@ -222,59 +198,40 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
           {mobileOpen && (
             <div
               onClick={() => setMobileOpen(false)}
-              style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.4)", zIndex: 99, display: "none" }}
-              className="clinic-overlay"
+              className="fixed inset-0 bg-slate-900/40 z-[99] md:hidden"
             />
           )}
 
           {/* Mobile drawer */}
           <div
-            className="clinic-drawer"
-            style={{
-              position: "fixed", top: 0, left: 0, bottom: 0, width: 240, zIndex: 100,
-              transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
-              transition: "transform 0.25s ease", display: "none",
-            }}
+            className={[
+              "fixed top-0 left-0 bottom-0 w-60 z-[100] md:hidden transition-transform duration-200 ease-in-out",
+              mobileOpen ? "translate-x-0" : "-translate-x-full",
+            ].join(" ")}
           >
-            <SidebarInner role={role!} pathname={pathname} onLogout={() => { setMobileOpen(false); handleLogout(); }} />
+            <SidebarInner
+              role={role!}
+              pathname={pathname}
+              onLogout={() => { setMobileOpen(false); handleLogout(); }}
+            />
           </div>
 
-          <main style={{ flex: 1, minHeight: "100vh" }} className="clinic-main">
+          <main className="flex-1 min-h-screen md:ml-60">
             {/* Mobile top bar */}
-            <div className="clinic-topbar" style={{ display: "none" }}>
+            <div className="flex md:hidden items-center gap-3 fixed top-0 left-0 right-0 h-13 bg-white border-b border-slate-200 px-4 z-50">
               <button
                 onClick={() => setMobileOpen((v) => !v)}
-                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 8, borderRadius: 8 }}
+                className="bg-transparent border-0 cursor-pointer flex items-center justify-center p-2 rounded-lg"
               >
-                {mobileOpen ? <X size={22} color="#0f172a" /> : <Menu size={22} color="#0f172a" />}
+                {mobileOpen ? <X size={22} className="text-slate-900" /> : <Menu size={22} className="text-slate-900" />}
               </button>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>HamshiraGo</span>
+              <span className="text-[15px] font-extrabold text-slate-900">HamshiraGo</span>
             </div>
-            <div className="clinic-inner">
+
+            <div className="max-w-[1200px] mx-auto px-7 pt-8 pb-15 mt-13 md:mt-0">
               {children}
             </div>
           </main>
-
-          <style>{`
-            @keyframes spin { to { transform: rotate(360deg); } }
-            .clinic-sidebar { display: block; }
-            .clinic-main { margin-left: 240px; }
-            .clinic-inner { max-width: 1200px; margin: 0 auto; padding: 32px 28px 60px; }
-            .clinic-topbar { display: none; }
-            @media (max-width: 768px) {
-              .clinic-sidebar { display: none !important; }
-              .clinic-main { margin-left: 0 !important; }
-              .clinic-inner { padding: 60px 16px 40px !important; }
-              .clinic-topbar {
-                display: flex !important; align-items: center; gap: 12px;
-                position: fixed; top: 0; left: 0; right: 0; height: 52px;
-                background: #fff; border-bottom: 1px solid #e2e8f0;
-                padding: 0 16px; z-index: 50;
-              }
-              .clinic-overlay { display: block !important; }
-              .clinic-drawer { display: block !important; }
-            }
-          `}</style>
         </div>
       </ClinicProvider>
     </ContextErrorBoundary>
