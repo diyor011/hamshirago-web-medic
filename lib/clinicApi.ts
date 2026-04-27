@@ -287,6 +287,28 @@ export interface PatientSearchResult {
   allergies: string | null;
 }
 
+export type ClinicPlan = "PRO" | "MAX" | "CUSTOM";
+
+export interface ClinicSubscription {
+  id?: string;
+  plan: ClinicPlan;
+  priceUsd: number;
+  features: Record<string, boolean>;
+  startedAt: string;
+  expiresAt: string | null;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  slotDate: string;
+  slotTime: string;
+  patientName: string;
+  patientPhone: string;
+  doctorId?: string | null;
+  status: "PENDING" | "NOTIFIED" | "CONVERTED" | "EXPIRED";
+  createdAt: string;
+}
+
 function normalizeAppointmentStatus(status: string | undefined | null): AppointmentStatus {
   if (status === "CANCELLED" || status === "CANCELED") return "CANCELED";
   if (status === "NO_SHOW") return "NO_SHOW";
@@ -681,6 +703,25 @@ export const clinicApi = {
       request<{ status: "unpaid" | "paid" | "refunded"; paymentUrl?: string }>(
         `/payments/clinic-appointment/${appointmentId}/status`,
       ),
+  },
+
+  subscription: {
+    get: () =>
+      request<ClinicSubscription>("/clinic/subscription"),
+    upgrade: (plan: "PRO" | "MAX" | "CUSTOM") =>
+      request<ClinicSubscription>("/clinic/subscription/upgrade", {
+        method: "POST",
+        body: JSON.stringify({ plan }),
+      }),
+  },
+
+  waitlist: {
+    list: () =>
+      request<WaitlistEntry[]>("/clinic/waitlist"),
+    add: (dto: { slotDate: string; slotTime: string; patientName: string; patientPhone: string; doctorId?: string }) =>
+      request<WaitlistEntry>("/clinic/waitlist", { method: "POST", body: JSON.stringify(dto) }),
+    remove: (id: string) =>
+      request<void>(`/clinic/waitlist/${id}`, { method: "DELETE" }),
   },
 
   patients: {

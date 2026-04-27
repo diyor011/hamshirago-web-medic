@@ -5,8 +5,9 @@ import {
   RefreshCw, CheckSquare, CalendarPlus, List as ListIcon,
   Calendar as CalendarIcon, ChevronLeft, ChevronRight,
   Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle,
+  Users, X,
 } from "lucide-react";
-import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats, getClinicRole } from "@/lib/clinicApi";
+import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats, WaitlistEntry, getClinicRole } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
@@ -146,6 +147,14 @@ export default function ReceptionPage() {
   const [clinicUser, setClinicUser] = useState<{ id: string; role: string } | null>(null);
   // Синхронное чтение роли — нет гонки состояний при рендере кнопок
   const clinicRole = getClinicRole();
+
+  // Waitlist state (CLINIC-FE-4)
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [waitlistModal, setWaitlistModal] = useState<{ slotDate: string; slotTime: string; doctorId: string | null; colLabel: string } | null>(null);
+  const [waitlistName, setWaitlistName] = useState("");
+  const [waitlistPhone, setWaitlistPhone] = useState("");
+  const [addingWaitlist, setAddingWaitlist] = useState(false);
+  const [removingWaitlistId, setRemovingWaitlistId] = useState<string | null>(null);
   useEffect(() => {
     setMounted(true);
     try {
@@ -227,6 +236,48 @@ export default function ReceptionPage() {
   useEffect(() => {
     if (viewMode === "calendar") loadCalendar();
   }, [viewMode, loadCalendar]);
+
+  const loadWaitlist = useCallback(async () => {
+    try { setWaitlist(await clinicApi.waitlist.list()); }
+    catch { /* ignore — feature may not be in plan */ }
+  }, []);
+
+  useEffect(() => { loadWaitlist(); }, [loadWaitlist]);
+
+  async function handleAddWaitlist() {
+    if (!waitlistModal || !waitlistName.trim() || !waitlistPhone.trim()) return;
+    setAddingWaitlist(true);
+    try {
+      await clinicApi.waitlist.add({
+        slotDate: waitlistModal.slotDate,
+        slotTime: waitlistModal.slotTime,
+        patientName: waitlistName.trim(),
+        patientPhone: waitlistPhone.trim(),
+        ...(waitlistModal.doctorId ? { doctorId: waitlistModal.doctorId } : {}),
+      });
+      toast.success("Добавлен в лист ожидания");
+      setWaitlistModal(null);
+      setWaitlistName("");
+      setWaitlistPhone("");
+      await loadWaitlist();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setAddingWaitlist(false);
+    }
+  }
+
+  async function handleRemoveWaitlist(id: string) {
+    setRemovingWaitlistId(id);
+    try {
+      await clinicApi.waitlist.remove(id);
+      setWaitlist((prev) => prev.filter((w) => w.id !== id));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setRemovingWaitlistId(null);
+    }
+  }
 
   useEffect(() => {
     const id = setInterval(loadApps, 30000);
@@ -513,6 +564,63 @@ export default function ReceptionPage() {
               </button>
               <button
                 onClick={() => setQuickBook(null)}
+                style={{ padding: "12px 20px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#64748b" }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waitlist modal (CLINIC-FE-4) */}
+      {waitlistModal && (
+        <div
+          onClick={() => setWaitlistModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 360 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>В лист ожидания</h3>
+            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
+              {waitlistModal.slotTime} · {waitlistModal.colLabel}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              <input
+                autoFocus
+                value={waitlistName}
+                onChange={(e) => setWaitlistName(e.target.value)}
+                placeholder="Имя пациента"
+                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#f59e0b")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
+              />
+              <input
+                value={waitlistPhone}
+                onChange={(e) => setWaitlistPhone(e.target.value)}
+                placeholder="+998 xx xxx xx xx"
+                type="tel"
+                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#f59e0b")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
+                onKeyDown={(e) => e.key === "Enter" && handleAddWaitlist()}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleAddWaitlist}
+                disabled={addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim()}
+                style={{
+                  flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
+                  background: addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim() ? "#e2e8f0" : "#f59e0b",
+                  color: addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim() ? "#94a3b8" : "#fff",
+                  fontSize: 14, fontWeight: 700,
+                  cursor: addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim() ? "not-allowed" : "pointer",
+                }}
+              >
+                {addingWaitlist ? "Добавляем..." : "Добавить"}
+              </button>
+              <button
+                onClick={() => setWaitlistModal(null)}
                 style={{ padding: "12px 20px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#64748b" }}
               >
                 Отмена
@@ -846,6 +954,28 @@ export default function ReceptionPage() {
                               </button>
                             );
                           })}
+                          {/* CLINIC-FE-4: full slot — add to waitlist */}
+                          {cellAppts.length > 0 && !isSlotPast(slot, fmtDateISO(calendarDate)) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setWaitlistModal({ slotDate: fmtDateISO(calendarDate), slotTime: slot, doctorId: doctorIdForCol, colLabel: c.label });
+                                setWaitlistName("");
+                                setWaitlistPhone("");
+                              }}
+                              title="В лист ожидания"
+                              style={{
+                                marginTop: 2, width: "100%", background: "#fef3c7", border: "1px dashed #f59e0b",
+                                borderRadius: 5, cursor: "pointer", fontSize: 9, fontWeight: 700,
+                                color: "#b45309", padding: "2px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "#fde68a"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "#fef3c7"; }}
+                            >
+                              <Users size={9} /> Лист ожидания
+                            </button>
+                          )}
+
                           {/* CLINIC-R3: empty slot — click to quick-book */}
                           {cellAppts.length === 0 && (() => {
                             const past = isSlotPast(slot, fmtDateISO(calendarDate));
@@ -1214,8 +1344,71 @@ export default function ReceptionPage() {
             )}
           </div>
 
-          {/* Right: AI leads sidebar */}
-          <div>
+          {/* Right: sidebar (leads + waitlist) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+            {/* Waitlist panel (CLINIC-FE-4) */}
+            {waitlist.length > 0 && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                    Лист ожидания
+                  </h2>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: "2px 8px",
+                    borderRadius: 99, background: "#f59e0b", color: "#fff", lineHeight: 1.4,
+                  }}>
+                    {waitlist.length}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {waitlist.map((w) => (
+                    <div
+                      key={w.id}
+                      style={{
+                        ...baseCard,
+                        padding: "10px 12px",
+                        borderLeft: `3px solid ${w.status === "NOTIFIED" ? "#f59e0b" : "#e2e8f0"}`,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {w.patientName}
+                          </div>
+                          <a href={`tel:${w.patientPhone}`} style={{ fontSize: 12, color: "#0d9488", fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                            <Phone size={11} /> {w.patientPhone}
+                          </a>
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
+                            {w.slotDate.split("-").reverse().join(".")} · {w.slotTime}
+                            {w.status === "NOTIFIED" && (
+                              <span style={{ marginLeft: 6, color: "#f59e0b", fontWeight: 700 }}>Уведомлён</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveWaitlist(w.id)}
+                          disabled={removingWaitlistId === w.id}
+                          title="Убрать из листа"
+                          style={{
+                            flexShrink: 0, padding: 4, borderRadius: 6, border: "none",
+                            background: "transparent", cursor: removingWaitlistId === w.id ? "not-allowed" : "pointer",
+                            color: "#94a3b8", display: "flex", opacity: removingWaitlistId === w.id ? 0.5 : 1,
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* AI leads sidebar */}
+            <div>
             {/* Sidebar header */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8, marginBottom: 14,
@@ -1325,7 +1518,8 @@ export default function ReceptionPage() {
                 ))}
               </div>
             )}
-          </div>
+            </div>{/* /AI leads sidebar inner */}
+          </div>{/* /sidebar flex */}
         </div>
       )}
 
