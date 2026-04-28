@@ -4,7 +4,6 @@ import type { NextConfig } from "next";
 // build: 2026-04-10b
 const nextConfig: NextConfig = {
   output: "standalone",
-  turbopack: {},
   compress: true,
   images: {
     formats: ["image/avif", "image/webp"],
@@ -12,9 +11,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "res.cloudinary.com" },
     ],
   },
-  experimental: {
-    optimizePackageImports: ["framer-motion", "lucide-react"],
-  },
+  experimental: {},
   async headers() {
     return [
       {

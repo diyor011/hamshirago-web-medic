@@ -540,43 +540,48 @@ export default function ReceptionPage() {
       )}
 
       {/* Page header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-extrabold leading-tight text-slate-950">{t("clinic.reception.title")}</h1>
-          <p className="mt-1 text-sm capitalize text-slate-500">{todayLabel}</p>
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-16 top-0 h-48 w-48 rounded-full bg-teal-500/20 blur-3xl" />
+          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-violet-500/10 blur-2xl" />
         </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* View toggle */}
-          <div className="inline-flex gap-0.5 rounded-full border border-slate-200 bg-white p-0.5">
-            {([
-              { k: "list" as const,     labelKey: "clinic.reception.list",     Icon: ListIcon },
-              { k: "calendar" as const, labelKey: "clinic.reception.calendar", Icon: CalendarIcon },
-            ]).map(({ k, labelKey, Icon }) => {
-              const active = viewMode === k;
-              return (
-                <button
-                  key={k}
-                  onClick={() => setViewMode(k)}
-                  className={[
-                    "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition-all duration-150",
-                    active ? "bg-teal-600 text-white" : "text-slate-500 hover:text-slate-700",
-                  ].join(" ")}
-                >
-                  <Icon size={14} /> {t(labelKey)}
-                </button>
-              );
-            })}
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.reception.title")}</h1>
+            <p className="mt-2 text-sm capitalize text-slate-400">{todayLabel}</p>
           </div>
-
-          <button
-            onClick={() => setShowBooking(true)}
-            className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-700"
-          >
-            <Plus size={16} /> {t("clinic.reception.bookPatient")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* View toggle */}
+            <div className="inline-flex gap-0.5 rounded-full border border-white/20 bg-white/10 p-0.5 backdrop-blur">
+              {([
+                { k: "list" as const,     labelKey: "clinic.reception.list",     Icon: ListIcon },
+                { k: "calendar" as const, labelKey: "clinic.reception.calendar", Icon: CalendarIcon },
+              ]).map(({ k, labelKey, Icon }) => {
+                const active = viewMode === k;
+                return (
+                  <button
+                    key={k}
+                    onClick={() => setViewMode(k)}
+                    className={[
+                      "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition-all duration-150",
+                      active ? "bg-teal-500 text-white" : "text-slate-300 hover:text-white",
+                    ].join(" ")}
+                  >
+                    <Icon size={14} /> {t(labelKey)}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowBooking(true)}
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-teal-50"
+            >
+              <Plus size={16} /> {t("clinic.reception.bookPatient")}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Quick stats strip */}
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-3">

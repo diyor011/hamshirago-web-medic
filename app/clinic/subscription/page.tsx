@@ -98,7 +98,7 @@ export default function SubscriptionPage() {
   const isMax = sub.plan === "MAX";
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="space-y-5">
 
       {/* Confirm upgrade modal */}
       {confirmModal && (
@@ -143,13 +143,30 @@ export default function SubscriptionPage() {
       )}
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-extrabold text-slate-900">Тарифный план</h1>
-        <p className="text-sm text-slate-500 mt-1">Управление подпиской и функциями клиники</p>
-      </div>
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-16 top-0 h-48 w-48 rounded-full bg-violet-500/20 blur-3xl" />
+          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
+        </div>
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Тарифный план</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-400">Управление подпиской и функциями клиники</p>
+          </div>
+          {!isMax && (
+            <button
+              onClick={() => setConfirmModal(true)}
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-violet-50"
+            >
+              <Crown size={15} /> Обновить до MAX
+            </button>
+          )}
+        </div>
+      </section>
 
       {/* Current plan card */}
-      <div className={`bg-white rounded-2xl border ${colors.border} p-6 mb-5 shadow-sm`}>
+      <div className={`bg-white rounded-2xl border ${colors.border} p-6 shadow-sm`}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3 mb-3">
@@ -173,16 +190,6 @@ export default function SubscriptionPage() {
             <p className="text-sm text-slate-500 mt-1">Активен с {fmtDate(sub.startedAt)}</p>
           </div>
 
-          {/* Upgrade button — only if not MAX */}
-          {!isMax && (
-            <button
-              onClick={() => setConfirmModal(true)}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold cursor-pointer border-none transition-colors shrink-0"
-            >
-              <Crown size={15} />
-              Обновить до MAX
-            </button>
-          )}
           {isMax && (
             <div className="flex items-center gap-2 text-violet-600 text-sm font-bold">
               <Crown size={16} /> Максимальный план

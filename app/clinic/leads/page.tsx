@@ -140,10 +140,17 @@ export default function LeadsPage() {
     <div className="min-h-full space-y-5">
       <ToastContainer toasts={toasts} onClose={closeToast} />
 
-      <div>
-        <h1 className="text-[22px] font-extrabold text-slate-950">Лиды — Salomat AI</h1>
-        <p className="mt-1 text-sm text-slate-500">Пациенты, обратившиеся через голосового ассистента</p>
-      </div>
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-16 top-0 h-48 w-48 rounded-full bg-teal-500/20 blur-3xl" />
+          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-violet-500/10 blur-2xl" />
+        </div>
+        <div className="relative">
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Лиды — Salomat AI</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Пациенты, обратившиеся через голосового ассистента</p>
+        </div>
+      </section>
 
       {/* KPI */}
       <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>

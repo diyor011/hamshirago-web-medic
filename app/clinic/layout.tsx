@@ -41,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/rooms", labelKey: "clinic.nav.rooms", icon: DoorOpen, roles: ["CEO"] },
   { href: "/clinic/services", labelKey: "clinic.nav.services", icon: Stethoscope, roles: ["CEO"] },
   { href: "/clinic/staff", labelKey: "clinic.nav.staff", icon: UserCog, roles: ["CEO"] },
+  { href: "/clinic/home-orders", labelKey: "clinic.nav.homeOrders", icon: Users, roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/finance", labelKey: "clinic.nav.finance", icon: TrendingUp, roles: ["CEO"] },
   { href: "/clinic/settings", labelKey: "clinic.nav.settings", icon: Settings, roles: ["CEO"] },
   { href: "/clinic/subscription", labelKey: "clinic.nav.subscription", icon: CreditCard, roles: ["CEO"] },
@@ -182,8 +183,11 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const isAuthPage = pathname === "/clinic/auth" || pathname === "/clinic/register";
 
+  const [mounted, setMounted] = useState(false);
   const [role, setRole] = useState<ClinicRole | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (isAuthPage) {
@@ -215,8 +219,15 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       "/clinic/subscription",
     ];
 
+    const doctorBlocked = [...ceoOnly, "/clinic/home-orders"];
+
     if (
-      (nextRole === "RECEPTION" || nextRole === "DOCTOR") &&
+      nextRole === "DOCTOR" &&
+      doctorBlocked.some((path) => pathname.startsWith(path))
+    ) {
+      router.replace("/clinic/reception");
+    } else if (
+      nextRole === "RECEPTION" &&
       ceoOnly.some((path) => pathname.startsWith(path))
     ) {
       router.replace("/clinic/reception");
@@ -231,6 +242,11 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
     clearClinicSession();
     router.replace("/auth");
   }
+
+  // До монтирования на клиенте рендерим ничего — сервер не знает о localStorage/role,
+  // и любое серверное состояние вызовет hydration mismatch (браузерные расширения
+  // вроде Tailwind class sorter переупорядочивают className до React-гидрации).
+  if (!mounted && !isAuthPage) return null;
 
   if (!role && !isAuthPage) {
     return (

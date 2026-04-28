@@ -254,6 +254,9 @@ export interface StatsOverview {
   appointments: number;
   revenue: number;
   cancelRate: number;
+  homeOrdersCommission?: number | null;
+  homeOrdersCount?: number | null;
+  subscriptionStatus?: string | null;
 }
 
 export interface MonthlyStats {
@@ -285,6 +288,39 @@ export interface PatientSearchResult {
   name: string;
   lastVisit: string | null;
   allergies: string | null;
+}
+
+export type HomeOrderStatus =
+  | "CREATED"
+  | "ASSIGNED"
+  | "ACCEPTED"
+  | "ON_THE_WAY"
+  | "ARRIVED"
+  | "SERVICE_STARTED"
+  | "DONE"
+  | "CANCELED";
+
+export interface HomeOrderLocation {
+  id: string;
+  latitude: number;
+  longitude: number;
+  house: string;
+  floor: string | null;
+  apartment: string | null;
+  phone: string;
+}
+
+export interface HomeOrder {
+  id: string;
+  clientId: string;
+  medicId: string | null;
+  serviceId: string;
+  serviceTitle: string;
+  status: HomeOrderStatus;
+  price: number;
+  finalPrice?: number | null;
+  created_at: string;
+  location: HomeOrderLocation;
 }
 
 export type ClinicPlan = "PRO" | "MAX" | "CUSTOM";
@@ -411,6 +447,9 @@ function normalizeOverview(raw: {
   revenue?: number;
   period: string;
   startDate: string;
+  homeOrdersCommission?: number | null;
+  homeOrdersCount?: number | null;
+  subscriptionStatus?: string | null;
 }): StatsOverview {
   const appointmentsByStatus = (raw.appointmentsByStatus ?? []).map((s) => ({
     status: s.status,
@@ -434,6 +473,9 @@ function normalizeOverview(raw: {
     appointments,
     revenue: Number(raw.revenue ?? raw.commission) || 0,
     cancelRate: appointments > 0 ? Math.round((canceled / appointments) * 100) : 0,
+    homeOrdersCommission: raw.homeOrdersCommission != null ? Number(raw.homeOrdersCommission) : null,
+    homeOrdersCount: raw.homeOrdersCount != null ? Number(raw.homeOrdersCount) : null,
+    subscriptionStatus: raw.subscriptionStatus ?? null,
   };
 }
 
@@ -703,6 +745,18 @@ export const clinicApi = {
       request<{ status: "unpaid" | "paid" | "refunded"; paymentUrl?: string }>(
         `/payments/clinic-appointment/${appointmentId}/status`,
       ),
+  },
+
+  homeOrders: {
+    list: () =>
+      request<{ data: HomeOrder[]; total: number; page: number; limit: number } | HomeOrder[]>(
+        "/clinic/home-orders",
+      ).then((res) => (Array.isArray(res) ? res : res.data)),
+    assign: (orderId: string, staffId: string) =>
+      request<HomeOrder>(`/orders/${orderId}/assign-clinic-medic`, {
+        method: "POST",
+        body: JSON.stringify({ staffId }),
+      }),
   },
 
   subscription: {
