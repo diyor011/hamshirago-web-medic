@@ -9,24 +9,9 @@ import { clinicApi, ClinicCompany, ClinicService } from "@/lib/clinicApi";
 import { useClinic } from "@/context/ClinicContext";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface DaySchedule {
-  open: boolean;
-  from: string;
-  to: string;
-}
-
-interface WorkingHours {
-  [day: number]: DaySchedule;
-}
-
-interface ClinicFeatures {
-  onlineConsultation: boolean;
-  houseCall: boolean;
-  onlinePayment: boolean;
-  slotDuration: number;
-}
+interface DaySchedule { open: boolean; from: string; to: string; }
+interface WorkingHours { [day: number]: DaySchedule; }
+interface ClinicFeatures { onlineConsultation: boolean; houseCall: boolean; onlinePayment: boolean; slotDuration: number; }
 
 const DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const DAY_FULL  = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
@@ -43,83 +28,42 @@ const DEFAULT_HOURS: WorkingHours = {
 };
 
 const DEFAULT_FEATURES: ClinicFeatures = {
-  onlineConsultation: false,
-  houseCall: false,
-  onlinePayment: false,
-  slotDuration: 30,
+  onlineConsultation: false, houseCall: false, onlinePayment: false, slotDuration: 30,
 };
 
 const LS_HOURS_KEY    = "clinic_working_hours";
 const LS_FEATURES_KEY = "clinic_features";
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function Skeleton({ height = 40, radius = 10 }: { height?: number; radius?: number }) {
-  return (
-    <div style={{ height, borderRadius: radius, background: "#f1f5f9", animation: "pulse 1.5s ease-in-out infinite" }} />
-  );
+function Skeleton() {
+  return <div className="h-10 animate-pulse rounded-xl bg-slate-100" />;
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div style={{
-      background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
-      padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-    }}>
-      <span style={{ fontSize: 13, color: "#ef4444" }}>{message}</span>
-      <button onClick={onRetry} style={{
-        display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-        color: "#ef4444", background: "none", border: "none", cursor: "pointer",
-      }}>
+    <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <span className="text-sm text-red-500">{message}</span>
+      <button onClick={onRetry} className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
         <RefreshCw size={13} /> Повторить
       </button>
     </div>
   );
 }
 
-interface ToggleSwitchProps {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  id: string;
-}
-function ToggleSwitch({ checked, onChange, id }: ToggleSwitchProps) {
+function ToggleSwitch({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) {
   return (
     <button
       id={id}
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      style={{
-        width: 44, height: 24, borderRadius: 12, border: "none",
-        background: checked ? "#0d9488" : "#e2e8f0",
-        position: "relative", cursor: "pointer",
-        transition: "background 0.2s ease",
-        flexShrink: 0,
-        padding: 0,
-      }}
+      className={`relative h-6 w-11 shrink-0 rounded-full border-none p-0 transition-colors duration-200 ${checked ? "bg-teal-500" : "bg-slate-200"}`}
     >
-      <span style={{
-        position: "absolute", top: 3, left: checked ? 23 : 3,
-        width: 18, height: 18, borderRadius: "50%", background: "#fff",
-        transition: "left 0.2s ease",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-      }} />
+      <span
+        className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-all duration-200 ${checked ? "translate-x-[23px]" : "translate-x-[3px]"}`}
+      />
     </button>
   );
 }
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "10px 12px", borderRadius: 10,
-  border: "1.5px solid #e2e8f0", fontSize: 14, color: "#0f172a",
-  outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-};
-
-const card: React.CSSProperties = {
-  background: "#fff", borderRadius: 16, border: "1px solid #f1f5f9",
-  boxShadow: "0 1px 4px rgba(15,23,42,0.04)", padding: "24px",
-};
 
 type ServiceCategory = "CONSULTATION" | "LAB" | "DIAGNOSTIC" | "PROCEDURE";
 const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
@@ -128,58 +72,42 @@ const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
   { value: "DIAGNOSTIC",   label: "Диагностика" },
   { value: "PROCEDURE",    label: "Процедура" },
 ];
+
 interface ServiceForm { name: string; price: string; durationMinutes: string; category: ServiceCategory; isRangePrice: boolean; priceMin: string; priceMax: string; }
 const EMPTY_SVC: ServiceForm = { name: "", price: "", durationMinutes: "", category: "CONSULTATION", isRangePrice: false, priceMin: "", priceMax: "" };
+
+const inputCls = "w-full rounded-xl border-[1.5px] border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-teal-500";
+const cardCls  = "rounded-2xl border border-slate-100 bg-white p-6 shadow-sm";
 
 export default function SettingsPage() {
   const { setClinic } = useClinic();
 
-  // ── Company ──
-  const [company, setCompany] = useState<ClinicCompany | null>(null);
+  const [company, setCompany]             = useState<ClinicCompany | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
-  const [errCompany, setErrCompany] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [errCompany, setErrCompany]         = useState<string | null>(null);
+  const [saving, setSaving]                 = useState(false);
+  const [saveSuccess, setSaveSuccess]       = useState(false);
+  const [companyForm, setCompanyForm]       = useState({ name: "", address: "", logoUrl: "" });
 
-  const [companyForm, setCompanyForm] = useState({
-    name: "", address: "", logoUrl: "",
-  });
-
-  // ── Telegram ──
   const [tgChatId, setTgChatId] = useState("");
   const [savingTg, setSavingTg] = useState(false);
-  const [tgSaved, setTgSaved] = useState(false);
-  const [tgError, setTgError] = useState<string | null>(null);
+  const [tgSaved, setTgSaved]   = useState(false);
+  const [tgError, setTgError]   = useState<string | null>(null);
 
-  async function handleSaveTelegram() {
-    if (!tgChatId.trim()) return;
-    setSavingTg(true); setTgError(null); setTgSaved(false);
-    try {
-      await clinicApi.me.saveTelegramChatId(tgChatId.trim());
-      setTgSaved(true);
-      setTimeout(() => setTgSaved(false), 3000);
-    } catch (e) {
-      setTgError(e instanceof Error ? e.message : "Ошибка");
-    }
-    setSavingTg(false);
-  }
-
-  // ── Services ──
-  const [services, setServices] = useState<ClinicService[]>([]);
-  const [loadingSvc, setLoadingSvc] = useState(true);
-  const [errSvc, setErrSvc] = useState<string | null>(null);
-  const [showCreateSvc, setShowCreateSvc] = useState(false);
-  const [svcForm, setSvcForm] = useState<ServiceForm>(EMPTY_SVC);
-  const [creatingSvc, setCreatingSvc] = useState(false);
+  const [services, setServices]             = useState<ClinicService[]>([]);
+  const [loadingSvc, setLoadingSvc]         = useState(true);
+  const [errSvc, setErrSvc]                 = useState<string | null>(null);
+  const [showCreateSvc, setShowCreateSvc]   = useState(false);
+  const [svcForm, setSvcForm]               = useState<ServiceForm>(EMPTY_SVC);
+  const [creatingSvc, setCreatingSvc]       = useState(false);
   const [createSvcError, setCreateSvcError] = useState("");
-  const [editingSvc, setEditingSvc] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<ServiceForm>(EMPTY_SVC);
-  const [updatingSvc, setUpdatingSvc] = useState(false);
+  const [editingSvc, setEditingSvc]         = useState<string | null>(null);
+  const [editForm, setEditForm]             = useState<ServiceForm>(EMPTY_SVC);
+  const [updatingSvc, setUpdatingSvc]       = useState(false);
   const [deactivatingSvc, setDeactivatingSvc] = useState<string | null>(null);
-  const [confirmSvcId, setConfirmSvcId] = useState<string | null>(null);
-  const { toasts, toast, closeToast } = useToast();
+  const [confirmSvcId, setConfirmSvcId]     = useState<string | null>(null);
+  const { toasts, toast, closeToast }       = useToast();
 
-  // ── Working Hours (localStorage) ──
   const [hours, setHours] = useState<WorkingHours>(() => {
     if (typeof window === "undefined") return DEFAULT_HOURS;
     try {
@@ -189,7 +117,6 @@ export default function SettingsPage() {
   });
   const [hoursSaved, setHoursSaved] = useState(false);
 
-  // ── Features (localStorage) ──
   const [features, setFeatures] = useState<ClinicFeatures>(() => {
     if (typeof window === "undefined") return DEFAULT_FEATURES;
     try {
@@ -199,15 +126,12 @@ export default function SettingsPage() {
   });
   const [featuresSaved, setFeaturesSaved] = useState(false);
 
-  // ── Loaders ──
   const loadCompany = useCallback(async () => {
     setLoadingCompany(true); setErrCompany(null);
     try {
       const c = await clinicApi.company.get();
       setCompany(c);
-      setCompanyForm({
-        name: c.name ?? "", address: c.address ?? "", logoUrl: c.logoUrl ?? "",
-      });
+      setCompanyForm({ name: c.name ?? "", address: c.address ?? "", logoUrl: c.logoUrl ?? "" });
     } catch (e) {
       setErrCompany(e instanceof Error ? e.message : "Ошибка загрузки");
     } finally { setLoadingCompany(false); }
@@ -222,7 +146,6 @@ export default function SettingsPage() {
 
   useEffect(() => { loadCompany(); loadServices(); }, [loadCompany, loadServices]);
 
-  // ── Company save ──
   async function handleSaveCompany() {
     setSaving(true); setSaveSuccess(false);
     try {
@@ -231,13 +154,7 @@ export default function SettingsPage() {
         address: companyForm.address || undefined,
         logoUrl: companyForm.logoUrl || undefined,
       });
-      // Push updated data into ClinicContext so sidebar reflects changes instantly
-      setClinic({
-        id: updated.id,
-        name: updated.name,
-        logoUrl: updated.logoUrl ?? null,
-        address: updated.address ?? null,
-      });
+      setClinic({ id: updated.id, name: updated.name, logoUrl: updated.logoUrl ?? null, address: updated.address ?? null });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       await loadCompany();
@@ -246,7 +163,19 @@ export default function SettingsPage() {
     } finally { setSaving(false); }
   }
 
-  // ── Working hours helpers ──
+  async function handleSaveTelegram() {
+    if (!tgChatId.trim()) return;
+    setSavingTg(true); setTgError(null); setTgSaved(false);
+    try {
+      await clinicApi.me.saveTelegramChatId(tgChatId.trim());
+      setTgSaved(true);
+      setTimeout(() => setTgSaved(false), 3000);
+    } catch (e) {
+      setTgError(e instanceof Error ? e.message : "Ошибка");
+    }
+    setSavingTg(false);
+  }
+
   function updateDay(dayIdx: number, patch: Partial<DaySchedule>) {
     setHours((prev) => ({ ...prev, [dayIdx]: { ...prev[dayIdx], ...patch } }));
   }
@@ -257,7 +186,6 @@ export default function SettingsPage() {
     setTimeout(() => setHoursSaved(false), 2500);
   }
 
-  // ── Features helpers ──
   function updateFeature<K extends keyof ClinicFeatures>(key: K, value: ClinicFeatures[K]) {
     setFeatures((prev) => {
       const next = { ...prev, [key]: value };
@@ -268,7 +196,6 @@ export default function SettingsPage() {
     setTimeout(() => setFeaturesSaved(false), 2000);
   }
 
-  // ── Service actions ──
   async function handleCreateService() {
     if (!svcForm.name.trim()) { setCreateSvcError("Введите название"); return; }
     if (!svcForm.durationMinutes || isNaN(Number(svcForm.durationMinutes))) { setCreateSvcError("Введите длительность"); return; }
@@ -285,10 +212,7 @@ export default function SettingsPage() {
         price: svcForm.isRangePrice ? parseInt(svcForm.priceMin, 10) : parseInt(svcForm.price, 10),
         durationMinutes: parseInt(svcForm.durationMinutes, 10),
         category: svcForm.category,
-        ...(svcForm.isRangePrice ? {
-          priceMin: parseInt(svcForm.priceMin, 10),
-          priceMax: parseInt(svcForm.priceMax, 10),
-        } : {}),
+        ...(svcForm.isRangePrice ? { priceMin: parseInt(svcForm.priceMin, 10), priceMax: parseInt(svcForm.priceMax, 10) } : {}),
       });
       setSvcForm(EMPTY_SVC); setShowCreateSvc(false);
       await loadServices();
@@ -315,10 +239,6 @@ export default function SettingsPage() {
     } finally { setUpdatingSvc(false); }
   }
 
-  async function handleDeactivateService(id: string) {
-    setConfirmSvcId(id);
-  }
-
   async function doDeactivateService(id: string) {
     setConfirmSvcId(null);
     setDeactivatingSvc(id);
@@ -328,31 +248,13 @@ export default function SettingsPage() {
   }
 
   const FEATURE_ITEMS = [
-    {
-      key: "onlineConsultation" as const,
-      icon: <Video size={20} color="#6366f1" />,
-      iconBg: "#eef2ff",
-      label: "Онлайн-консультация",
-      desc: "Видеозвонки через платформу HamshiraGo",
-    },
-    {
-      key: "houseCall" as const,
-      icon: <Home size={20} color="#ea580c" />,
-      iconBg: "#fff7ed",
-      label: "Выезд на дом",
-      desc: "Врачи принимают пациентов на дому",
-    },
-    {
-      key: "onlinePayment" as const,
-      icon: <CreditCard size={20} color="#0d9488" />,
-      iconBg: "#f0fdfa",
-      label: "Онлайн-оплата",
-      desc: "Принимать оплату через приложение",
-    },
+    { key: "onlineConsultation" as const, icon: <Video size={20} className="text-indigo-500" />, iconBg: "bg-indigo-50", label: "Онлайн-консультация", desc: "Видеозвонки через платформу HamshiraGo" },
+    { key: "houseCall" as const,          icon: <Home size={20} className="text-orange-500" />,  iconBg: "bg-orange-50",  label: "Выезд на дом",         desc: "Врачи принимают пациентов на дому" },
+    { key: "onlinePayment" as const,      icon: <CreditCard size={20} className="text-teal-600" />, iconBg: "bg-teal-50",  label: "Онлайн-оплата",       desc: "Принимать оплату через приложение" },
   ];
 
   return (
-    <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+    <div className="min-h-full space-y-5">
       <ToastContainer toasts={toasts} onClose={closeToast} />
       {confirmSvcId && (
         <ConfirmDialog
@@ -362,175 +264,150 @@ export default function SettingsPage() {
           onCancel={() => setConfirmSvcId(null)}
         />
       )}
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-        .day-row:hover { background: #f8fafc !important; }
-        .time-input { padding: 7px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 13px; color: #0f172a; outline: none; font-family: inherit; transition: border-color 0.15s; }
-        .time-input:focus { border-color: #0d9488; }
-        .time-input:disabled { opacity: 0.4; cursor: not-allowed; background: #f8fafc; }
-      `}</style>
 
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Настройки клиники</h1>
-        <p style={{ fontSize: 13, color: "#64748b" }}>Основные данные, расписание и список услуг</p>
+      <div>
+        <h1 className="text-[22px] font-extrabold text-slate-950">Настройки клиники</h1>
+        <p className="mt-1 text-sm text-slate-500">Основные данные, расписание и список услуг</p>
       </div>
 
-      {errCompany && <div style={{ marginBottom: 20 }}><ErrorBanner message={errCompany} onRetry={loadCompany} /></div>}
+      {errCompany && <ErrorBanner message={errCompany} onRetry={loadCompany} />}
 
-      {/* ── 1. Company info ──────────────────────────────────────────────────── */}
-      <div style={{ ...card, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-          <Settings size={15} color="#0d9488" /> Данные клиники
+      {/* 1. Company info */}
+      <div className={cardCls}>
+        <h2 className="mb-5 flex items-center gap-2 text-[15px] font-bold text-slate-950">
+          <Settings size={15} className="text-teal-600" /> Данные клиники
         </h2>
 
         {loadingCompany ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => <Skeleton key={i} />)}
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+            <div className="mb-5">
+              <div className="mb-3 flex items-center gap-4">
                 {companyForm.logoUrl ? (
-                  <img src={companyForm.logoUrl} alt="Logo" style={{ width: 72, height: 72, borderRadius: 14, objectFit: "cover", border: "2px solid #e2e8f0" }} />
+                  <img src={companyForm.logoUrl} alt="Logo" className="h-18 w-18 rounded-2xl border-2 border-slate-200 object-cover" />
                 ) : (
-                  <div style={{ width: 72, height: 72, borderRadius: 14, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "#94a3b8" }}>
+                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-slate-100 text-3xl font-extrabold text-slate-400">
                     {companyForm.name.charAt(0).toUpperCase() || "?"}
                   </div>
                 )}
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>URL логотипа (Cloudinary)</label>
-                  <input style={inputStyle} value={companyForm.logoUrl} onChange={(e) => setCompanyForm((f) => ({ ...f, logoUrl: e.target.value }))} placeholder="https://res.cloudinary.com/..." />
+                <div className="flex-1">
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-500">URL логотипа (Cloudinary)</label>
+                  <input className={inputCls} value={companyForm.logoUrl} onChange={(e) => setCompanyForm((f) => ({ ...f, logoUrl: e.target.value }))} placeholder="https://res.cloudinary.com/..." />
                 </div>
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+            <div className="mb-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               {[
                 { key: "name" as const,    label: "Название клиники *", placeholder: "Медцентр «Здоровье»" },
                 { key: "address" as const, label: "Адрес",              placeholder: "ул. Амира Темура 10, Ташкент" },
               ].map(({ key, label, placeholder }) => (
                 <div key={key}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{label}</label>
-                  <input style={inputStyle} value={companyForm[key]} onChange={(e) => setCompanyForm((f) => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} />
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-500">{label}</label>
+                  <input className={inputCls} value={companyForm[key]} onChange={(e) => setCompanyForm((f) => ({ ...f, [key]: e.target.value }))} placeholder={placeholder} />
                 </div>
               ))}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <button onClick={handleSaveCompany} disabled={saving} style={{ background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff", border: "none", borderRadius: 10, padding: "11px 24px", fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
+            <div className="flex items-center gap-3">
+              <button onClick={handleSaveCompany} disabled={saving} className="rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-6 py-2.5 text-sm font-bold text-white disabled:opacity-70">
                 {saving ? "Сохранение..." : "Сохранить"}
               </button>
-              {saveSuccess && <span style={{ fontSize: 13, color: "#16a34a", display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}><Check size={14} /> Сохранено</span>}
+              {saveSuccess && <span className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600"><Check size={14} /> Сохранено</span>}
             </div>
           </>
         )}
       </div>
 
-      {/* ── 2. Working hours ─────────────────────────────────────────────────── */}
-      <div style={{ ...card, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
-            <Clock size={15} color="#0d9488" /> Рабочие часы
+      {/* 2. Working hours */}
+      <div className={cardCls}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-[15px] font-bold text-slate-950">
+            <Clock size={15} className="text-teal-600" /> Рабочие часы
           </h2>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {hoursSaved && <span style={{ fontSize: 12, color: "#16a34a", display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}><Check size={13} /> Сохранено</span>}
-            <button onClick={saveHours} style={{ background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          <div className="flex items-center gap-2.5">
+            {hoursSaved && <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><Check size={13} /> Сохранено</span>}
+            <button onClick={saveHours} className="rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-4 py-2 text-sm font-bold text-white">
               Сохранить
             </button>
           </div>
         </div>
 
-        <div style={{ border: "1px solid #f1f5f9", borderRadius: 12, overflow: "hidden" }}>
-          {/* Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "140px 56px 1fr 1fr", gap: 0, background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "10px 16px" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5 }}>День</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5 }}>Откр.</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5 }}>Начало</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5 }}>Конец</span>
+        <div className="overflow-hidden rounded-xl border border-slate-100">
+          <div className="grid border-b border-slate-200 bg-slate-50 px-4 py-2.5" style={{ gridTemplateColumns: "140px 56px 1fr 1fr" }}>
+            {["День", "Откр.", "Начало", "Конец"].map((h) => (
+              <span key={h} className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{h}</span>
+            ))}
           </div>
 
-          {DAY_NAMES.map((name, idx) => {
+          {DAY_NAMES.map((_, idx) => {
             const day = hours[idx];
             return (
               <div
                 key={idx}
-                className="day-row"
-                style={{
-                  display: "grid", gridTemplateColumns: "140px 56px 1fr 1fr",
-                  gap: 0, padding: "12px 16px", alignItems: "center",
-                  borderBottom: idx < 6 ? "1px solid #f8fafc" : "none",
-                  background: "#fff", transition: "background 0.15s",
-                }}
+                className="grid items-center border-b border-slate-50 px-4 py-3 last:border-0 hover:bg-slate-50/60"
+                style={{ gridTemplateColumns: "140px 56px 1fr 1fr" }}
               >
                 <div>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: day.open ? "#0f172a" : "#94a3b8" }}>{DAY_FULL[idx]}</span>
-                  {!day.open && <span style={{ fontSize: 11, color: "#ef4444", marginLeft: 6, fontWeight: 600 }}>Закрыто</span>}
+                  <span className={`text-sm font-semibold ${day.open ? "text-slate-950" : "text-slate-400"}`}>{DAY_FULL[idx]}</span>
+                  {!day.open && <span className="ml-1.5 text-[11px] font-bold text-red-500">Закрыто</span>}
                 </div>
-                <div>
-                  <ToggleSwitch checked={day.open} onChange={(v) => updateDay(idx, { open: v })} id={`day-${idx}`} />
-                </div>
-                <div>
-                  <input
-                    type="time"
-                    className="time-input"
-                    value={day.from}
-                    disabled={!day.open}
-                    onChange={(e) => updateDay(idx, { from: e.target.value })}
-                    aria-label={`${DAY_FULL[idx]} начало`}
-                  />
-                </div>
-                <div>
-                  <input
-                    type="time"
-                    className="time-input"
-                    value={day.to}
-                    disabled={!day.open}
-                    onChange={(e) => updateDay(idx, { to: e.target.value })}
-                    aria-label={`${DAY_FULL[idx]} конец`}
-                  />
-                </div>
+                <ToggleSwitch checked={day.open} onChange={(v) => updateDay(idx, { open: v })} id={`day-${idx}`} />
+                <input
+                  type="time"
+                  value={day.from}
+                  disabled={!day.open}
+                  onChange={(e) => updateDay(idx, { from: e.target.value })}
+                  className="rounded-lg border-[1.5px] border-slate-200 px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                />
+                <input
+                  type="time"
+                  value={day.to}
+                  disabled={!day.open}
+                  onChange={(e) => updateDay(idx, { to: e.target.value })}
+                  className="rounded-lg border-[1.5px] border-slate-200 px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                />
               </div>
             );
           })}
         </div>
 
-        <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 10, marginBottom: 0 }}>
+        <p className="mt-2.5 text-[11px] text-slate-400">
           Расписание сохраняется локально и будет синхронизировано с сервером в следующем обновлении.
         </p>
       </div>
 
-      {/* ── 3. Feature toggles ───────────────────────────────────────────────── */}
-      <div style={{ ...card, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>Возможности клиники</h2>
-          {featuresSaved && <span style={{ fontSize: 12, color: "#16a34a", display: "flex", alignItems: "center", gap: 5, fontWeight: 600 }}><Check size={13} /> Автосохранено</span>}
+      {/* 3. Feature toggles */}
+      <div className={cardCls}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-[15px] font-bold text-slate-950">Возможности клиники</h2>
+          {featuresSaved && <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><Check size={13} /> Автосохранено</span>}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
           {FEATURE_ITEMS.map(({ key, icon, iconBg, label, desc }) => {
             const active = features[key];
             return (
               <div
                 key={key}
                 onClick={() => updateFeature(key, !active)}
-                style={{
-                  border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
-                  borderRadius: 14, padding: "16px 18px",
-                  background: active ? "#f0fdfa" : "#fff",
-                  cursor: "pointer", transition: "all 0.2s ease",
-                  display: "flex", alignItems: "flex-start", gap: 14,
-                }}
+                className={[
+                  "flex cursor-pointer items-start gap-3.5 rounded-2xl border-[1.5px] p-4 transition-all duration-200",
+                  active ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-white hover:border-slate-300",
+                ].join(" ")}
               >
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
                   {icon}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{label}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-950">{label}</span>
                     <ToggleSwitch checked={active} onChange={(v) => updateFeature(key, v)} id={`feature-${key}`} />
                   </div>
-                  <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.4 }}>{desc}</p>
+                  <p className="text-xs leading-relaxed text-slate-500">{desc}</p>
                 </div>
               </div>
             );
@@ -538,12 +415,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ── 4. Slot duration ─────────────────────────────────────────────────── */}
-      <div style={{ ...card, marginBottom: 20 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>Длительность слота</h2>
-        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 18 }}>Стандартная продолжительность одного приёма при онлайн-записи</p>
+      {/* 4. Slot duration */}
+      <div className={cardCls}>
+        <h2 className="mb-1.5 text-[15px] font-bold text-slate-950">Длительность слота</h2>
+        <p className="mb-4 text-sm text-slate-500">Стандартная продолжительность одного приёма при онлайн-записи</p>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="flex flex-wrap gap-2">
           {SLOT_DURATIONS.map((min) => {
             const active = features.slotDuration === min;
             return (
@@ -551,15 +428,12 @@ export default function SettingsPage() {
                 key={min}
                 onClick={() => updateFeature("slotDuration", min)}
                 aria-pressed={active}
-                style={{
-                  minWidth: 60, padding: "9px 18px", borderRadius: 99,
-                  border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
-                  background: active ? "#0d9488" : "#fff",
-                  color: active ? "#fff" : "#475569",
-                  fontSize: 14, fontWeight: 700, cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  boxShadow: active ? "0 2px 8px rgba(13,148,136,0.25)" : "none",
-                }}
+                className={[
+                  "min-w-[60px] rounded-full border-[1.5px] px-5 py-2 text-sm font-bold transition-all duration-150",
+                  active
+                    ? "border-teal-500 bg-teal-500 text-white shadow-md shadow-teal-200"
+                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+                ].join(" ")}
               >
                 {min} мин
               </button>
@@ -568,140 +442,146 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ── 5. Services ──────────────────────────────────────────────────────── */}
-      <div style={card}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>Услуги</h2>
-          <button onClick={() => setShowCreateSvc(true)} style={{ display: "flex", alignItems: "center", gap: 6, background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+      {/* 5. Services */}
+      <div className={cardCls}>
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-[15px] font-bold text-slate-950">Услуги</h2>
+          <button onClick={() => setShowCreateSvc(true)} className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-4 py-2 text-sm font-bold text-white">
             <Plus size={14} /> Добавить услугу
           </button>
         </div>
 
         {showCreateSvc && (
-          <div style={{ background: "#f8fafc", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+          <div className="mb-4 rounded-xl bg-slate-50 p-4">
+            <div className="mb-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Название *</label>
-                <input style={inputStyle} value={svcForm.name} onChange={(e) => setSvcForm((f) => ({ ...f, name: e.target.value }))} placeholder="Консультация терапевта" />
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">Название *</label>
+                <input className={inputCls} value={svcForm.name} onChange={(e) => setSvcForm((f) => ({ ...f, name: e.target.value }))} placeholder="Консультация терапевта" />
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Категория *</label>
-                <select style={inputStyle} value={svcForm.category} onChange={(e) => setSvcForm((f) => ({ ...f, category: e.target.value as ServiceCategory }))}>
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">Категория *</label>
+                <select className={`${inputCls} bg-white`} value={svcForm.category} onChange={(e) => setSvcForm((f) => ({ ...f, category: e.target.value as ServiceCategory }))}>
                   {SERVICE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Длит. (мин) *</label>
-                <input type="number" min={1} style={inputStyle} value={svcForm.durationMinutes} onChange={(e) => setSvcForm((f) => ({ ...f, durationMinutes: e.target.value }))} placeholder="30" />
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">Длит. (мин) *</label>
+                <input type="number" min={1} className={inputCls} value={svcForm.durationMinutes} onChange={(e) => setSvcForm((f) => ({ ...f, durationMinutes: e.target.value }))} placeholder="30" />
               </div>
             </div>
 
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>Цена (UZS) *</label>
-                <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#64748b", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={svcForm.isRangePrice}
-                    onChange={(e) => setSvcForm((f) => ({ ...f, isRangePrice: e.target.checked }))}
-                    style={{ cursor: "pointer" }}
-                  />
+            <div className="mb-2.5">
+              <div className="mb-1.5 flex items-center gap-2.5">
+                <label className="text-[11px] font-semibold text-slate-500">Цена (UZS) *</label>
+                <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-500">
+                  <input type="checkbox" checked={svcForm.isRangePrice} onChange={(e) => setSvcForm((f) => ({ ...f, isRangePrice: e.target.checked }))} className="cursor-pointer" />
                   Диапазон цен
                 </label>
               </div>
               {svcForm.isRangePrice ? (
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="number" min={0} style={{ ...inputStyle, maxWidth: 160 }} value={svcForm.priceMin} onChange={(e) => setSvcForm((f) => ({ ...f, priceMin: e.target.value }))} placeholder="от 100000" />
-                  <span style={{ fontSize: 13, color: "#64748b" }}>—</span>
-                  <input type="number" min={0} style={{ ...inputStyle, maxWidth: 160 }} value={svcForm.priceMax} onChange={(e) => setSvcForm((f) => ({ ...f, priceMax: e.target.value }))} placeholder="до 300000" />
+                <div className="flex items-center gap-2">
+                  <input type="number" min={0} className={`${inputCls} max-w-[160px]`} value={svcForm.priceMin} onChange={(e) => setSvcForm((f) => ({ ...f, priceMin: e.target.value }))} placeholder="от 100000" />
+                  <span className="text-sm text-slate-500">—</span>
+                  <input type="number" min={0} className={`${inputCls} max-w-[160px]`} value={svcForm.priceMax} onChange={(e) => setSvcForm((f) => ({ ...f, priceMax: e.target.value }))} placeholder="до 300000" />
                 </div>
               ) : (
-                <input type="number" min={0} style={{ ...inputStyle, maxWidth: 200 }} value={svcForm.price} onChange={(e) => setSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="150000" />
+                <input type="number" min={0} className={`${inputCls} max-w-[200px]`} value={svcForm.price} onChange={(e) => setSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="150000" />
               )}
             </div>
-            {createSvcError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 8 }}>{createSvcError}</p>}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleCreateService} disabled={creatingSvc} style={{ background: "#0d9488", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, fontWeight: 700, cursor: creatingSvc ? "not-allowed" : "pointer" }}>
+            {createSvcError && <p className="mb-2 text-sm text-red-500">{createSvcError}</p>}
+            <div className="flex gap-2">
+              <button onClick={handleCreateService} disabled={creatingSvc} className="rounded-xl bg-teal-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-70">
                 {creatingSvc ? "..." : "Создать"}
               </button>
-              <button onClick={() => { setShowCreateSvc(false); setSvcForm(EMPTY_SVC); setCreateSvcError(""); }} style={{ background: "#e2e8f0", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, cursor: "pointer", color: "#64748b" }}>
+              <button onClick={() => { setShowCreateSvc(false); setSvcForm(EMPTY_SVC); setCreateSvcError(""); }} className="rounded-xl bg-slate-200 px-5 py-2 text-sm text-slate-500 transition hover:bg-slate-300">
                 Отмена
               </button>
             </div>
           </div>
         )}
 
-        {errSvc && <div style={{ marginBottom: 16 }}><ErrorBanner message={errSvc} onRetry={loadServices} /></div>}
+        {errSvc && <div className="mb-4"><ErrorBanner message={errSvc} onRetry={loadServices} /></div>}
 
         {loadingSvc ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="space-y-2.5">
             {[1, 2, 3].map((i) => <Skeleton key={i} />)}
           </div>
         ) : services.length === 0 ? (
-          <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>Нет услуг. Добавьте первую.</div>
+          <p className="py-8 text-center text-sm text-slate-400">Нет услуг. Добавьте первую.</p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className="w-full border-collapse text-sm">
             <thead>
-              <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <th style={{ textAlign: "left", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>Название</th>
-                <th style={{ textAlign: "right", padding: "0 8px 10px", color: "#64748b", fontWeight: 600 }}>Цена</th>
-                <th style={{ textAlign: "right", padding: "0 8px 10px", color: "#64748b", fontWeight: 600 }}>Длит.</th>
-                <th style={{ textAlign: "center", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>Статус</th>
-                <th style={{ width: 100 }} />
+              <tr className="border-b border-slate-100">
+                <th className="pb-2.5 text-left font-semibold text-slate-500">Название</th>
+                <th className="px-2 pb-2.5 text-right font-semibold text-slate-500">Цена</th>
+                <th className="px-2 pb-2.5 text-right font-semibold text-slate-500">Длит.</th>
+                <th className="px-2 pb-2.5 text-center font-semibold text-slate-500">Статус</th>
+                <th className="w-24" />
               </tr>
             </thead>
             <tbody>
               {services.map((svc) => (
-                <tr key={svc.id} style={{ borderBottom: "1px solid #f8fafc", opacity: svc.isActive ? 1 : 0.5 }}>
-                  <td style={{ padding: "10px 0" }}>
+                <tr key={svc.id} className={`border-b border-slate-50 last:border-0 ${!svc.isActive ? "opacity-50" : ""}`}>
+                  <td className="py-2.5">
                     {editingSvc === svc.id ? (
-                      <input style={{ ...inputStyle, padding: "6px 10px" }} value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+                      <input className={`${inputCls} py-1.5`} value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
                     ) : (
-                      <span style={{ fontWeight: 600, color: "#0f172a" }}>{svc.name}</span>
+                      <span className="font-semibold text-slate-950">{svc.name}</span>
                     )}
                   </td>
-                  <td style={{ padding: "10px 8px", textAlign: "right" }}>
+                  <td className="px-2 py-2.5 text-right">
                     {editingSvc === svc.id ? (
                       editForm.isRangePrice ? (
-                        <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                          <input type="number" min={0} placeholder="от" style={{ ...inputStyle, padding: "6px 8px", textAlign: "right", width: 72 }} value={editForm.priceMin} onChange={(e) => setEditForm((f) => ({ ...f, priceMin: e.target.value }))} />
-                          <input type="number" min={0} placeholder="до" style={{ ...inputStyle, padding: "6px 8px", textAlign: "right", width: 72 }} value={editForm.priceMax} onChange={(e) => setEditForm((f) => ({ ...f, priceMax: e.target.value }))} />
+                        <div className="flex justify-end gap-1">
+                          <input type="number" min={0} placeholder="от" className={`${inputCls} w-18 py-1.5 text-right`} value={editForm.priceMin} onChange={(e) => setEditForm((f) => ({ ...f, priceMin: e.target.value }))} />
+                          <input type="number" min={0} placeholder="до" className={`${inputCls} w-18 py-1.5 text-right`} value={editForm.priceMax} onChange={(e) => setEditForm((f) => ({ ...f, priceMax: e.target.value }))} />
                         </div>
                       ) : (
-                        <input type="number" min={0} style={{ ...inputStyle, padding: "6px 10px", textAlign: "right" }} value={editForm.price} onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))} />
+                        <input type="number" min={0} className={`${inputCls} py-1.5 text-right`} value={editForm.price} onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))} />
                       )
                     ) : (
-                      <span style={{ color: "#374151" }}>
+                      <span className="text-slate-700">
                         {svc.priceMin != null && svc.priceMax != null
                           ? `${svc.priceMin.toLocaleString("ru-RU")}–${svc.priceMax.toLocaleString("ru-RU")} сум`
                           : `${svc.price.toLocaleString("ru-RU")} сум`}
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: "10px 8px", textAlign: "right" }}>
+                  <td className="px-2 py-2.5 text-right">
                     {editingSvc === svc.id ? (
-                      <input type="number" min={1} style={{ ...inputStyle, padding: "6px 10px", textAlign: "right" }} value={editForm.durationMinutes} onChange={(e) => setEditForm((f) => ({ ...f, durationMinutes: e.target.value }))} />
+                      <input type="number" min={1} className={`${inputCls} py-1.5 text-right`} value={editForm.durationMinutes} onChange={(e) => setEditForm((f) => ({ ...f, durationMinutes: e.target.value }))} />
                     ) : (
-                      <span style={{ color: "#374151" }}>{svc.durationMinutes} мин</span>
+                      <span className="text-slate-700">{svc.durationMinutes} мин</span>
                     )}
                   </td>
-                  <td style={{ padding: "10px 8px", textAlign: "center" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, ...(svc.isActive ? { background: "#f0fdf4", color: "#16a34a" } : { background: "#f1f5f9", color: "#94a3b8" }) }}>
+                  <td className="px-2 py-2.5 text-center">
+                    <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${svc.isActive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
                       {svc.isActive ? "Активна" : "Неактивна"}
                     </span>
                   </td>
-                  <td style={{ padding: "10px 0" }}>
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
+                  <td className="py-2.5">
+                    <div className="flex justify-end gap-1">
                       {editingSvc === svc.id ? (
                         <>
-                          <button onClick={() => handleUpdateService(svc.id)} disabled={updatingSvc} style={{ padding: "5px 8px", borderRadius: 7, background: "#f0fdf4", border: "1px solid #bbf7d0", cursor: "pointer", color: "#16a34a" }}><Check size={13} /></button>
-                          <button onClick={() => setEditingSvc(null)} style={{ padding: "5px 8px", borderRadius: 7, background: "#f1f5f9", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><X size={13} /></button>
+                          <button onClick={() => handleUpdateService(svc.id)} disabled={updatingSvc} className="rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-600"><Check size={13} /></button>
+                          <button onClick={() => setEditingSvc(null)} className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-500"><X size={13} /></button>
                         </>
                       ) : (
                         <>
-                          <button onClick={() => { const hasRange = svc.priceMin != null && svc.priceMax != null; setEditingSvc(svc.id); setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes ?? ""), category: "CONSULTATION", isRangePrice: hasRange, priceMin: hasRange ? String(svc.priceMin) : "", priceMax: hasRange ? String(svc.priceMax) : "" }); }} style={{ padding: "5px 8px", borderRadius: 7, background: "#f8fafc", border: "1px solid #e2e8f0", cursor: "pointer", color: "#64748b" }}><Pencil size={13} /></button>
+                          <button
+                            onClick={() => {
+                              const hasRange = svc.priceMin != null && svc.priceMax != null;
+                              setEditingSvc(svc.id);
+                              setEditForm({ name: svc.name, price: String(svc.price), durationMinutes: String(svc.durationMinutes ?? ""), category: "CONSULTATION", isRangePrice: hasRange, priceMin: hasRange ? String(svc.priceMin) : "", priceMax: hasRange ? String(svc.priceMax) : "" });
+                            }}
+                            className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-500 transition hover:bg-slate-100"
+                          >
+                            <Pencil size={13} />
+                          </button>
                           {svc.isActive && (
-                            <button onClick={() => handleDeactivateService(svc.id)} disabled={deactivatingSvc === svc.id} style={{ padding: "5px 8px", borderRadius: 7, background: "#fef2f2", border: "1px solid #fecaca", cursor: "pointer", color: "#ef4444" }}><Trash2 size={13} /></button>
+                            <button onClick={() => setConfirmSvcId(svc.id)} disabled={deactivatingSvc === svc.id} className="rounded-lg border border-red-200 bg-red-50 p-1.5 text-red-500 transition hover:bg-red-100">
+                              <Trash2 size={13} />
+                            </button>
                           )}
                         </>
                       )}
@@ -714,55 +594,34 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* ── 6. Telegram уведомления ──────────────────────────────────────────── */}
-      <div style={{ ...card, marginTop: 24 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
-          Telegram уведомления
-        </h2>
-        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16, lineHeight: 1.6 }}>
+      {/* 6. Telegram */}
+      <div className={cardCls}>
+        <h2 className="mb-1.5 text-[15px] font-bold text-slate-950">Telegram уведомления</h2>
+        <p className="mb-4 text-sm leading-relaxed text-slate-500">
           Получайте мгновенные уведомления о новых лидах от Salomat AI прямо в Telegram.
           Напишите нашему боту <b>@HamshiraGoBot</b>, чтобы узнать свой Chat ID, затем введите его ниже.
         </p>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>
-              TELEGRAM CHAT ID
-            </label>
+        <div className="flex flex-wrap items-end gap-2.5">
+          <div className="min-w-[220px] flex-1">
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">TELEGRAM CHAT ID</label>
             <input
               type="text"
               value={tgChatId}
               onChange={(e) => setTgChatId(e.target.value)}
               placeholder="например: 123456789"
-              style={{
-                width: "100%", height: 42, borderRadius: 8,
-                border: "1.5px solid #e2e8f0", padding: "0 12px",
-                fontSize: 14, boxSizing: "border-box" as const, outline: "none",
-              }}
+              className="h-[42px] w-full rounded-xl border-[1.5px] border-slate-200 px-3 text-sm outline-none focus:border-teal-500"
             />
           </div>
           <button
             onClick={handleSaveTelegram}
             disabled={savingTg || !tgChatId.trim()}
-            style={{
-              background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-              border: "none", borderRadius: 8, padding: "0 24px", height: 42,
-              fontSize: 14, fontWeight: 700,
-              cursor: savingTg || !tgChatId.trim() ? "not-allowed" : "pointer",
-              opacity: savingTg || !tgChatId.trim() ? 0.7 : 1,
-              flexShrink: 0,
-            }}
+            className="h-[42px] shrink-0 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-6 text-sm font-bold text-white disabled:opacity-70"
           >
             {savingTg ? "Сохранение..." : "Подключить"}
           </button>
         </div>
-        {tgSaved && (
-          <p style={{ marginTop: 10, fontSize: 13, color: "#16a34a", fontWeight: 600 }}>
-            ✓ Telegram подключён — уведомления о лидах будут приходить вам
-          </p>
-        )}
-        {tgError && (
-          <p style={{ marginTop: 10, fontSize: 13, color: "#ef4444" }}>{tgError}</p>
-        )}
+        {tgSaved && <p className="mt-2.5 text-sm font-semibold text-emerald-600">✓ Telegram подключён — уведомления о лидах будут приходить вам</p>}
+        {tgError && <p className="mt-2.5 text-sm text-red-500">{tgError}</p>}
       </div>
     </div>
   );

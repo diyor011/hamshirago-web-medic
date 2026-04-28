@@ -24,16 +24,16 @@ const STATUS_LABELS: Record<AppointmentStatus, string> = {
   NO_SHOW:    "Не явился",
 };
 
-const STATUS_STYLES: Record<AppointmentStatus, React.CSSProperties> = {
-  SCHEDULED:   { background: "#eff6ff", color: "#2563eb" },
-  CHECKED_IN:  { background: "#fefce8", color: "#ca8a04" },
-  IN_PROGRESS: { background: "#fff7ed", color: "#ea580c" },
-  DONE:        { background: "#f0fdf4", color: "#16a34a" },
-  CANCELED:    { background: "#fef2f2", color: "#ef4444" },
-  NO_SHOW:     { background: "#f1f5f9", color: "#94a3b8" },
+const STATUS_BADGE: Record<AppointmentStatus, string> = {
+  SCHEDULED:   "bg-blue-50 text-blue-600",
+  CHECKED_IN:  "bg-yellow-50 text-yellow-600",
+  IN_PROGRESS: "bg-orange-50 text-orange-600",
+  DONE:        "bg-emerald-50 text-emerald-700",
+  CANCELED:    "bg-red-50 text-red-500",
+  NO_SHOW:     "bg-slate-100 text-slate-500",
 };
 
-// 4-px left-border color per status
+// Left-border accent color per status (stays inline since it's dynamic hex)
 const STATUS_ACCENT: Record<AppointmentStatus, string> = {
   SCHEDULED:   "#94a3b8",
   CHECKED_IN:  "#2563eb",
@@ -45,6 +45,16 @@ const STATUS_ACCENT: Record<AppointmentStatus, string> = {
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: "Наличные", TERMINAL: "Терминал", ONLINE: "Online",
+};
+
+// Calendar cell colors (dynamic hex — stay inline)
+const CAL_STATUS_COLORS: Record<AppointmentStatus, { bg: string; bd: string; fg: string }> = {
+  SCHEDULED:   { bg: "#ccfbf1", bd: "#14b8a6", fg: "#0f766e" },
+  CHECKED_IN:  { bg: "#fef3c7", bd: "#f59e0b", fg: "#b45309" },
+  IN_PROGRESS: { bg: "#dbeafe", bd: "#3b82f6", fg: "#1d4ed8" },
+  DONE:        { bg: "#dcfce7", bd: "#22c55e", fg: "#15803d" },
+  CANCELED:    { bg: "#fee2e2", bd: "#ef4444", fg: "#b91c1c" },
+  NO_SHOW:     { bg: "#f1f5f9", bd: "#94a3b8", fg: "#475569" },
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────────
@@ -60,17 +70,8 @@ function timeAgo(iso: string): string {
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────────
 
-function Skeleton({ height = 70, radius = 14 }: { height?: number; radius?: number }) {
-  return (
-    <div
-      style={{
-        height, borderRadius: radius,
-        background: "linear-gradient(90deg, #f1f5f9 25%, #e8edf3 50%, #f1f5f9 75%)",
-        backgroundSize: "200% 100%",
-        animation: "shimmer 1.4s ease-in-out infinite",
-      }}
-    />
-  );
+function Skeleton({ className = "h-[70px]" }: { className?: string }) {
+  return <div className={`${className} animate-pulse rounded-xl bg-slate-100`} />;
 }
 
 // ─── Error banner ─────────────────────────────────────────────────────────────────
@@ -78,32 +79,31 @@ function Skeleton({ height = 70, radius = 14 }: { height?: number; radius?: numb
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   const { t } = useTranslation();
   return (
-    <div style={{
-      background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
-      padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-    }}>
-      <span style={{ fontSize: 13, color: "#ef4444" }}>{message}</span>
-      <button
-        onClick={onRetry}
-        style={{
-          display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-          color: "#ef4444", background: "none", border: "none", cursor: "pointer",
-        }}
-      >
+    <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <span className="text-sm text-red-500">{message}</span>
+      <button onClick={onRetry} className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
         <RefreshCw size={13} /> {t("clinic.reception.retry")}
       </button>
     </div>
   );
 }
 
-// ─── Shared card style ────────────────────────────────────────────────────────────
+// ─── Modal helper ─────────────────────────────────────────────────────────────────
 
-const baseCard: React.CSSProperties = {
-  background: "#fff",
-  borderRadius: 14,
-  border: "1px solid #e2e8f0",
-  boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
-};
+function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/45 p-5 backdrop-blur-sm"
+    >
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const inputCls = "h-11 w-full rounded-xl border-[1.5px] border-slate-200 px-3.5 text-sm text-slate-900 outline-none focus:border-teal-500";
 
 // ─── Main component ───────────────────────────────────────────────────────────────
 
@@ -135,26 +135,23 @@ export default function ReceptionPage() {
   const { toasts, toast, closeToast } = useToast();
   const [mounted, setMounted] = useState(false);
 
-  // Quick booking (CLINIC-R3)
   const [quickBook, setQuickBook] = useState<{ time: string; date: string; roomId: string | null; doctorId: string | null; colLabel: string } | null>(null);
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
   const [quickLoading, setQuickBookLoading] = useState(false);
 
-  // Calendar date picker (CLINIC-R5)
   const [showCalPicker, setShowCalPicker] = useState(false);
   const [pickerViewDate, setPickerViewDate] = useState(() => new Date());
   const [clinicUser, setClinicUser] = useState<{ id: string; role: string } | null>(null);
-  // Синхронное чтение роли — нет гонки состояний при рендере кнопок
   const clinicRole = getClinicRole();
 
-  // Waitlist state (CLINIC-FE-4)
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [waitlistModal, setWaitlistModal] = useState<{ slotDate: string; slotTime: string; doctorId: string | null; colLabel: string } | null>(null);
   const [waitlistName, setWaitlistName] = useState("");
   const [waitlistPhone, setWaitlistPhone] = useState("");
   const [addingWaitlist, setAddingWaitlist] = useState(false);
   const [removingWaitlistId, setRemovingWaitlistId] = useState<string | null>(null);
+
   useEffect(() => {
     setMounted(true);
     try {
@@ -163,7 +160,6 @@ export default function ReceptionPage() {
     } catch { /* ignore */ }
   }, []);
 
-  // Today label for header — deferred to client to avoid hydration mismatch
   const todayLabel = mounted
     ? new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
     : "";
@@ -180,7 +176,6 @@ export default function ReceptionPage() {
   const isForbidden = (e: unknown) =>
     e instanceof Error && (e.message.includes("прав") || e.message.toLowerCase().includes("forbidden") || e.message === "UNAUTHORIZED");
 
-  // Проверка: слот уже прошёл (только для сегодняшней даты)
   const isSlotPast = useCallback((slotTime: string, dateISO: string): boolean => {
     if (!mounted) return false;
     const todayISO = fmtDateISO(new Date());
@@ -215,7 +210,6 @@ export default function ReceptionPage() {
 
   useEffect(() => {
     clinicApi.rooms.list().then(setRooms).catch(() => setRooms([]));
-    // stats/doctors доступен только CEO — для DOCTOR/RECEPTION пропускаем вызов
     if (clinicRole === "CEO") {
       clinicApi.stats.doctors().then(setDoctors).catch(() => setDoctors([]));
     }
@@ -239,10 +233,15 @@ export default function ReceptionPage() {
 
   const loadWaitlist = useCallback(async () => {
     try { setWaitlist(await clinicApi.waitlist.list()); }
-    catch { /* ignore — feature may not be in plan */ }
+    catch { /* ignore */ }
   }, []);
 
   useEffect(() => { loadWaitlist(); }, [loadWaitlist]);
+
+  useEffect(() => {
+    const id = setInterval(loadApps, 30000);
+    return () => clearInterval(id);
+  }, [loadApps]);
 
   async function handleAddWaitlist() {
     if (!waitlistModal || !waitlistName.trim() || !waitlistPhone.trim()) return;
@@ -256,9 +255,7 @@ export default function ReceptionPage() {
         ...(waitlistModal.doctorId ? { doctorId: waitlistModal.doctorId } : {}),
       });
       toast.success("Добавлен в лист ожидания");
-      setWaitlistModal(null);
-      setWaitlistName("");
-      setWaitlistPhone("");
+      setWaitlistModal(null); setWaitlistName(""); setWaitlistPhone("");
       await loadWaitlist();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
@@ -279,11 +276,6 @@ export default function ReceptionPage() {
     }
   }
 
-  useEffect(() => {
-    const id = setInterval(loadApps, 30000);
-    return () => clearInterval(id);
-  }, [loadApps]);
-
   async function handleSetFinalPrice() {
     if (!finalPriceModal) return;
     const val = parseInt(finalPriceInput.replace(/\D/g, ""), 10);
@@ -295,8 +287,7 @@ export default function ReceptionPage() {
     try {
       await clinicApi.appointments.setFinalPrice(finalPriceModal.apptId, val);
       toast.success("Итоговая цена сохранена");
-      setFinalPriceModal(null);
-      setFinalPriceInput("");
+      setFinalPriceModal(null); setFinalPriceInput("");
       await loadApps();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
@@ -398,22 +389,12 @@ export default function ReceptionPage() {
     return Math.floor((total - base) / 30);
   };
 
-  const CAL_STATUS_COLORS: Record<AppointmentStatus, { bg: string; bd: string; fg: string }> = {
-    SCHEDULED:   { bg: "#ccfbf1", bd: "#14b8a6", fg: "#0f766e" },
-    CHECKED_IN:  { bg: "#fef3c7", bd: "#f59e0b", fg: "#b45309" },
-    IN_PROGRESS: { bg: "#dbeafe", bd: "#3b82f6", fg: "#1d4ed8" },
-    DONE:        { bg: "#dcfce7", bd: "#22c55e", fg: "#15803d" },
-    CANCELED:    { bg: "#fee2e2", bd: "#ef4444", fg: "#b91c1c" },
-    NO_SHOW:     { bg: "#f1f5f9", bd: "#94a3b8", fg: "#475569" },
-  };
-
   const shiftDate = (days: number) => {
     const d = new Date(calendarDate);
     d.setDate(d.getDate() + days);
     setCalendarDate(d);
   };
 
-  // CLINIC-R2: room → doctor name from today's appointments
   const roomDoctorMap = useMemo(() => {
     const map: Record<string, string> = {};
     calendarAppts.forEach((a) => {
@@ -425,7 +406,6 @@ export default function ReceptionPage() {
     return map;
   }, [calendarAppts, doctors]);
 
-  // CLINIC-R3: quick book handler
   async function handleQuickBook() {
     if (!quickBook || !quickName.trim() || !quickPhone.trim()) return;
     if (isSlotPast(quickBook.time, quickBook.date)) {
@@ -444,9 +424,7 @@ export default function ReceptionPage() {
         time: quickBook.time,
       });
       toast.success("Запись добавлена");
-      setQuickBook(null);
-      setQuickName("");
-      setQuickPhone("");
+      setQuickBook(null); setQuickName(""); setQuickPhone("");
       await loadCalendar();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
@@ -458,252 +436,132 @@ export default function ReceptionPage() {
   // ─── Render ──────────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+    <div className="min-h-full space-y-5">
       <ToastContainer toasts={toasts} onClose={closeToast} />
 
       {/* Final price modal */}
       {finalPriceModal && (
-        <div
-          onClick={() => setFinalPriceModal(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 360 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>Итоговая цена</h3>
-            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-              Диапазон: {finalPriceModal.priceMin.toLocaleString()} — {finalPriceModal.priceMax.toLocaleString()} UZS
-            </p>
-            <input
-              type="number"
-              value={finalPriceInput}
-              onChange={(e) => setFinalPriceInput(e.target.value)}
-              placeholder={`${finalPriceModal.priceMin.toLocaleString()} – ${finalPriceModal.priceMax.toLocaleString()}`}
-              min={finalPriceModal.priceMin}
-              max={finalPriceModal.priceMax}
-              autoFocus
-              style={{
-                width: "100%", height: 48, borderRadius: 10, border: "1.5px solid #0d9488",
-                padding: "0 14px", fontSize: 15, color: "#0f172a", outline: "none",
-                boxSizing: "border-box", marginBottom: 16,
-              }}
-            />
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={handleSetFinalPrice}
-                disabled={finalPriceLoading}
-                style={{
-                  flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
-                  background: "linear-gradient(135deg,#0d9488,#0f766e)", color: "#fff",
-                  fontSize: 14, fontWeight: 700, cursor: finalPriceLoading ? "not-allowed" : "pointer",
-                  opacity: finalPriceLoading ? 0.7 : 1,
-                }}
-              >
-                {finalPriceLoading ? "Сохраняем..." : "Сохранить"}
-              </button>
-              <button
-                onClick={() => setFinalPriceModal(null)}
-                style={{ padding: "12px 20px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#64748b" }}
-              >
-                Отмена
-              </button>
-            </div>
+        <Modal onClose={() => setFinalPriceModal(null)}>
+          <h3 className="mb-1.5 text-base font-extrabold text-slate-950">Итоговая цена</h3>
+          <p className="mb-4 text-sm text-slate-500">
+            Диапазон: {finalPriceModal.priceMin.toLocaleString()} — {finalPriceModal.priceMax.toLocaleString()} UZS
+          </p>
+          <input
+            type="number"
+            value={finalPriceInput}
+            onChange={(e) => setFinalPriceInput(e.target.value)}
+            placeholder={`${finalPriceModal.priceMin.toLocaleString()} – ${finalPriceModal.priceMax.toLocaleString()}`}
+            min={finalPriceModal.priceMin}
+            max={finalPriceModal.priceMax}
+            autoFocus
+            className="mb-4 h-12 w-full rounded-xl border-[1.5px] border-teal-500 px-3.5 text-[15px] text-slate-900 outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleSetFinalPrice}
+              disabled={finalPriceLoading}
+              className="flex-1 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 py-3 text-sm font-bold text-white disabled:opacity-70"
+            >
+              {finalPriceLoading ? "Сохраняем..." : "Сохранить"}
+            </button>
+            <button
+              onClick={() => setFinalPriceModal(null)}
+              className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-500"
+            >
+              Отмена
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
-      {/* Calendar picker close overlay (CLINIC-R5) */}
+
+      {/* Calendar picker close overlay */}
       {showCalPicker && (
-        <div onClick={() => setShowCalPicker(false)} style={{ position: "fixed", inset: 0, zIndex: 299 }} />
+        <div onClick={() => setShowCalPicker(false)} className="fixed inset-0 z-[299]" />
       )}
 
-      {/* Quick booking modal (CLINIC-R3) */}
+      {/* Quick booking modal */}
       {quickBook && (
-        <div
-          onClick={() => setQuickBook(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 360 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>Новая запись</h3>
-            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
-              {quickBook.time} · {quickBook.colLabel}
-              {quickBook.doctorId && doctors.find(d => d.doctorId === quickBook.doctorId) &&
-                ` · ${doctors.find(d => d.doctorId === quickBook.doctorId)!.doctorName}`}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-              <input
-                autoFocus
-                value={quickName}
-                onChange={(e) => setQuickName(e.target.value)}
-                placeholder="Имя клиента"
-                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#0d9488")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
-              />
-              <input
-                value={quickPhone}
-                onChange={(e) => setQuickPhone(e.target.value)}
-                placeholder="+998 xx xxx xx xx"
-                type="tel"
-                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#0d9488")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
-                onKeyDown={(e) => e.key === "Enter" && handleQuickBook()}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={handleQuickBook}
-                disabled={quickLoading || !quickName.trim() || !quickPhone.trim()}
-                style={{
-                  flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
-                  background: quickLoading || !quickName.trim() || !quickPhone.trim() ? "#e2e8f0" : "linear-gradient(135deg,#0d9488,#0f766e)",
-                  color: quickLoading || !quickName.trim() || !quickPhone.trim() ? "#94a3b8" : "#fff",
-                  fontSize: 14, fontWeight: 700,
-                  cursor: quickLoading || !quickName.trim() || !quickPhone.trim() ? "not-allowed" : "pointer",
-                }}
-              >
-                {quickLoading ? "Сохраняем..." : "Добавить"}
-              </button>
-              <button
-                onClick={() => setQuickBook(null)}
-                style={{ padding: "12px 20px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#64748b" }}
-              >
-                Отмена
-              </button>
-            </div>
+        <Modal onClose={() => setQuickBook(null)}>
+          <h3 className="mb-1 text-base font-extrabold text-slate-950">Новая запись</h3>
+          <p className="mb-4 text-sm text-slate-500">
+            {quickBook.time} · {quickBook.colLabel}
+            {quickBook.doctorId && doctors.find(d => d.doctorId === quickBook.doctorId) &&
+              ` · ${doctors.find(d => d.doctorId === quickBook.doctorId)!.doctorName}`}
+          </p>
+          <div className="mb-4 flex flex-col gap-2.5">
+            <input autoFocus value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="Имя клиента" className={inputCls} />
+            <input
+              value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)}
+              placeholder="+998 xx xxx xx xx" type="tel" className={inputCls}
+              onKeyDown={(e) => e.key === "Enter" && handleQuickBook()}
+            />
           </div>
-        </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleQuickBook}
+              disabled={quickLoading || !quickName.trim() || !quickPhone.trim()}
+              className="flex-1 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 py-3 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              {quickLoading ? "Сохраняем..." : "Добавить"}
+            </button>
+            <button onClick={() => setQuickBook(null)} className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-500">
+              Отмена
+            </button>
+          </div>
+        </Modal>
       )}
 
-      {/* Waitlist modal (CLINIC-FE-4) */}
+      {/* Waitlist modal */}
       {waitlistModal && (
-        <div
-          onClick={() => setWaitlistModal(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 360 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>В лист ожидания</h3>
-            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
-              {waitlistModal.slotTime} · {waitlistModal.colLabel}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-              <input
-                autoFocus
-                value={waitlistName}
-                onChange={(e) => setWaitlistName(e.target.value)}
-                placeholder="Имя пациента"
-                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#f59e0b")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
-              />
-              <input
-                value={waitlistPhone}
-                onChange={(e) => setWaitlistPhone(e.target.value)}
-                placeholder="+998 xx xxx xx xx"
-                type="tel"
-                style={{ width: "100%", height: 44, borderRadius: 10, border: "1.5px solid #e2e8f0", padding: "0 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#f59e0b")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#e2e8f0")}
-                onKeyDown={(e) => e.key === "Enter" && handleAddWaitlist()}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={handleAddWaitlist}
-                disabled={addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim()}
-                style={{
-                  flex: 1, padding: "12px 0", borderRadius: 10, border: "none",
-                  background: addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim() ? "#e2e8f0" : "#f59e0b",
-                  color: addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim() ? "#94a3b8" : "#fff",
-                  fontSize: 14, fontWeight: 700,
-                  cursor: addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim() ? "not-allowed" : "pointer",
-                }}
-              >
-                {addingWaitlist ? "Добавляем..." : "Добавить"}
-              </button>
-              <button
-                onClick={() => setWaitlistModal(null)}
-                style={{ padding: "12px 20px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#64748b" }}
-              >
-                Отмена
-              </button>
-            </div>
+        <Modal onClose={() => setWaitlistModal(null)}>
+          <h3 className="mb-1 text-base font-extrabold text-slate-950">В лист ожидания</h3>
+          <p className="mb-4 text-sm text-slate-500">{waitlistModal.slotTime} · {waitlistModal.colLabel}</p>
+          <div className="mb-4 flex flex-col gap-2.5">
+            <input autoFocus value={waitlistName} onChange={(e) => setWaitlistName(e.target.value)} placeholder="Имя пациента" className={inputCls} />
+            <input
+              value={waitlistPhone} onChange={(e) => setWaitlistPhone(e.target.value)}
+              placeholder="+998 xx xxx xx xx" type="tel" className={inputCls}
+              onKeyDown={(e) => e.key === "Enter" && handleAddWaitlist()}
+            />
           </div>
-        </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleAddWaitlist}
+              disabled={addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim()}
+              className="flex-1 rounded-xl bg-amber-400 py-3 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              {addingWaitlist ? "Добавляем..." : "Добавить"}
+            </button>
+            <button onClick={() => setWaitlistModal(null)} className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-500">
+              Отмена
+            </button>
+          </div>
+        </Modal>
       )}
-
-      <style>{`
-        @keyframes shimmer {
-          0%   { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-
-        .appt-card {
-          transition: box-shadow 150ms ease, border-color 150ms ease;
-        }
-        .appt-card:hover {
-          box-shadow: 0 4px 12px rgba(13,148,136,0.10) !important;
-          border-color: #0d9488 !important;
-        }
-        .lead-card {
-          transition: box-shadow 150ms ease;
-        }
-        .lead-card:hover {
-          box-shadow: 0 4px 10px rgba(15,23,42,0.08) !important;
-        }
-        .toggle-btn { transition: background 150ms ease, color 150ms ease; }
-
-        @media (max-width: 900px) { .reception-grid { grid-template-columns: 1fr !important; } }
-        @media (max-width: 700px) {
-          .calendar-grid { font-size: 11px; }
-          .stat-strip { grid-template-columns: 1fr 1fr !important; }
-        }
-        @media (max-width: 480px) {
-          .stat-strip { grid-template-columns: 1fr !important; gap: 8px !important; }
-          .reception-header { flex-direction: column !important; align-items: flex-start !important; }
-          .reception-header-actions { width: 100%; justify-content: flex-start !important; flex-wrap: wrap !important; }
-          .appt-card { padding: 12px !important; }
-        }
-      `}</style>
 
       {/* Page header */}
-      <div className="reception-header" style={{
-        display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-        marginBottom: 20, flexWrap: "wrap", gap: 12,
-      }}>
-        {/* Title + date */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0, lineHeight: 1.2 }}>
-            {t("clinic.reception.title")}
-          </h1>
-          <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0", textTransform: "capitalize" }}>
-            {todayLabel}
-          </p>
+          <h1 className="text-xl font-extrabold leading-tight text-slate-950">{t("clinic.reception.title")}</h1>
+          <p className="mt-1 text-sm capitalize text-slate-500">{todayLabel}</p>
         </div>
 
-        {/* Right controls */}
-        <div className="reception-header-actions" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {/* Pill toggle */}
-          <div style={{
-            display: "inline-flex", background: "#fff", border: "1px solid #e2e8f0",
-            borderRadius: 99, padding: 3, gap: 2,
-          }}>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* View toggle */}
+          <div className="inline-flex gap-0.5 rounded-full border border-slate-200 bg-white p-0.5">
             {([
-              { k: "list",     labelKey: "clinic.reception.list",     Icon: ListIcon },
-              { k: "calendar", labelKey: "clinic.reception.calendar", Icon: CalendarIcon },
-            ] as const).map(({ k, labelKey, Icon }) => {
+              { k: "list" as const,     labelKey: "clinic.reception.list",     Icon: ListIcon },
+              { k: "calendar" as const, labelKey: "clinic.reception.calendar", Icon: CalendarIcon },
+            ]).map(({ k, labelKey, Icon }) => {
               const active = viewMode === k;
               return (
                 <button
                   key={k}
-                  className="toggle-btn"
                   onClick={() => setViewMode(k)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
-                    padding: "7px 16px", borderRadius: 99, fontSize: 13, fontWeight: 700,
-                    border: "none",
-                    background: active ? "#0d9488" : "transparent",
-                    color: active ? "#fff" : "#64748b",
-                  }}
+                  className={[
+                    "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition-all duration-150",
+                    active ? "bg-teal-600 text-white" : "text-slate-500 hover:text-slate-700",
+                  ].join(" ")}
                 >
                   <Icon size={14} /> {t(labelKey)}
                 </button>
@@ -711,17 +569,9 @@ export default function ReceptionPage() {
             })}
           </div>
 
-          {/* Book button */}
           <button
             onClick={() => setShowBooking(true)}
-            style={{
-              display: "flex", alignItems: "center", gap: 7, cursor: "pointer",
-              background: "#0d9488", color: "#fff", fontSize: 14, fontWeight: 700,
-              borderRadius: 10, padding: "10px 18px", border: "none",
-              minHeight: 44, transition: "background 150ms ease",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#0f766e")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#0d9488")}
+            className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-700"
           >
             <Plus size={16} /> {t("clinic.reception.bookPatient")}
           </button>
@@ -729,73 +579,53 @@ export default function ReceptionPage() {
       </div>
 
       {/* Quick stats strip */}
-      <div
-        className="stat-strip"
-        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}
-      >
-        {([
-          {
-            labelKey: "clinic.reception.waiting", value: waiting,
-            bg: "#fffbeb", border: "#fde68a", numColor: "#0d9488", labelColor: "#92400e",
-          },
-          {
-            labelKey: "clinic.reception.inProgress", value: inProgress,
-            bg: "#eff6ff", border: "#bfdbfe", numColor: "#2563eb", labelColor: "#1e40af",
-          },
-          {
-            labelKey: "clinic.reception.done", value: done,
-            bg: "#f0fdf4", border: "#bbf7d0", numColor: "#16a34a", labelColor: "#14532d",
-          },
-        ] as const).map(({ labelKey, value, bg, border, numColor, labelColor }) => (
-          <div
-            key={labelKey}
-            style={{
-              background: bg, border: `1px solid ${border}`,
-              borderRadius: 14, padding: "16px 20px",
-              display: "flex", flexDirection: "column", alignItems: "center",
-              minHeight: 80, justifyContent: "center",
-            }}
-          >
-            <div style={{ fontSize: 30, fontWeight: 900, color: numColor, lineHeight: 1 }}>
-              {value}
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: labelColor, marginTop: 5 }}>
-              {t(labelKey)}
-            </div>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-3">
+        {[
+          { labelKey: "clinic.reception.waiting",    value: waiting,    bg: "bg-amber-50 border-amber-200",    num: "text-teal-600",   label: "text-amber-800" },
+          { labelKey: "clinic.reception.inProgress", value: inProgress, bg: "bg-blue-50 border-blue-200",      num: "text-blue-600",   label: "text-blue-800" },
+          { labelKey: "clinic.reception.done",       value: done,       bg: "bg-emerald-50 border-emerald-200", num: "text-emerald-600", label: "text-emerald-900" },
+        ].map(({ labelKey, value, bg, num, label }) => (
+          <div key={labelKey} className={`flex min-h-[80px] flex-col items-center justify-center rounded-2xl border px-5 py-4 ${bg}`}>
+            <div className={`text-3xl font-black leading-none ${num}`}>{value}</div>
+            <div className={`mt-1.5 text-xs font-semibold ${label}`}>{t(labelKey)}</div>
           </div>
         ))}
       </div>
 
-      {/* Calendar view */}
+      {/* ─── Calendar view ─────────────────────────────────────────────────────── */}
       {viewMode === "calendar" && (
-        <div style={{ ...baseCard, padding: 16, marginBottom: 24 }}>
-          {/* Date navigator (CLINIC-R5) */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button onClick={() => shiftDate(-1)} style={{ padding: 7, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex" }}>
-                <ChevronLeft size={16} color="#475569" />
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          {/* Date navigator */}
+          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <button onClick={() => shiftDate(-1)} className="flex rounded-lg border border-slate-200 bg-white p-1.5">
+                <ChevronLeft size={16} className="text-slate-500" />
               </button>
               <button
                 onClick={() => setCalendarDate(new Date())}
-                style={{
-                  padding: "7px 14px", borderRadius: 8, border: "1px solid #e2e8f0", cursor: "pointer", fontSize: 12, fontWeight: 700,
-                  background: mounted && calendarDate.toDateString() === new Date().toDateString() ? "#0d9488" : "#fff",
-                  color: mounted && calendarDate.toDateString() === new Date().toDateString() ? "#fff" : "#0f766e",
-                }}
+                className={[
+                  "rounded-lg border px-3 py-1.5 text-xs font-bold transition",
+                  mounted && calendarDate.toDateString() === new Date().toDateString()
+                    ? "border-teal-500 bg-teal-500 text-white"
+                    : "border-slate-200 bg-white text-teal-700",
+                ].join(" ")}
               >
                 {mounted && calendarDate.toDateString() !== new Date().toDateString()
                   ? calendarDate.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })
                   : t("clinic.reception.todayBtn")}
               </button>
-              <button onClick={() => shiftDate(1)} style={{ padding: 7, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex" }}>
-                <ChevronRight size={16} color="#475569" />
+              <button onClick={() => shiftDate(1)} className="flex rounded-lg border border-slate-200 bg-white p-1.5">
+                <ChevronRight size={16} className="text-slate-500" />
               </button>
 
-              {/* Date picker trigger */}
-              <div style={{ position: "relative" }}>
+              {/* Date picker */}
+              <div className="relative">
                 <button
                   onClick={() => { setShowCalPicker((v) => !v); setPickerViewDate(new Date(calendarDate)); }}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #e2e8f0", background: showCalPicker ? "#0d9488" : "#fff", color: showCalPicker ? "#fff" : "#0f172a", cursor: "pointer", fontSize: 13, fontWeight: 700, textTransform: "capitalize" }}
+                  className={[
+                    "rounded-lg border px-3 py-1.5 text-sm font-bold capitalize transition",
+                    showCalPicker ? "border-teal-500 bg-teal-500 text-white" : "border-slate-200 bg-white text-slate-900",
+                  ].join(" ")}
                 >
                   {mounted ? fmtDateRu(calendarDate) : ""}
                 </button>
@@ -810,38 +640,35 @@ export default function ReceptionPage() {
                   const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
                   const cells = Array.from({ length: offset + daysInMonth }, (_, i) => i < offset ? null : i - offset + 1);
                   return (
-                    <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 300, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", width: 280 }}>
-                      {/* Header: year nav */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                        <button onClick={() => setPickerViewDate(new Date(y - 1, m, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>‹‹</button>
-                        <button onClick={() => setPickerViewDate(new Date(y, m - 1, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>‹</button>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>{monthNames[m]} {y}</span>
-                        <button onClick={() => setPickerViewDate(new Date(y, m + 1, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>›</button>
-                        <button onClick={() => setPickerViewDate(new Date(y + 1, m, 1))} style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, fontSize: 13, color: "#475569" }}>››</button>
+                    <div className="absolute left-0 top-[calc(100%+6px)] z-[300] w-[280px] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+                      <div className="mb-2 flex items-center justify-between">
+                        <button onClick={() => setPickerViewDate(new Date(y - 1, m, 1))} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-50">‹‹</button>
+                        <button onClick={() => setPickerViewDate(new Date(y, m - 1, 1))} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-50">‹</button>
+                        <span className="text-sm font-extrabold text-slate-950">{monthNames[m]} {y}</span>
+                        <button onClick={() => setPickerViewDate(new Date(y, m + 1, 1))} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-50">›</button>
+                        <button onClick={() => setPickerViewDate(new Date(y + 1, m, 1))} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-50">››</button>
                       </div>
-                      {/* Day names */}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
+                      <div className="mb-1 grid grid-cols-7 gap-0.5">
                         {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => (
-                          <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "#94a3b8", padding: "2px 0" }}>{d}</div>
+                          <div key={d} className="py-0.5 text-center text-[10px] font-bold text-slate-400">{d}</div>
                         ))}
                       </div>
-                      {/* Cells */}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+                      <div className="grid grid-cols-7 gap-0.5">
                         {cells.map((day, i) => {
                           if (!day) return <div key={`e-${i}`} />;
                           const date = new Date(y, m, day);
                           const isActive = date.toDateString() === calendarDate.toDateString();
-                          const isToday = date.toDateString() === today.toDateString();
+                          const isToday  = date.toDateString() === today.toDateString();
                           return (
                             <button
                               key={day}
                               onClick={() => { setCalendarDate(date); setShowCalPicker(false); }}
-                              style={{
-                                border: "none", borderRadius: 8, padding: "6px 0", cursor: "pointer", fontSize: 12, fontWeight: isActive || isToday ? 800 : 500,
-                                background: isActive ? "#0d9488" : "transparent",
-                                color: isActive ? "#fff" : isToday ? "#0d9488" : "#0f172a",
-                                outline: isToday && !isActive ? "1.5px solid #0d9488" : "none",
-                              }}
+                              className={[
+                                "rounded-lg py-1.5 text-xs transition",
+                                isActive ? "bg-teal-500 font-extrabold text-white"
+                                  : isToday ? "font-extrabold text-teal-600 outline outline-[1.5px] outline-teal-500"
+                                  : "font-medium text-slate-900 hover:bg-slate-50",
+                              ].join(" ")}
                             >
                               {day}
                             </button>
@@ -854,64 +681,41 @@ export default function ReceptionPage() {
               </div>
             </div>
 
-            <button onClick={loadCalendar} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
+            <button onClick={loadCalendar} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
               <RefreshCw size={13} /> {t("clinic.reception.update")}
             </button>
           </div>
 
           {loadingCalendar ? (
-            <Skeleton height={300} />
+            <Skeleton className="h-[300px]" />
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div className="overflow-x-auto">
               <div
-                className="calendar-grid"
+                className="overflow-hidden rounded-xl border border-slate-200"
                 style={{
                   display: "grid",
                   gridTemplateColumns: `70px repeat(${calendarColumns.length}, minmax(150px, 1fr))`,
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 10,
-                  overflow: "hidden",
                   minWidth: calendarColumns.length > 1 ? 70 + calendarColumns.length * 150 : undefined,
                 }}
               >
                 {/* Header row */}
-                <div style={{
-                  background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
-                  padding: "8px 6px", fontSize: 11, fontWeight: 700, color: "#64748b",
-                }}>
+                <div className="border-b border-slate-200 bg-slate-50 px-1.5 py-2 text-[11px] font-bold text-slate-500">
                   {t("clinic.reception.time")}
                 </div>
                 {calendarColumns.map((c) => (
-                  <div
-                    key={c.id}
-                    style={{
-                      background: "#f8fafc", borderBottom: "1px solid #e2e8f0",
-                      borderLeft: "1px solid #e2e8f0", padding: "8px 10px",
-                    }}
-                  >
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {c.label}
-                    </div>
-                    {/* CLINIC-R2: doctor name under room */}
+                  <div key={c.id} className="border-b border-l border-slate-200 bg-slate-50 px-2.5 py-2">
+                    <div className="truncate text-xs font-bold text-slate-950">{c.label}</div>
                     {rooms.length > 0 && roomDoctorMap[c.id] && (
-                      <div style={{ fontSize: 10, color: "#0d9488", fontWeight: 600, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {roomDoctorMap[c.id]}
-                      </div>
+                      <div className="mt-0.5 truncate text-[10px] font-semibold text-teal-600">{roomDoctorMap[c.id]}</div>
                     )}
-                    {rooms.length === 0 && (
-                      <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2 }}>врач</div>
-                    )}
+                    {rooms.length === 0 && <div className="mt-0.5 text-[10px] text-slate-400">врач</div>}
                   </div>
                 ))}
 
                 {/* Body rows */}
                 {timeSlots.map((slot, rowIdx) => (
                   <div key={`row-${slot}`} style={{ display: "contents" }}>
-                    <div style={{
-                      borderTop: rowIdx === 0 ? "none" : "1px dashed #f1f5f9",
-                      padding: "6px 6px", fontSize: 11, fontWeight: 600,
-                      color: "#94a3b8", background: "#fafbfc",
-                    }}>
+                    <div className={`px-1.5 py-1.5 text-[11px] font-semibold text-slate-400 ${rowIdx > 0 ? "border-t border-dashed border-slate-100" : ""} bg-slate-50/50`}>
                       {slot}
                     </div>
                     {calendarColumns.map((c) => {
@@ -924,12 +728,7 @@ export default function ReceptionPage() {
                       return (
                         <div
                           key={`${c.id}-${slot}`}
-                          style={{
-                            borderTop: rowIdx === 0 ? "none" : "1px dashed #f1f5f9",
-                            borderLeft: "1px solid #f1f5f9",
-                            padding: 4, minHeight: 34,
-                            display: "flex", flexDirection: "column", gap: 3,
-                          }}
+                          className={`flex min-h-[34px] flex-col gap-0.5 border-l border-slate-100 p-1 ${rowIdx > 0 ? "border-t border-dashed border-slate-100" : ""}`}
                         >
                           {cellAppts.map((a) => {
                             const col = CAL_STATUS_COLORS[a.status as AppointmentStatus];
@@ -937,72 +736,49 @@ export default function ReceptionPage() {
                               <button
                                 key={a.id}
                                 onClick={() => setSelectedAppt(a)}
-                                style={{
-                                  textAlign: "left", cursor: "pointer",
-                                  background: col.bg, border: `1px solid ${col.bd}`, color: col.fg,
-                                  borderRadius: 6, padding: "4px 6px", fontSize: 11, fontWeight: 600,
-                                  lineHeight: 1.3,
-                                }}
+                                className="rounded-md p-1 text-left text-[11px] font-semibold leading-tight"
+                                style={{ background: col.bg, border: `1px solid ${col.bd}`, color: col.fg }}
                                 title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${STATUS_LABELS[a.status as AppointmentStatus]}`}
                               >
-                                <div style={{ fontWeight: 800 }}>{a.time}</div>
-                                {/* CLINIC-R4: show name AND phone */}
-                                {a.patientName && (
-                                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.patientName}</div>
-                                )}
-                                <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.8 }}>{a.patientPhone}</div>
+                                <div className="font-extrabold">{a.time}</div>
+                                {a.patientName && <div className="truncate">{a.patientName}</div>}
+                                <div className="truncate opacity-80">{a.patientPhone}</div>
                               </button>
                             );
                           })}
-                          {/* CLINIC-FE-4: full slot — add to waitlist */}
+
+                          {/* Waitlist button */}
                           {cellAppts.length > 0 && !isSlotPast(slot, fmtDateISO(calendarDate)) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setWaitlistModal({ slotDate: fmtDateISO(calendarDate), slotTime: slot, doctorId: doctorIdForCol, colLabel: c.label });
-                                setWaitlistName("");
-                                setWaitlistPhone("");
+                                setWaitlistName(""); setWaitlistPhone("");
                               }}
-                              title="В лист ожидания"
-                              style={{
-                                marginTop: 2, width: "100%", background: "#fef3c7", border: "1px dashed #f59e0b",
-                                borderRadius: 5, cursor: "pointer", fontSize: 9, fontWeight: 700,
-                                color: "#b45309", padding: "2px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = "#fde68a"; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.background = "#fef3c7"; }}
+                              className="mt-0.5 flex w-full items-center justify-center gap-0.5 rounded-md border border-dashed border-amber-400 bg-amber-50 py-0.5 text-[9px] font-bold text-amber-700 hover:bg-amber-100"
                             >
                               <Users size={9} /> Лист ожидания
                             </button>
                           )}
 
-                          {/* CLINIC-R3: empty slot — click to quick-book */}
+                          {/* Empty slot */}
                           {cellAppts.length === 0 && (() => {
                             const past = isSlotPast(slot, fmtDateISO(calendarDate));
                             if (past) {
                               return (
-                                <div style={{
-                                  flex: 1, minHeight: 26, borderRadius: 6,
-                                  background: "repeating-linear-gradient(135deg,#f8fafc 0px,#f8fafc 4px,#f1f5f9 4px,#f1f5f9 8px)",
-                                  opacity: 0.5,
-                                }} title="Время прошло" />
+                                <div
+                                  className="flex-1 rounded-md opacity-50"
+                                  style={{ minHeight: 26, background: "repeating-linear-gradient(135deg,#f8fafc 0px,#f8fafc 4px,#f1f5f9 4px,#f1f5f9 8px)" }}
+                                />
                               );
                             }
                             return (
                               <button
                                 onClick={() => {
                                   setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
-                                  setQuickName("");
-                                  setQuickPhone("");
+                                  setQuickName(""); setQuickPhone("");
                                 }}
-                                style={{
-                                  flex: 1, minHeight: 26, background: "transparent", border: "1px dashed #e2e8f0",
-                                  borderRadius: 6, cursor: "pointer", fontSize: 10, color: "#cbd5e1",
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  transition: "all 150ms",
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = "#f0fdf4"; e.currentTarget.style.borderColor = "#0d9488"; e.currentTarget.style.color = "#0d9488"; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#cbd5e1"; }}
+                                className="group flex min-h-[26px] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 text-[10px] text-slate-300 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-500"
                               >
                                 +
                               </button>
@@ -1018,13 +794,13 @@ export default function ReceptionPage() {
           )}
 
           {/* Legend */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 12, fontSize: 11, color: "#64748b" }}>
+          <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-slate-500">
             {(Object.keys(CAL_STATUS_COLORS) as AppointmentStatus[]).map((s) => (
-              <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                <span style={{
-                  width: 10, height: 10, borderRadius: 3,
-                  background: CAL_STATUS_COLORS[s].bg, border: `1px solid ${CAL_STATUS_COLORS[s].bd}`,
-                }} />
+              <span key={s} className="inline-flex items-center gap-1.5">
+                <span
+                  className="h-2.5 w-2.5 rounded-sm"
+                  style={{ background: CAL_STATUS_COLORS[s].bg, border: `1px solid ${CAL_STATUS_COLORS[s].bd}` }}
+                />
                 {STATUS_LABELS[s]}
               </span>
             ))}
@@ -1036,39 +812,30 @@ export default function ReceptionPage() {
       {viewMode === "calendar" && selectedAppt && (
         <div
           onClick={() => setSelectedAppt(null)}
-          style={{
-            position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 60,
-            display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-          }}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/45 p-5 backdrop-blur-sm"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 14, padding: 20, width: "100%", maxWidth: 400 }}
-          >
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginBottom: 12 }}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="mb-3 text-base font-extrabold text-slate-950">
               {t("clinic.reception.appointment")} · {selectedAppt.time}
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, color: "#334155" }}>
+            <div className="flex flex-col gap-2 text-sm text-slate-700">
               <div><b>{t("clinic.reception.patient")}:</b> {selectedAppt.patientName ?? "—"}</div>
               <div><b>{t("clinic.reception.phone")}:</b> {selectedAppt.patientPhone}</div>
               <div><b>{t("clinic.reception.date")}:</b> {selectedAppt.date.split("-").reverse().join(".")}</div>
               <div><b>{t("clinic.reception.room")}:</b> {rooms.find((r) => r.id === selectedAppt.roomId)?.name ?? selectedAppt.roomId}</div>
               <div><b>{t("clinic.reception.doctor")}:</b> {doctors.find((d) => d.doctorId === selectedAppt.doctorId)?.doctorName ?? selectedAppt.doctorId}</div>
               <div><b>{t("clinic.reception.payment")}:</b> {PAYMENT_LABELS[selectedAppt.paymentType ?? ""] ?? selectedAppt.paymentType ?? "—"}</div>
-              <div>
-                <b>{t("clinic.reception.status")}:</b>{" "}
-                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, ...STATUS_STYLES[selectedAppt.status as AppointmentStatus] }}>
+              <div className="flex items-center gap-2">
+                <b>{t("clinic.reception.status")}:</b>
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE[selectedAppt.status as AppointmentStatus]}`}>
                   {STATUS_LABELS[selectedAppt.status as AppointmentStatus]}
                 </span>
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <div className="mt-4 flex justify-end">
               <button
                 onClick={() => setSelectedAppt(null)}
-                style={{
-                  padding: "8px 16px", borderRadius: 8, border: "1px solid #e2e8f0",
-                  background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#475569",
-                }}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
               >
                 {t("clinic.reception.close")}
               </button>
@@ -1077,245 +844,150 @@ export default function ReceptionPage() {
         </div>
       )}
 
-      {/* List view */}
+      {/* ─── List view ──────────────────────────────────────────────────────────── */}
       {viewMode === "list" && (
-        <div
-          className="reception-grid"
-          style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}
-        >
-          {/* Left: appointments list */}
+        <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
+          {/* Left: appointments */}
           <div>
-            {/* Section header */}
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14,
-            }}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                {t("clinic.reception.todayAppointments")}
-              </h2>
-              <button
-                onClick={loadApps}
-                style={{
-                  display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
-                  background: "none", border: "none", color: "#64748b", fontSize: 12, fontWeight: 600,
-                }}
-              >
+            <div className="mb-3.5 flex items-center justify-between">
+              <h2 className="text-[15px] font-bold text-slate-950">{t("clinic.reception.todayAppointments")}</h2>
+              <button onClick={loadApps} className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
                 <RefreshCw size={13} /> {t("clinic.reception.refresh")}
               </button>
             </div>
 
-            {errApps && (
-              <div style={{ marginBottom: 14 }}>
-                <ErrorBanner message={errApps} onRetry={loadApps} />
-              </div>
-            )}
+            {errApps && <div className="mb-3.5"><ErrorBanner message={errApps} onRetry={loadApps} /></div>}
 
-            {/* Shimmer skeletons */}
             {loadingApps ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[1, 2, 3, 4].map((i) => <Skeleton key={i} height={76} />)}
+              <div className="space-y-2.5">
+                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[76px]" />)}
               </div>
             ) : appointments.length === 0 ? (
-              <div style={{ ...baseCard, padding: 50, textAlign: "center" }}>
-                <p style={{ color: "#94a3b8", fontSize: 14 }}>{t("clinic.reception.noAppointments")}</p>
+              <div className="rounded-2xl border border-slate-100 bg-white p-12 text-center shadow-sm">
+                <p className="text-sm text-slate-400">{t("clinic.reception.noAppointments")}</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="space-y-2">
                 {appointments
                   .slice()
                   .sort((a, b) => a.time.localeCompare(b.time))
                   .map((app) => {
                     const st = app.status as AppointmentStatus;
                     const canCheckin = st === "SCHEDULED";
-                    const isLoading = checkingIn === app.id;
-                    const accentColor = STATUS_ACCENT[st];
+                    const isLoading  = checkingIn === app.id;
 
                     return (
                       <div
                         key={app.id}
-                        className="appt-card"
-                        style={{
-                          ...baseCard,
-                          borderLeft: `4px solid ${accentColor}`,
-                          padding: "12px 14px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 14,
-                        }}
+                        className="flex items-center gap-3.5 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-teal-400 hover:shadow-md"
+                        style={{ borderLeft: `4px solid ${STATUS_ACCENT[st]}` }}
                       >
-                        {/* Time column */}
-                        <div style={{
-                          flexShrink: 0, width: 52, textAlign: "center",
-                        }}>
-                          <div style={{ fontSize: 15, fontWeight: 800, color: "#0d9488", lineHeight: 1 }}>
-                            {app.time}
-                          </div>
-                          <Clock size={11} color="#94a3b8" style={{ marginTop: 3 }} />
+                        {/* Time */}
+                        <div className="w-13 shrink-0 text-center">
+                          <div className="text-[15px] font-extrabold leading-none text-teal-600">{app.time}</div>
+                          <Clock size={11} className="mx-auto mt-1 text-slate-400" />
                         </div>
 
-                        {/* Divider */}
-                        <div style={{
-                          width: 1, alignSelf: "stretch", background: "#f1f5f9", flexShrink: 0,
-                        }} />
+                        <div className="h-full w-px shrink-0 self-stretch bg-slate-100" />
 
                         {/* Patient info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            display: "flex", alignItems: "center", gap: 6, marginBottom: 2,
-                          }}>
-                            <User size={13} color="#94a3b8" />
-                            <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-0.5 flex items-center gap-1.5">
+                            <User size={13} className="text-slate-400" />
+                            <span className="truncate text-sm font-bold text-slate-950">
                               {app.patientName ?? app.patientPhone}
                             </span>
                           </div>
                           {app.patientName && (
-                            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                              <Phone size={11} color="#94a3b8" />
+                            <div className="mb-0.5 flex items-center gap-1 text-sm text-slate-500">
+                              <Phone size={11} className="text-slate-400" />
                               {app.patientPhone}
                             </div>
                           )}
-                          <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                          <div className="text-[11px] text-slate-400">
                             {PAYMENT_LABELS[app.paymentType ?? ""] ?? app.paymentType ?? "—"}
                           </div>
                         </div>
 
-                        {/* Status + action */}
-                        <div style={{
-                          display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0,
-                        }}>
-                          {/* Status pill */}
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, padding: "3px 10px",
-                            borderRadius: 99, whiteSpace: "nowrap",
-                            ...STATUS_STYLES[st],
-                          }}>
+                        {/* Status + actions */}
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE[st]}`}>
                             {STATUS_LABELS[st]}
                           </span>
 
-                          {/* Check In button — SCHEDULED */}
                           {canCheckin && (
                             <button
                               onClick={() => handleCheckin(app.id)}
                               disabled={isLoading}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 5, cursor: isLoading ? "not-allowed" : "pointer",
-                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                background: isLoading ? "#e2e8f0" : "#0d9488",
-                                color: isLoading ? "#94a3b8" : "#fff",
-                                border: "none", opacity: isLoading ? 0.7 : 1, transition: "background 150ms ease",
-                              }}
+                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
                             >
                               <CheckSquare size={13} />
                               {isLoading ? "..." : "Check In"}
                             </button>
                           )}
 
-                          {/* На приёме button — CHECKED_IN */}
                           {st === "CHECKED_IN" && (
                             <button
                               onClick={() => handleUpdateStatus(app.id, "IN_PROGRESS")}
                               disabled={updatingStatus === app.id}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 5,
-                                cursor: updatingStatus === app.id ? "not-allowed" : "pointer",
-                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                background: updatingStatus === app.id ? "#e2e8f0" : "#3b82f6",
-                                color: updatingStatus === app.id ? "#94a3b8" : "#fff",
-                                border: "none", opacity: updatingStatus === app.id ? 0.7 : 1, transition: "background 150ms ease",
-                              }}
+                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
                             >
                               <PlayCircle size={13} />
                               {updatingStatus === app.id ? "..." : t("clinic.reception.startReception")}
                             </button>
                           )}
 
-                          {/* Готово button — IN_PROGRESS */}
                           {st === "IN_PROGRESS" && (
                             <button
                               onClick={() => handleUpdateStatus(app.id, "DONE")}
                               disabled={updatingStatus === app.id}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 5,
-                                cursor: updatingStatus === app.id ? "not-allowed" : "pointer",
-                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                background: updatingStatus === app.id ? "#e2e8f0" : "#16a34a",
-                                color: updatingStatus === app.id ? "#94a3b8" : "#fff",
-                                border: "none", opacity: updatingStatus === app.id ? 0.7 : 1, transition: "background 150ms ease",
-                              }}
+                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
                             >
                               <CheckCircle size={13} />
                               {updatingStatus === app.id ? "..." : t("clinic.reception.finishReception")}
                             </button>
                           )}
 
-                          {/* CLINIC-FE-3: PAID badge */}
                           {app.paymentType === "ONLINE" && app.paymentStatus === "paid" && (
-                            <span style={{
-                              fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 99,
-                              background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0",
-                              whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4,
-                            }}>
+                            <span className="whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
                               ✓ Оплачено
                             </span>
                           )}
 
-                          {/* CLINIC-FE-3: Оплатить онлайн — ONLINE not yet paid, только CEO/RECEPTION */}
                           {app.paymentType === "ONLINE" && app.paymentStatus !== "paid" &&
                            !["CANCELED", "NO_SHOW"].includes(st) &&
                            clinicRole !== "DOCTOR" && clinicRole !== null && (
                             <button
                               onClick={() => handleInitiatePayment(app.id)}
                               disabled={initiatingPayment === app.id}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 5,
-                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                background: initiatingPayment === app.id ? "#e2e8f0" : "linear-gradient(135deg,#7c3aed,#6d28d9)",
-                                color: initiatingPayment === app.id ? "#94a3b8" : "#fff",
-                                border: "none", cursor: initiatingPayment === app.id ? "not-allowed" : "pointer",
-                                opacity: initiatingPayment === app.id ? 0.7 : 1, whiteSpace: "nowrap",
-                              }}
+                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
                             >
                               💳 {initiatingPayment === app.id ? "..." : "Оплатить онлайн"}
                             </button>
                           )}
 
-                          {/* CLINIC-FE-3: Проверить оплату — shown after payment URL was opened */}
                           {pendingPaymentIds.has(app.id) && app.paymentStatus !== "paid" && (
                             <button
                               onClick={() => handleCheckPayment(app.id)}
                               disabled={checkingPayment === app.id}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 5,
-                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                background: checkingPayment === app.id ? "#e2e8f0" : "#f0fdf4",
-                                color: checkingPayment === app.id ? "#94a3b8" : "#16a34a",
-                                border: "1px solid #bbf7d0",
-                                cursor: checkingPayment === app.id ? "not-allowed" : "pointer",
-                                whiteSpace: "nowrap",
-                              }}
+                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 disabled:bg-slate-200 disabled:text-slate-400"
                             >
                               {checkingPayment === app.id ? "⏳ Проверяем…" : "✓ Проверить оплату"}
                             </button>
                           )}
 
-                          {/* ✓ finalPrice badge */}
                           {app.finalPrice != null && (
-                            <span style={{
-                              fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 99,
-                              background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0",
-                              whiteSpace: "nowrap",
-                            }}>
+                            <span className="whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
                               ✓ {app.finalPrice.toLocaleString("ru-RU")} сум
                             </span>
                           )}
 
-                          {/* Price range badge (no finalPrice, not actionable) */}
                           {app.priceMin != null && app.priceMax != null && !app.finalPrice && st !== "IN_PROGRESS" && st !== "DONE" && (
-                            <span style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>
+                            <span className="whitespace-nowrap text-[11px] text-slate-400">
                               {app.priceMin.toLocaleString("ru-RU")}–{app.priceMax.toLocaleString("ru-RU")}
                             </span>
                           )}
 
-                          {/* 💰 Ввести цену button — only CEO or DOCTOR (own appt only) */}
                           {app.priceMin != null && app.priceMax != null && !app.finalPrice &&
                            (st === "IN_PROGRESS" || st === "DONE") &&
                            clinicUser != null &&
@@ -1326,12 +998,7 @@ export default function ReceptionPage() {
                                 setFinalPriceModal({ apptId: app.id, priceMin: app.priceMin!, priceMax: app.priceMax! });
                                 setFinalPriceInput("");
                               }}
-                              style={{
-                                display: "flex", alignItems: "center", gap: 5,
-                                padding: "5px 12px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                                background: "#f59e0b", color: "#fff", border: "none", cursor: "pointer",
-                                whiteSpace: "nowrap",
-                              }}
+                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-white"
                             >
                               💰 Ввести цену ({app.priceMin.toLocaleString("ru-RU")}–{app.priceMax.toLocaleString("ru-RU")})
                             </button>
@@ -1344,59 +1011,39 @@ export default function ReceptionPage() {
             )}
           </div>
 
-          {/* Right: sidebar (leads + waitlist) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-            {/* Waitlist panel (CLINIC-FE-4) */}
+          {/* Right: sidebar */}
+          <div className="flex flex-col gap-6">
+            {/* Waitlist */}
             {waitlist.length > 0 && (
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                    Лист ожидания
-                  </h2>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: "2px 8px",
-                    borderRadius: 99, background: "#f59e0b", color: "#fff", lineHeight: 1.4,
-                  }}>
-                    {waitlist.length}
-                  </span>
+                <div className="mb-3 flex items-center gap-2">
+                  <h2 className="text-[15px] font-bold text-slate-950">Лист ожидания</h2>
+                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-bold text-white">{waitlist.length}</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div className="space-y-2">
                   {waitlist.map((w) => (
                     <div
                       key={w.id}
-                      style={{
-                        ...baseCard,
-                        padding: "10px 12px",
-                        borderLeft: `3px solid ${w.status === "NOTIFIED" ? "#f59e0b" : "#e2e8f0"}`,
-                      }}
+                      className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm"
+                      style={{ borderLeft: `3px solid ${w.status === "NOTIFIED" ? "#f59e0b" : "#e2e8f0"}` }}
                     >
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {w.patientName}
-                          </div>
-                          <a href={`tel:${w.patientPhone}`} style={{ fontSize: 12, color: "#0d9488", fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-bold text-slate-950">{w.patientName}</div>
+                          <a href={`tel:${w.patientPhone}`} className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-teal-600 no-underline">
                             <Phone size={11} /> {w.patientPhone}
                           </a>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
+                          <div className="mt-0.5 text-[11px] text-slate-400">
                             {w.slotDate.split("-").reverse().join(".")} · {w.slotTime}
                             {w.status === "NOTIFIED" && (
-                              <span style={{ marginLeft: 6, color: "#f59e0b", fontWeight: 700 }}>Уведомлён</span>
+                              <span className="ml-1.5 font-bold text-amber-500">Уведомлён</span>
                             )}
                           </div>
                         </div>
                         <button
                           onClick={() => handleRemoveWaitlist(w.id)}
                           disabled={removingWaitlistId === w.id}
-                          title="Убрать из листа"
-                          style={{
-                            flexShrink: 0, padding: 4, borderRadius: 6, border: "none",
-                            background: "transparent", cursor: removingWaitlistId === w.id ? "not-allowed" : "pointer",
-                            color: "#94a3b8", display: "flex", opacity: removingWaitlistId === w.id ? 0.5 : 1,
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
-                          onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                          className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:text-red-500 disabled:opacity-50"
                         >
                           <X size={14} />
                         </button>
@@ -1407,123 +1054,58 @@ export default function ReceptionPage() {
               </div>
             )}
 
-            {/* AI leads sidebar */}
+            {/* AI leads */}
             <div>
-            {/* Sidebar header */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8, marginBottom: 14,
-            }}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
-                {t("clinic.reception.newAiLeads")}
-              </h2>
-              {leads.length > 0 && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: "2px 8px",
-                  borderRadius: 99, background: "#ef4444", color: "#fff",
-                  lineHeight: 1.4,
-                }}>
-                  {leads.length}
-                </span>
+              <div className="mb-3.5 flex items-center gap-2">
+                <h2 className="text-[15px] font-bold text-slate-950">{t("clinic.reception.newAiLeads")}</h2>
+                {leads.length > 0 && (
+                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold text-white">{leads.length}</span>
+                )}
+              </div>
+
+              {errLeads && <div className="mb-3.5"><ErrorBanner message={errLeads} onRetry={loadLeads} /></div>}
+
+              {loadingLeads ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[72px]" />)}
+                </div>
+              ) : leads.length === 0 ? (
+                <div className="flex flex-col items-center gap-2.5 rounded-2xl border border-slate-100 bg-white px-5 py-10 text-center shadow-sm">
+                  <Bot size={32} className="text-slate-200" />
+                  <p className="text-sm text-slate-400">{t("clinic.reception.noLeads")}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {leads.map((lead) => (
+                    <div key={lead.id} className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-slate-200 hover:shadow-md">
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-sm font-bold text-slate-950">{lead.name ?? t("clinic.reception.withoutName")}</span>
+                        <span className="text-[11px] text-slate-400">{timeAgo(lead.createdAt)}</span>
+                      </div>
+                      <a
+                        href={`tel:${lead.phone}`}
+                        className={`flex items-center gap-1.5 text-sm font-semibold text-teal-600 no-underline ${lead.notes ? "mb-1" : "mb-2"}`}
+                      >
+                        <Phone size={12} /> {lead.phone}
+                      </a>
+                      {lead.notes && (
+                        <p className="mb-2 truncate text-[11px] text-slate-400">{lead.notes}</p>
+                      )}
+                      <button
+                        onClick={() => setShowBooking(true)}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-purple-500 py-1.5 text-xs font-bold text-purple-600 transition hover:bg-purple-500 hover:text-white"
+                      >
+                        <CalendarPlus size={13} /> {t("clinic.reception.bookFromLead")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-
-            {errLeads && (
-              <div style={{ marginBottom: 14 }}>
-                <ErrorBanner message={errLeads} onRetry={loadLeads} />
-              </div>
-            )}
-
-            {loadingLeads ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[1, 2, 3].map((i) => <Skeleton key={i} height={72} />)}
-              </div>
-            ) : leads.length === 0 ? (
-              /* Empty state */
-              <div style={{
-                ...baseCard, padding: "40px 20px", textAlign: "center",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-              }}>
-                <Bot size={32} color="#cbd5e1" />
-                <p style={{ color: "#94a3b8", fontSize: 13, margin: 0 }}>{t("clinic.reception.noLeads")}</p>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {leads.map((lead) => (
-                  <div
-                    key={lead.id}
-                    className="lead-card"
-                    style={{
-                      ...baseCard,
-                      padding: "12px 14px",
-                    }}
-                  >
-                    {/* Name + time */}
-                    <div style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4,
-                    }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                        {lead.name ?? t("clinic.reception.withoutName")}
-                      </span>
-                      <span style={{ fontSize: 11, color: "#94a3b8" }}>
-                        {timeAgo(lead.createdAt)}
-                      </span>
-                    </div>
-
-                    {/* Phone as teal link */}
-                    <a
-                      href={`tel:${lead.phone}`}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 5,
-                        fontSize: 13, color: "#0d9488", fontWeight: 600,
-                        textDecoration: "none", marginBottom: lead.notes ? 4 : 8,
-                      }}
-                    >
-                      <Phone size={12} />
-                      {lead.phone}
-                    </a>
-
-                    {/* Notes (truncated) */}
-                    {lead.notes && (
-                      <p style={{
-                        fontSize: 11, color: "#94a3b8", margin: "0 0 8px",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>
-                        {lead.notes}
-                      </p>
-                    )}
-
-                    {/* Book button — purple outline */}
-                    <button
-                      onClick={() => setShowBooking(true)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
-                        width: "100%", justifyContent: "center",
-                        padding: "5px 10px", minHeight: 32, borderRadius: 8, fontSize: 12, fontWeight: 700,
-                        background: "transparent", color: "#9333ea",
-                        border: "1px solid #9333ea",
-                        transition: "background 150ms ease, color 150ms ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#9333ea";
-                        e.currentTarget.style.color = "#fff";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = "#9333ea";
-                      }}
-                    >
-                      <CalendarPlus size={13} /> {t("clinic.reception.bookFromLead")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>{/* /AI leads sidebar inner */}
-          </div>{/* /sidebar flex */}
+          </div>
         </div>
       )}
 
-      {/* Booking modal */}
       {showBooking && (
         <BookingModal
           open={showBooking}

@@ -7,24 +7,16 @@ import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 
-function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: number }) {
-  return (
-    <div style={{ height, borderRadius: radius, background: "#f1f5f9", animation: "pulse 1.5s ease-in-out infinite" }} />
-  );
+function Skeleton({ className = "h-14" }: { className?: string }) {
+  return <div className={`${className} animate-pulse rounded-xl bg-slate-100`} />;
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   const { t } = useTranslation();
   return (
-    <div style={{
-      background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
-      padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-    }}>
-      <span style={{ fontSize: 13, color: "#ef4444" }}>{message}</span>
-      <button onClick={onRetry} style={{
-        display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-        color: "#ef4444", background: "none", border: "none", cursor: "pointer",
-      }}>
+    <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <span className="text-sm text-red-500">{message}</span>
+      <button onClick={onRetry} className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
         <RefreshCw size={13} /> {t("clinic.common.retry")}
       </button>
     </div>
@@ -34,12 +26,14 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
 type Period = "today" | "week" | "month" | "year";
 
 const AVATAR_COLORS = [
-  { bg: "#eff6ff", color: "#2563eb" },
-  { bg: "#faf5ff", color: "#9333ea" },
-  { bg: "#f0fdf4", color: "#16a34a" },
-  { bg: "#fff7ed", color: "#ea580c" },
-  { bg: "#fdf2f8", color: "#db2777" },
+  "bg-blue-50 text-blue-600",
+  "bg-purple-50 text-purple-600",
+  "bg-green-50 text-green-600",
+  "bg-orange-50 text-orange-600",
+  "bg-pink-50 text-pink-600",
 ];
+
+const BADGE_RANKS = ["bg-amber-400", "bg-slate-400", "bg-yellow-700"];
 
 export default function FinancePage() {
   const { t } = useTranslation();
@@ -96,16 +90,9 @@ export default function FinancePage() {
     if (monthly.length === 0) { toast.warn(t("clinic.finance.noExportData")); return; }
     const header = [t("clinic.finance.month"), t("clinic.finance.appointmentsCount"), `${t("clinic.finance.revenueCol")} (${t("common.sum")})`];
     const rows = monthly.map((r) => [r.month, r.appointments, r.revenue]);
-
-    const doctorTitle  = [t("clinic.staff.title"), t("clinic.finance.appointmentsCount"), `${t("clinic.finance.revenueCol")} (${t("common.sum")})`];
-    const doctorRows   = doctors.slice(0, 5).map((d) => [d.doctorName, d.appointments, d.revenue]);
-
-    const allRows = [
-      header, ...rows,
-      [""],
-      doctorTitle, ...doctorRows,
-    ];
-
+    const doctorTitle = [t("clinic.staff.title"), t("clinic.finance.appointmentsCount"), `${t("clinic.finance.revenueCol")} (${t("common.sum")})`];
+    const doctorRows  = doctors.slice(0, 5).map((d) => [d.doctorName, d.appointments, d.revenue]);
+    const allRows = [header, ...rows, [""], doctorTitle, ...doctorRows];
     const csv = allRows.map((r) => r.map(String).map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url  = URL.createObjectURL(blob);
@@ -118,93 +105,81 @@ export default function FinancePage() {
     URL.revokeObjectURL(url);
   }
 
-  const card: React.CSSProperties = {
-    background: "#fff", borderRadius: 16, border: "1px solid #f1f5f9",
-    boxShadow: "0 1px 4px rgba(15,23,42,0.04)", padding: "24px",
-  };
+  const cardCls = "rounded-2xl border border-slate-100 bg-white p-6 shadow-sm";
 
   return (
-    <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+    <div className="min-h-full space-y-6">
       <ToastContainer toasts={toasts} onClose={closeToast} />
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.finance.title")}</h1>
-          <p style={{ fontSize: 13, color: "#64748b" }}>{t("clinic.finance.subtitle")}</p>
+          <h1 className="text-[22px] font-extrabold text-slate-950">{t("clinic.finance.title")}</h1>
+          <p className="mt-1 text-sm text-slate-500">{t("clinic.finance.subtitle")}</p>
         </div>
         <button
           onClick={exportCSV}
-          style={{
-            display: "flex", alignItems: "center", gap: 7,
-            padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 700,
-            background: "#fff", border: "1.5px solid #e2e8f0", color: "#475569",
-            cursor: "pointer", transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#0d9488"; (e.currentTarget as HTMLButtonElement).style.color = "#0d9488"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e2e8f0"; (e.currentTarget as HTMLButtonElement).style.color = "#475569"; }}
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:border-teal-500 hover:text-teal-600"
         >
           <Download size={14} /> {t("clinic.finance.exportCsv")}
         </button>
       </div>
 
       {/* Period selector */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+      <div className="flex flex-wrap gap-2">
         {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-          <button key={p} onClick={() => setPeriod(p)} style={{
-            padding: "8px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-            border: `1.5px solid ${period === p ? "#0d9488" : "#e2e8f0"}`,
-            background: period === p ? "#f0fdfa" : "#fff",
-            color: period === p ? "#0d9488" : "#475569",
-            cursor: "pointer",
-          }}>
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={[
+              "rounded-xl border-[1.5px] px-4 py-2 text-sm font-semibold transition",
+              period === p
+                ? "border-teal-500 bg-teal-50 text-teal-600"
+                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+            ].join(" ")}
+          >
             {PERIOD_LABELS[p]}
           </button>
         ))}
       </div>
 
-      {errOverview && <div style={{ marginBottom: 20 }}><ErrorBanner message={errOverview} onRetry={() => fetchOverview(period)} /></div>}
+      {errOverview && <ErrorBanner message={errOverview} onRetry={() => fetchOverview(period)} />}
 
       {/* KPI Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+      <div className="grid gap-4 sm:grid-cols-3">
         {loadingOverview ? (
           [1, 2, 3].map((i) => (
-            <div key={i} style={card}>
-              <Skeleton height={60} />
-            </div>
+            <div key={i} className={cardCls}><Skeleton className="h-16" /></div>
           ))
         ) : overview ? (
           [
             {
-              icon: <DollarSign size={22} color="#0d9488" />,
-              iconBg: "#f0fdfa",
+              icon: <DollarSign size={22} className="text-teal-600" />,
+              iconBg: "bg-teal-50",
               value: `${(overview.revenue ?? 0).toLocaleString("ru-RU")} ${t("common.sum")}`,
               label: t("clinic.finance.revenue"),
             },
             {
-              icon: <Users size={22} color="#2563eb" />,
-              iconBg: "#eff6ff",
+              icon: <Users size={22} className="text-blue-600" />,
+              iconBg: "bg-blue-50",
               value: overview.appointments,
               label: t("clinic.finance.appointments"),
             },
             {
-              icon: <TrendingUp size={22} color="#9333ea" />,
-              iconBg: "#faf5ff",
+              icon: <TrendingUp size={22} className="text-purple-600" />,
+              iconBg: "bg-purple-50",
               value: `${overview.cancelRate ?? 0}%`,
               label: t("clinic.finance.cancelRate"),
             },
           ].map(({ icon, iconBg, value, label }) => (
-            <div key={label} style={card}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{
-                  width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
-                  background: iconBg, display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
+            <div key={label} className={cardCls}>
+              <div className="flex items-center gap-4">
+                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${iconBg}`}>
                   {icon}
                 </div>
                 <div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", lineHeight: 1.1 }}>{value}</div>
-                  <div style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>{label}</div>
+                  <div className="text-2xl font-extrabold text-slate-950 leading-tight">{value}</div>
+                  <div className="mt-0.5 text-sm text-slate-500">{label}</div>
                 </div>
               </div>
             </div>
@@ -213,43 +188,41 @@ export default function FinancePage() {
       </div>
 
       {/* Monthly table */}
-      <div style={{ ...card, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.finance.monthlyStats")}</h2>
+      <div className={cardCls}>
+        <h2 className="mb-5 text-base font-bold text-slate-950">{t("clinic.finance.monthlyStats")}</h2>
 
-        {errMonthly && <ErrorBanner message={errMonthly} onRetry={fetchMonthly} />}
+        {errMonthly && <div className="mb-4"><ErrorBanner message={errMonthly} onRetry={fetchMonthly} /></div>}
         {loadingMonthly ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} height={18} radius={6} />)}
+          <div className="space-y-2.5">
+            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-4 rounded" />)}
           </div>
         ) : monthly.length === 0 ? (
-          <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "32px 0" }}>{t("clinic.finance.noData")}</p>
+          <p className="py-8 text-center text-sm text-slate-400">{t("clinic.finance.noData")}</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <th style={{ textAlign: "left", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.month")}</th>
-                  <th style={{ textAlign: "right", padding: "0 12px 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.appointmentsCount")}</th>
-                  <th style={{ textAlign: "right", padding: "0 12px 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.revenueCol")}</th>
-                  <th style={{ width: 160, padding: "0 0 10px" }} />
+                <tr className="border-b border-slate-100">
+                  <th className="pb-3 text-left font-semibold text-slate-500">{t("clinic.finance.month")}</th>
+                  <th className="px-3 pb-3 text-right font-semibold text-slate-500">{t("clinic.finance.appointmentsCount")}</th>
+                  <th className="px-3 pb-3 text-right font-semibold text-slate-500">{t("clinic.finance.revenueCol")}</th>
+                  <th className="w-40 pb-3" />
                 </tr>
               </thead>
               <tbody>
                 {monthly.map((row) => (
-                  <tr key={row.month} style={{ borderBottom: "1px solid #f8fafc" }}>
-                    <td style={{ padding: "10px 0", fontWeight: 600, color: "#374151" }}>{row.month}</td>
-                    <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
-                    <td style={{ padding: "10px 12px", textAlign: "right", color: "#374151" }}>
+                  <tr key={row.month} className="border-b border-slate-50">
+                    <td className="py-2.5 font-semibold text-slate-700">{row.month}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-700">{row.appointments}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-700">
                       {(row.revenue ?? 0).toLocaleString("ru-RU")} {t("common.sum")}
                     </td>
-                    <td style={{ padding: "10px 0 10px 16px" }}>
-                      <div style={{ height: 8, borderRadius: 4, background: "#f1f5f9", overflow: "hidden" }}>
-                        <div style={{
-                          height: "100%", borderRadius: 4,
-                          background: "linear-gradient(90deg, #0d9488, #5eead4)",
-                          width: `${(row.revenue / maxRevenue) * 100}%`,
-                          transition: "width 0.5s ease",
-                        }} />
+                    <td className="py-2.5 pl-4">
+                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
+                          style={{ width: `${(row.revenue / maxRevenue) * 100}%` }}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -261,66 +234,53 @@ export default function FinancePage() {
       </div>
 
       {/* Top doctors */}
-      <div style={card}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.finance.topDoctors")}</h2>
+      <div className={cardCls}>
+        <h2 className="mb-5 text-base font-bold text-slate-950">{t("clinic.finance.topDoctors")}</h2>
 
-        {errDoctors && <ErrorBanner message={errDoctors} onRetry={fetchDoctors} />}
+        {errDoctors && <div className="mb-4"><ErrorBanner message={errDoctors} onRetry={fetchDoctors} /></div>}
         {loadingDoctors ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#f1f5f9", flexShrink: 0, animation: "pulse 1.5s ease-in-out infinite" }} />
-                <div style={{ flex: 1 }}><Skeleton height={14} radius={4} /></div>
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-slate-100" />
+                <div className="flex-1"><Skeleton className="h-3.5 rounded" /></div>
               </div>
             ))}
           </div>
         ) : doctors.length === 0 ? (
-          <p style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: "32px 0" }}>{t("clinic.finance.noData")}</p>
+          <p className="py-8 text-center text-sm text-slate-400">{t("clinic.finance.noData")}</p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="space-y-4">
             {doctors.slice(0, 5).map((doc, idx) => {
-              const c = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+              const avatarCls = AVATAR_COLORS[idx % AVATAR_COLORS.length];
               const pct = Math.round((doc.revenue / maxDocRevenue) * 100);
               return (
-                <div key={doc.doctorId} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ position: "relative" }}>
-                    <div style={{
-                      width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
-                      background: c.bg, color: c.color,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 16, fontWeight: 800,
-                    }}>
+                <div key={doc.doctorId} className="flex items-center gap-3">
+                  <div className="relative shrink-0">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-base font-extrabold ${avatarCls}`}>
                       {(doc.doctorName ?? "?").charAt(0).toUpperCase()}
                     </div>
                     {idx < 3 && (
-                      <span style={{
-                        position: "absolute", top: -4, right: -4, width: 18, height: 18,
-                        borderRadius: "50%", background: idx === 0 ? "#f59e0b" : idx === 1 ? "#94a3b8" : "#a16207",
-                        color: "#fff", fontSize: 10, fontWeight: 800,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
+                      <span className={`absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-extrabold text-white ${BADGE_RANKS[idx]}`}>
                         {idx + 1}
                       </span>
                     )}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {doc.doctorName}
-                      </span>
-                      <span style={{ fontSize: 12, color: "#0d9488", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex justify-between">
+                      <span className="truncate text-sm font-bold text-slate-950">{doc.doctorName}</span>
+                      <span className="ml-2 shrink-0 text-sm font-bold text-teal-600">
                         {(doc.revenue ?? 0).toLocaleString("ru-RU")} {t("common.sum")}
                       </span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
-                        <div style={{
-                          height: "100%", borderRadius: 3,
-                          background: "linear-gradient(90deg, #0d9488, #5eead4)",
-                          width: `${pct}%`, transition: "width 0.5s ease",
-                        }} />
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 overflow-hidden rounded-full bg-slate-100 h-1.5">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
-                      <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>{doc.appointments} {t("clinic.finance.appointmentsCount")}</span>
+                      <span className="shrink-0 text-xs text-slate-400">{doc.appointments} {t("clinic.finance.appointmentsCount")}</span>
                     </div>
                   </div>
                 </div>

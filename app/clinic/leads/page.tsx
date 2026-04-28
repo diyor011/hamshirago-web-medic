@@ -9,17 +9,17 @@ import BookingModal from "@/components/clinic/BookingModal";
 type UiLeadStatus = "NEW" | "IN_PROGRESS" | "DONE" | "CANCELED";
 
 const STATUS_LABELS: Record<UiLeadStatus, string> = {
-  NEW: "Новый",
+  NEW:         "Новый",
   IN_PROGRESS: "В работе",
-  DONE: "Завершён",
-  CANCELED: "Отменён",
+  DONE:        "Завершён",
+  CANCELED:    "Отменён",
 };
 
-const STATUS_STYLES: Record<UiLeadStatus, React.CSSProperties> = {
-  NEW:         { background: "#eff6ff", color: "#2563eb" },
-  IN_PROGRESS: { background: "#fefce8", color: "#ca8a04" },
-  DONE:        { background: "#f0fdf4", color: "#16a34a" },
-  CANCELED:    { background: "#fef2f2", color: "#ef4444" },
+const STATUS_BADGE: Record<UiLeadStatus, string> = {
+  NEW:         "bg-blue-50 text-blue-600",
+  IN_PROGRESS: "bg-amber-50 text-amber-600",
+  DONE:        "bg-emerald-50 text-emerald-700",
+  CANCELED:    "bg-red-50 text-red-500",
 };
 
 const STATUS_NEXT: Record<UiLeadStatus, UiLeadStatus | null> = {
@@ -30,29 +30,29 @@ const STATUS_NEXT: Record<UiLeadStatus, UiLeadStatus | null> = {
 };
 
 const STATUS_NEXT_LABELS: Record<UiLeadStatus, string> = {
-  NEW: "Взять в работу",
+  NEW:         "Взять в работу",
   IN_PROGRESS: "Завершить",
-  DONE: "",
-  CANCELED: "",
+  DONE:        "",
+  CANCELED:    "",
 };
 
-function Skeleton({ height = 80, radius = 12 }: { height?: number; radius?: number }) {
-  return (
-    <div style={{ height, borderRadius: radius, background: "#f1f5f9", animation: "pulse 1.5s ease-in-out infinite" }} />
-  );
+const KPI_COLORS = [
+  { bg: "bg-slate-50",   text: "text-slate-600" },
+  { bg: "bg-blue-50",    text: "text-blue-600" },
+  { bg: "bg-amber-50",   text: "text-amber-600" },
+  { bg: "bg-emerald-50", text: "text-emerald-700" },
+  { bg: "bg-red-50",     text: "text-red-500" },
+];
+
+function Skeleton() {
+  return <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />;
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div style={{
-      background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
-      padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-    }}>
-      <span style={{ fontSize: 13, color: "#ef4444" }}>{message}</span>
-      <button onClick={onRetry} style={{
-        display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-        color: "#ef4444", background: "none", border: "none", cursor: "pointer",
-      }}>
+    <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <span className="text-sm text-red-500">{message}</span>
+      <button onClick={onRetry} className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
         <RefreshCw size={13} /> Повторить
       </button>
     </div>
@@ -124,142 +124,121 @@ export default function LeadsPage() {
     }
   }
 
-  const card: React.CSSProperties = {
-    background: "#fff", borderRadius: 16, border: "1px solid #f1f5f9",
-    boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
-  };
-
   const totalPages = Math.ceil(total / LIMIT);
 
-  return (
-    <div style={{ minHeight: "100%", background: "#f8fafc" }}>
-      <ToastContainer toasts={toasts} onClose={closeToast} />
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
+  const kpiItems = stats
+    ? [
+        { label: "Всего",     value: stats.total },
+        { label: "Новых",     value: stats.new },
+        { label: "В работе",  value: stats.inProgress },
+        { label: "Завершено", value: stats.done },
+        { label: "Отменено",  value: stats.canceled },
+      ]
+    : [];
 
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Лиды — Salomat AI</h1>
-        <p style={{ fontSize: 13, color: "#64748b" }}>Пациенты, обратившиеся через голосового ассистента</p>
+  return (
+    <div className="min-h-full space-y-5">
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+
+      <div>
+        <h1 className="text-[22px] font-extrabold text-slate-950">Лиды — Salomat AI</h1>
+        <p className="mt-1 text-sm text-slate-500">Пациенты, обратившиеся через голосового ассистента</p>
       </div>
 
       {/* KPI */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
+      <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
         {loadingStats ? (
-          [1, 2, 3, 4, 5].map((i) => (
-            <div key={i} style={{ ...card, padding: 16 }}>
-              <Skeleton height={50} />
-            </div>
-          ))
+          [1, 2, 3, 4, 5].map((i) => <div key={i} className="h-[82px] animate-pulse rounded-2xl bg-slate-100" />)
         ) : errStats ? (
-          <div style={{ gridColumn: "1/-1" }}><ErrorBanner message={errStats} onRetry={loadStats} /></div>
+          <div className="col-span-full"><ErrorBanner message={errStats} onRetry={loadStats} /></div>
         ) : stats ? (
-          [
-            { label: "Всего",     value: stats.total,      bg: "#f8fafc", color: "#475569" },
-            { label: "Новых",     value: stats.new,        bg: "#eff6ff", color: "#2563eb" },
-            { label: "В работе",  value: stats.inProgress, bg: "#fefce8", color: "#ca8a04" },
-            { label: "Завершено", value: stats.done,       bg: "#f0fdf4", color: "#16a34a" },
-            { label: "Отменено",  value: stats.canceled,  bg: "#fef2f2", color: "#ef4444" },
-          ].map(({ label, value, bg, color }) => (
-            <div key={label} style={{ ...card, padding: "16px 20px", background: bg }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-              <div style={{ fontSize: 12, color, opacity: 0.75, marginTop: 4, fontWeight: 600 }}>{label}</div>
-            </div>
-          ))
+          kpiItems.map(({ label, value }, idx) => {
+            const c = KPI_COLORS[idx];
+            return (
+              <div key={label} className={`rounded-2xl border border-slate-100 px-5 py-4 shadow-sm ${c.bg}`}>
+                <div className={`text-3xl font-extrabold leading-none ${c.text}`}>{value}</div>
+                <div className={`mt-1 text-xs font-semibold opacity-75 ${c.text}`}>{label}</div>
+              </div>
+            );
+          })
         ) : null}
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+      <div className="flex flex-wrap gap-2">
         {ALL_STATUSES.map((s) => (
           <button
             key={s}
             onClick={() => changeFilter(s)}
-            style={{
-              padding: "8px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-              border: `1.5px solid ${filter === s ? "#0d9488" : "#e2e8f0"}`,
-              background: filter === s ? "#f0fdfa" : "#fff",
-              color: filter === s ? "#0d9488" : "#475569",
-              cursor: "pointer",
-            }}
+            className={[
+              "rounded-xl border-[1.5px] px-4 py-2 text-sm font-semibold transition",
+              filter === s
+                ? "border-teal-500 bg-teal-50 text-teal-600"
+                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+            ].join(" ")}
           >
             {FILTER_LABELS[s]}
           </button>
         ))}
       </div>
 
-      {errLeads && <div style={{ marginBottom: 16 }}><ErrorBanner message={errLeads} onRetry={() => loadLeads(filter, page)} /></div>}
+      {errLeads && <ErrorBanner message={errLeads} onRetry={() => loadLeads(filter, page)} />}
 
       {/* Leads list */}
       {loadingLeads ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="space-y-2.5">
           {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} />)}
         </div>
       ) : leads.length === 0 ? (
-        <div style={{ ...card, padding: 60, textAlign: "center" }}>
-          <MessageSquare size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-          <p style={{ color: "#94a3b8", fontSize: 14 }}>Нет лидов</p>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white p-16 text-center shadow-sm">
+          <MessageSquare size={40} className="mb-3 text-slate-200" />
+          <p className="text-sm text-slate-400">Нет лидов</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="space-y-2.5">
           {leads.map((lead) => {
             const st = lead.status as UiLeadStatus;
             const next = STATUS_NEXT[st];
             return (
-              <div key={lead.id} style={{ ...card, padding: 18 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{lead.name ?? "Без имени"}</span>
-                      <span style={{ fontSize: 13, color: "#64748b" }}>{lead.phone}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, ...STATUS_STYLES[st] }}>
+              <div key={lead.id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-slate-200">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                      <span className="text-[15px] font-bold text-slate-950">{lead.name ?? "Без имени"}</span>
+                      <span className="text-sm text-slate-500">{lead.phone}</span>
+                      <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${STATUS_BADGE[st]}`}>
                         {STATUS_LABELS[st]}
                       </span>
                     </div>
                     {lead.notes && (
-                      <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 6px", lineHeight: 1.5 }}>{lead.notes}</p>
+                      <p className="mb-1.5 text-sm leading-relaxed text-slate-500">{lead.notes}</p>
                     )}
-                    <p style={{ fontSize: 11, color: "#94a3b8", margin: 0 }}>
+                    <p className="text-[11px] text-slate-400">
                       {new Date(lead.createdAt).toLocaleString("ru-RU")}
                     </p>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                    {/* Call button */}
+                  <div className="flex shrink-0 flex-col gap-1.5">
                     <a
                       href={`tel:${lead.phone}`}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                        padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                        background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0",
-                        textDecoration: "none", whiteSpace: "nowrap",
-                      }}
+                      className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 no-underline"
                     >
                       <Phone size={12} /> Позвонить
                     </a>
 
-                    {/* Record appointment */}
-                    {st === "NEW" || st === "IN_PROGRESS" ? (
+                    {(st === "NEW" || st === "IN_PROGRESS") && (
                       <button
                         onClick={() => setBookingLead(lead)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 6,
-                          padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                          background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe",
-                          cursor: "pointer", whiteSpace: "nowrap",
-                        }}
+                        className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600"
                       >
                         <CalendarPlus size={12} /> Записать
                       </button>
-                    ) : null}
+                    )}
 
                     {next && (
                       <button
                         onClick={() => handleUpdateStatus(lead, next)}
                         disabled={updating === lead.id}
-                        style={{
-                          padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                          background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-                          border: "none", cursor: updating === lead.id ? "not-allowed" : "pointer",
-                          opacity: updating === lead.id ? 0.6 : 1, whiteSpace: "nowrap",
-                        }}
+                        className="whitespace-nowrap rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
                       >
                         {updating === lead.id ? "..." : STATUS_NEXT_LABELS[st]}
                       </button>
@@ -268,11 +247,7 @@ export default function LeadsPage() {
                       <button
                         onClick={() => handleUpdateStatus(lead, "CANCELED")}
                         disabled={updating === lead.id}
-                        style={{
-                          padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                          background: "#fef2f2", color: "#ef4444", border: "1px solid #fecaca",
-                          cursor: updating === lead.id ? "not-allowed" : "pointer",
-                        }}
+                        className="whitespace-nowrap rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-500 disabled:opacity-60"
                       >
                         Отменить
                       </button>
@@ -287,33 +262,33 @@ export default function LeadsPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 24 }}>
+        <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            style={{
-              padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-              background: "#fff", border: "1px solid #e2e8f0", cursor: page === 1 ? "not-allowed" : "pointer",
-              color: page === 1 ? "#cbd5e1" : "#475569",
-            }}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 disabled:text-slate-300"
           >
             Назад
           </button>
-          <span style={{ padding: "8px 16px", fontSize: 13, color: "#64748b", fontWeight: 600 }}>
+          <span className="px-4 py-2 text-sm font-semibold text-slate-500">
             {page} / {totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            style={{
-              padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-              background: "#fff", border: "1px solid #e2e8f0", cursor: page === totalPages ? "not-allowed" : "pointer",
-              color: page === totalPages ? "#cbd5e1" : "#475569",
-            }}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 disabled:text-slate-300"
           >
             Вперёд
           </button>
         </div>
+      )}
+
+      {bookingLead && (
+        <BookingModal
+          open={!!bookingLead}
+          onClose={() => setBookingLead(null)}
+          onSuccess={() => { setBookingLead(null); loadLeads(filter, page); }}
+        />
       )}
     </div>
   );
