@@ -244,6 +244,7 @@
       "finance": "Финансы",
       "settings": "Настройки",
       "subscription": "Тариф",
+      "patients": "База пациентов",
       "homeOrders": "Заказы на дом",
       "logout": "Выйти"
     },

@@ -95,6 +95,7 @@ export interface ClinicAuthResponse {
     name: string;
     role: ClinicRole;
     companyId: string;
+    doctorId?: string | null;
   };
 }
 
@@ -795,6 +796,10 @@ export const clinicApi = {
       request<PatientSearchResult[]>(
         `/clinic/patients/search?q=${encodeURIComponent(q)}`,
       ),
+    getHistory: (id: string) =>
+      request<{ visits: Appointment[] }>(
+        `/clinic/patients/${encodeURIComponent(id)}/history`,
+      ).then((res) => ({ visits: (res.visits ?? []).map(normalizeAppointment) })),
   },
 
 };

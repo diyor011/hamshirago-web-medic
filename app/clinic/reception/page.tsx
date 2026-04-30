@@ -6,7 +6,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight,
   Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle,
 } from "lucide-react";
-import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
+import { clinicApi, getClinicRole, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
@@ -145,13 +145,22 @@ export default function ReceptionPage() {
   const [showCalPicker, setShowCalPicker] = useState(false);
   const [pickerViewDate, setPickerViewDate] = useState(() => new Date());
   const [clinicUser, setClinicUser] = useState<{ id: string; role: string } | null>(null);
+  // undefined = не определён ещё, null = не доктор, string = CompanyUser.id доктора
+  const [doctorIdFilter, setDoctorIdFilter] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     setMounted(true);
     try {
       const raw = localStorage.getItem("clinic_user");
-      if (raw) setClinicUser(JSON.parse(raw));
-    } catch { /* ignore */ }
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed) setClinicUser(parsed);
+      // ClinicAppointment.doctorId = CompanyUser.id — он всегда есть в clinic_user.id
+      if (getClinicRole() === "DOCTOR" && parsed?.id) {
+        setDoctorIdFilter(parsed.id);
+      } else {
+        setDoctorIdFilter(null);
+      }
+    } catch { setDoctorIdFilter(null); }
   }, []);
 
   const todayLabel = mounted
@@ -170,9 +179,15 @@ export default function ReceptionPage() {
   const isForbidden = (e: unknown) =>
     e instanceof Error && (e.message.includes("прав") || e.message.toLowerCase().includes("forbidden") || e.message === "UNAUTHORIZED");
 
-  const loadApps = useCallback(async () => {
+  const loadApps = useCallback(async (dId: string | null) => {
     setLoadingApps(true); setErrApps(null);
-    try { setAppointments(await clinicApi.appointments.today()); }
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const list = dId
+        ? await clinicApi.appointments.list({ date: today, doctorId: dId })
+        : await clinicApi.appointments.today();
+      setAppointments(list);
+    }
     catch (e) {
       if (!isForbidden(e)) setErrApps(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     }
@@ -191,18 +206,29 @@ export default function ReceptionPage() {
     }
   }, [t]);
 
-  useEffect(() => { loadApps(); loadLeads(); }, [loadApps, loadLeads]);
+  useEffect(() => {
+    if (doctorIdFilter === undefined) return; // ждём резолва
+    loadApps(doctorIdFilter);
+    loadLeads();
+  }, [loadApps, loadLeads, doctorIdFilter]);
 
   useEffect(() => {
-    clinicApi.rooms.list().then(setRooms).catch(() => setRooms([]));
+    if (doctorIdFilter === undefined) return;
+    // Доктор видит только свои комнаты, остальные — все
+    const roomsPromise = doctorIdFilter
+      ? clinicApi.rooms.forDoctor(doctorIdFilter).then((slots) =>
+          slots.map((s) => ({ id: s.roomId, name: s.roomName, floor: s.floor ?? null }))
+        )
+      : clinicApi.rooms.list();
+    roomsPromise.then(setRooms).catch(() => setRooms([]));
     // Restore doctor loading for all roles (FIX: lost during merge)
     clinicApi.stats.doctors().then(setDoctors).catch(() => setDoctors([]));
-  }, []);
+  }, [doctorIdFilter]);
 
-  const loadCalendar = useCallback(async () => {
+  const loadCalendar = useCallback(async (dId: string | null) => {
     setLoadingCalendar(true);
     try {
-      const list = await clinicApi.appointments.list({ date: fmtDateISO(calendarDate) });
+      const list = await clinicApi.appointments.list({ date: fmtDateISO(calendarDate), ...(dId ? { doctorId: dId } : {}) });
       setCalendarAppts(list);
     } catch {
       setCalendarAppts([]);
@@ -212,13 +238,13 @@ export default function ReceptionPage() {
   }, [calendarDate]);
 
   useEffect(() => {
-    if (viewMode === "calendar") loadCalendar();
-  }, [viewMode, loadCalendar]);
+    if (viewMode === "calendar") loadCalendar(doctorIdFilter ?? null);
+  }, [viewMode, loadCalendar, doctorIdFilter]);
 
   useEffect(() => {
-    const id = setInterval(loadApps, 30000);
+    const id = setInterval(() => loadApps(doctorIdFilter ?? null), 30000);
     return () => clearInterval(id);
-  }, [loadApps]);
+  }, [loadApps, doctorIdFilter]);
 
   async function handleSetFinalPrice() {
     if (!finalPriceModal) return;
@@ -232,7 +258,7 @@ export default function ReceptionPage() {
       await clinicApi.appointments.setFinalPrice(finalPriceModal.apptId, val);
       toast.success("Итоговая цена сохранена");
       setFinalPriceModal(null); setFinalPriceInput("");
-      await loadApps();
+      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -244,7 +270,7 @@ export default function ReceptionPage() {
     setCheckingIn(id);
     try {
       await clinicApi.appointments.checkin(id);
-      await loadApps();
+      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
@@ -256,7 +282,7 @@ export default function ReceptionPage() {
     setUpdatingStatus(id);
     try {
       await clinicApi.appointments.updateStatus(id, status);
-      await loadApps();
+      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
@@ -336,7 +362,7 @@ export default function ReceptionPage() {
       });
       toast.success("Запись добавлена");
       setQuickBook(null); setQuickName(""); setQuickPhone("");
-      await loadCalendar();
+      await loadCalendar(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -569,7 +595,7 @@ export default function ReceptionPage() {
               </div>
             </div>
 
-            <button onClick={loadCalendar} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
+            <button onClick={() => loadCalendar(doctorIdFilter ?? null)} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
               <RefreshCw size={13} /> {t("clinic.reception.update")}
             </button>
           </div>
@@ -716,12 +742,12 @@ export default function ReceptionPage() {
           <div>
             <div className="mb-3.5 flex items-center justify-between">
               <h2 className="text-[15px] font-bold text-slate-950">{t("clinic.reception.todayAppointments")}</h2>
-              <button onClick={loadApps} className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
+              <button onClick={() => loadApps(doctorIdFilter ?? null)} className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
                 <RefreshCw size={13} /> {t("clinic.reception.refresh")}
               </button>
             </div>
 
-            {errApps && <div className="mb-3.5"><ErrorBanner message={errApps} onRetry={loadApps} /></div>}
+            {errApps && <div className="mb-3.5"><ErrorBanner message={errApps} onRetry={() => loadApps(doctorIdFilter ?? null)} /></div>}
 
             {loadingApps ? (
               <div className="space-y-2.5">
@@ -829,7 +855,7 @@ export default function ReceptionPage() {
                            (st === "IN_PROGRESS" || st === "DONE") &&
                            clinicUser != null &&
                            clinicUser.role !== "RECEPTION" &&
-                           (clinicUser.role !== "DOCTOR" || app.doctorId === clinicUser.id) && (
+                           (clinicUser.role !== "DOCTOR" || app.doctorId === clinicUser.doctorId) && (
                             <button
                               onClick={() => {
                                 setFinalPriceModal({ apptId: app.id, priceMin: app.priceMin!, priceMax: app.priceMax! });
@@ -903,7 +929,7 @@ export default function ReceptionPage() {
         <BookingModal
           open={showBooking}
           onClose={() => setShowBooking(false)}
-          onSuccess={() => { setShowBooking(false); loadApps(); }}
+          onSuccess={() => { setShowBooking(false); loadApps(doctorIdFilter ?? null); }}
         />
       )}
     </div>
