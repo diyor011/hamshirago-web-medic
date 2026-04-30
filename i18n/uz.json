@@ -221,7 +221,9 @@
     "errorLatRange": "Kenglik -90 dan 90 gacha bo'lishi kerak",
     "errorLngRange": "Uzunlik -180 dan 180 gacha bo'lishi kerak"
   },
-  "language": { "title": "Язык / Til" },
+  "language": {
+    "title": "Язык / Til"
+  },
   "common": {
     "loading": "Yuklanmoqda...",
     "error": "Xatolik",
@@ -241,6 +243,8 @@
       "staff": "Xodimlar",
       "finance": "Moliya",
       "settings": "Sozlamalar",
+      "subscription": "Tarif",
+      "homeOrders": "Uyga buyurtmalar",
       "logout": "Chiqish"
     },
     "common": {
@@ -352,7 +356,11 @@
         "diagnostic": "Diagnostika",
         "procedure": "Protsedura"
       },
+      "rangePrice": "Narx diapazoni (operatsiyadan keyin aniqlanadi)",
+      "priceMin": "Min. narx",
+      "priceMax": "Maks. narx",
       "errorFillAll": "Barcha maydonlarni to'ldiring",
+      "errorPriceRange": "Min. narx maks. narxdan kichik bo'lishi kerak",
       "errorCreate": "Xatolik",
       "errorLoad": "Yuklashda xatolik"
     },
@@ -429,6 +437,8 @@
       "payment": "To'lov",
       "status": "Holat",
       "close": "Yopish",
+      "startReception": "Qabulni boshlash",
+      "finishReception": "Yakunlash",
       "withoutName": "Nomsiz",
       "bookFromLead": "Yozish",
       "paymentLabels": {
@@ -508,6 +518,38 @@
         "DONE": "Yakunlandi",
         "CANCELED": "Bekor qilindi"
       }
+    },
+    "booking": {
+      "title": "Bemor yozish",
+      "patientPhone": "Bemor telefoni",
+      "find": "Qidirish",
+      "finding": "...",
+      "visits": "ta tashrif tarixi",
+      "noName": "Nomsiz",
+      "patientNotFoundMsg": "Bemor topilmadi. Ismni qo'lda kiriting.",
+      "patientNamePlaceholder": "Bemor ismi",
+      "doctor": "Shifokor",
+      "selectDoctor": "Shifokorni tanlang",
+      "loadingDoctors": "Yuklanmoqda...",
+      "room": "Xona",
+      "selectRoom": "Xonani tanlang",
+      "loadingSchedule": "Jadval yuklanmoqda...",
+      "noSchedule": "Shifokor jadvali sozlanmagan — xonani qo'lda tanlang",
+      "noRooms": "Mavjud xonalar yo'q — avval xona yarating",
+      "floor": "qavat",
+      "date": "Sana",
+      "time": "Vaqt",
+      "paymentType": "To'lov turi",
+      "submit": "Yozish",
+      "submitting": "Yozilmoqda...",
+      "cancel": "Bekor qilish",
+      "errorPhone": "Telefon raqamini kiriting",
+      "errorDoctor": "Shifokorni tanlang",
+      "errorDate": "Sanani tanlang",
+      "errorTime": "Vaqtni ko'rsating",
+      "errorRoom": "Xonani tanlang",
+      "errorTimeRange": "Vaqt shifokor jadvalidan tashqarida ({{start}}–{{end}})",
+      "errorCreate": "Yozuv yaratishda xatolik"
     }
   }
 }

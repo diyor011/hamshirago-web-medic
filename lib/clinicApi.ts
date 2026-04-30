@@ -35,19 +35,35 @@ export function clearClinicSession(): void {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getClinicToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Сервер не отвечает. Проверьте подключение.");
+    }
+    throw err;
+  }
+  clearTimeout(timeoutId);
 
   if (res.status === 401 && !path.startsWith("/clinic-auth/")) {
     clearClinicSession();
     if (typeof window !== "undefined") window.location.replace("/clinic/auth");
     throw new Error("UNAUTHORIZED");
+  }
+  if (res.status === 403) {
+    throw new Error("Недостаточно прав для выполнения этого действия");
   }
   if (res.status === 429) {
     throw new Error("Слишком много запросов. Подождите немного и попробуйте снова.");
@@ -139,9 +155,11 @@ export interface ClinicService {
   name: string;
   category: string;
   price: number;
+  priceMin?: number | null;
+  priceMax?: number | null;
   durationMinutes: number;
-  category?: string;
   isActive: boolean;
+  doctorId?: string | null;
 }
 
 export type AppointmentStatus =
@@ -163,9 +181,14 @@ export interface Appointment {
   date: string;
   time: string;
   paymentType: PaymentType | null;
+  paymentStatus?: "unpaid" | "paid" | "refunded" | null;
   status: AppointmentStatus;
   cancelReason?: string | null;
   createdAt: string;
+  priceMin?: number | null;
+  priceMax?: number | null;
+  finalPrice?: number | null;
+  serviceTitle?: string | null;
 }
 
 export interface CreateAppointmentDto {
@@ -173,6 +196,7 @@ export interface CreateAppointmentDto {
   patientName: string;
   doctorId?: string;
   roomId?: string;
+  serviceId?: string;
   date: string;
   time: string;
   paymentType?: PaymentType;
@@ -233,6 +257,9 @@ export interface StatsOverview {
   appointments: number;
   revenue: number;
   cancelRate: number;
+  homeOrdersCommission?: number | null;
+  homeOrdersCount?: number | null;
+  subscriptionStatus?: string | null;
 }
 
 export interface MonthlyStats {
@@ -256,6 +283,69 @@ export interface PatientInfo {
   visits: Appointment[];
   name: string;
   appointments: Appointment[];
+}
+
+export interface PatientSearchResult {
+  id: string;
+  phone: string;
+  name: string;
+  lastVisit: string | null;
+  allergies: string | null;
+}
+
+export type HomeOrderStatus =
+  | "CREATED"
+  | "ASSIGNED"
+  | "ACCEPTED"
+  | "ON_THE_WAY"
+  | "ARRIVED"
+  | "SERVICE_STARTED"
+  | "DONE"
+  | "CANCELED";
+
+export interface HomeOrderLocation {
+  id: string;
+  latitude: number;
+  longitude: number;
+  house: string;
+  floor: string | null;
+  apartment: string | null;
+  phone: string;
+}
+
+export interface HomeOrder {
+  id: string;
+  clientId: string;
+  medicId: string | null;
+  serviceId: string;
+  serviceTitle: string;
+  status: HomeOrderStatus;
+  price: number;
+  finalPrice?: number | null;
+  created_at: string;
+  location: HomeOrderLocation;
+}
+
+export type ClinicPlan = "PRO" | "MAX" | "CUSTOM";
+
+export interface ClinicSubscription {
+  id?: string;
+  plan: ClinicPlan;
+  priceUsd: number;
+  features: Record<string, boolean>;
+  startedAt: string;
+  expiresAt: string | null;
+}
+
+export interface WaitlistEntry {
+  id: string;
+  slotDate: string;
+  slotTime: string;
+  patientName: string;
+  patientPhone: string;
+  doctorId?: string | null;
+  status: "PENDING" | "NOTIFIED" | "CONVERTED" | "EXPIRED";
+  createdAt: string;
 }
 
 function normalizeAppointmentStatus(status: string | undefined | null): AppointmentStatus {
@@ -357,8 +447,12 @@ function normalizeOverview(raw: {
   leadsByStatus: Array<{ status: string; count: number | string }>;
   conversionRate: number;
   commission: number;
+  revenue?: number;
   period: string;
   startDate: string;
+  homeOrdersCommission?: number | null;
+  homeOrdersCount?: number | null;
+  subscriptionStatus?: string | null;
 }): StatsOverview {
   const appointmentsByStatus = (raw.appointmentsByStatus ?? []).map((s) => ({
     status: s.status,
@@ -380,13 +474,16 @@ function normalizeOverview(raw: {
     startDate: raw.startDate,
     newPatients: Number(raw.totalPatients) || 0,
     appointments,
-    revenue: Number(raw.commission) || 0,
+    revenue: Number(raw.revenue ?? raw.commission) || 0,
     cancelRate: appointments > 0 ? Math.round((canceled / appointments) * 100) : 0,
+    homeOrdersCommission: raw.homeOrdersCommission != null ? Number(raw.homeOrdersCommission) : null,
+    homeOrdersCount: raw.homeOrdersCount != null ? Number(raw.homeOrdersCount) : null,
+    subscriptionStatus: raw.subscriptionStatus ?? null,
   };
 }
 
 function normalizeMonthly(
-  rows: Array<{ month: string; patientCount: number | string }>,
+  rows: Array<{ month: string; patientCount: number | string; revenue?: number | string }>,
 ): MonthlyStats[] {
   return (rows ?? []).map((r) => {
     const patientCount = Number(r.patientCount) || 0;
@@ -394,13 +491,13 @@ function normalizeMonthly(
       month: r.month,
       patientCount,
       appointments: patientCount,
-      revenue: 0,
+      revenue: Number(r.revenue) || 0,
     };
   });
 }
 
 function normalizeDoctorStats(
-  rows: Array<{ doctorId: string; name: string; patientCount: number | string }>,
+  rows: Array<{ doctorId: string; name: string; patientCount: number | string; revenue?: number | string }>,
 ): DoctorStats[] {
   return (rows ?? []).map((r) => {
     const appointments = Number(r.patientCount) || 0;
@@ -410,7 +507,7 @@ function normalizeDoctorStats(
       patientCount: appointments,
       doctorName: r.name,
       appointments,
-      revenue: 0,
+      revenue: Number(r.revenue) || 0,
     };
   });
 }
@@ -528,8 +625,11 @@ export const clinicApi = {
   },
 
   services: {
-    list: () => request<ClinicService[]>("/clinic/services"),
-    create: (dto: { name: string; price: number; durationMinutes: number; category?: string }) =>
+    list: (doctorId?: string | null) => {
+      const q = doctorId ? `?doctorId=${encodeURIComponent(doctorId)}` : "";
+      return request<ClinicService[]>(`/clinic/services${q}`);
+    },
+    create: (dto: { name: string; price: number; durationMinutes: number; category?: string; priceMin?: number | null; priceMax?: number | null; doctorId?: string | null }) =>
       request<ClinicService>("/clinic/services", {
         method: "POST",
         body: JSON.stringify(dto),
@@ -577,6 +677,11 @@ export const clinicApi = {
       request<Appointment>(`/clinic/appointments/${id}/cancel`, {
         method: "PATCH",
         body: JSON.stringify({ reason }),
+      }).then(normalizeAppointment),
+    setFinalPrice: (id: string, finalPrice: number) =>
+      request<Appointment>(`/clinic/appointments/${id}/final-price`, {
+        method: "PATCH",
+        body: JSON.stringify({ finalPrice }),
       }).then(normalizeAppointment),
   },
 
@@ -633,6 +738,49 @@ export const clinicApi = {
       request<Array<{ serviceId: string; serviceName: string; count: number }>>("/clinic/stats/services"),
   },
 
+  payments: {
+    initiateClinic: (appointmentId: string) =>
+      request<{ paymentUrl: string; orderId?: string }>(
+        `/payments/clinic-appointment/${appointmentId}/initiate`,
+        { method: "POST" },
+      ),
+    getClinicStatus: (appointmentId: string) =>
+      request<{ status: "unpaid" | "paid" | "refunded"; paymentUrl?: string }>(
+        `/payments/clinic-appointment/${appointmentId}/status`,
+      ),
+  },
+
+  homeOrders: {
+    list: () =>
+      request<{ data: HomeOrder[]; total: number; page: number; limit: number } | HomeOrder[]>(
+        "/clinic/home-orders",
+      ).then((res) => (Array.isArray(res) ? res : res.data)),
+    assign: (orderId: string, staffId: string) =>
+      request<HomeOrder>(`/orders/${orderId}/assign-clinic-medic`, {
+        method: "POST",
+        body: JSON.stringify({ staffId }),
+      }),
+  },
+
+  subscription: {
+    get: () =>
+      request<ClinicSubscription>("/clinic/subscription"),
+    upgrade: (plan: "PRO" | "MAX" | "CUSTOM") =>
+      request<ClinicSubscription>("/clinic/subscription/upgrade", {
+        method: "POST",
+        body: JSON.stringify({ plan }),
+      }),
+  },
+
+  waitlist: {
+    list: () =>
+      request<WaitlistEntry[]>("/clinic/waitlist"),
+    add: (dto: { slotDate: string; slotTime: string; patientName: string; patientPhone: string; doctorId?: string }) =>
+      request<WaitlistEntry>("/clinic/waitlist", { method: "POST", body: JSON.stringify(dto) }),
+    remove: (id: string) =>
+      request<void>(`/clinic/waitlist/${id}`, { method: "DELETE" }),
+  },
+
   patients: {
     getByPhone: (phone: string) =>
       request<{ patient: { id: string; phone: string; name: string } | null; visits: Appointment[] }>(
@@ -643,5 +791,10 @@ export const clinicApi = {
         name: res.patient?.name ?? "",
         appointments: (res.visits ?? []).map(normalizeAppointment),
       })),
+    search: (q: string) =>
+      request<PatientSearchResult[]>(
+        `/clinic/patients/search?q=${encodeURIComponent(q)}`,
+      ),
   },
+
 };

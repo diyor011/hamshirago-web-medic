@@ -11,6 +11,7 @@ import { useLanguage } from "@/context/LanguageContext";
 
 type Mode = "login" | "register";
 type Role = "medic" | "doctor" | "clinic";
+type ClinicRole = "CEO" | "RECEPTION" | "DOCTOR";
 
 function formatPhone(raw: string) {
   let digits = raw.replace(/\D/g, "");
@@ -42,12 +43,15 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
+  const [isClinic, setIsClinic] = useState(false);
+  const [clinicRole, setClinicRole] = useState<ClinicRole>("DOCTOR");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     // Check if already logged in — redirect to correct dashboard based on role
-    const token = localStorage.getItem("medic_token");
-    if (token) {
-      const savedRole = localStorage.getItem("user_role");
+    const savedRole = localStorage.getItem("user_role");
+    if (savedRole) {
       if (savedRole === "doctor") router.replace("/doctor/consultations");
       else if (savedRole === "clinic") router.replace("/clinic/dashboard");
       else router.replace("/");
@@ -77,15 +81,20 @@ export default function AuthPage() {
         const res = mode === "login"
           ? await doctorApi.auth.login(rawPhone, password)
           : await doctorApi.auth.register({ name, phone: rawPhone, password, specialization: specialization || undefined, experienceYears: Number(experience) || 0 });
-        localStorage.setItem("medic_token", res.access_token);
-        localStorage.setItem("doctor", JSON.stringify(res.doctor));
-        localStorage.setItem("user_role", "doctor");
-        router.push("/doctor/consultations");
+        if (res.loginType === "clinic") {
+          // Клинический доктор зашёл через таб "Врач" — перенаправить в клинику
+          localStorage.setItem("clinic_token", res.access_token);
+          localStorage.setItem("clinic_user", JSON.stringify(res.doctor));
+          router.replace("/clinic/reception");
+        } else {
+          localStorage.setItem("doctor", JSON.stringify(res.doctor));
+          localStorage.setItem("user_role", "doctor");
+          router.push("/doctor/consultations");
+        }
       } else {
         const res = mode === "login"
           ? await medicApi.auth.login(rawPhone, password)
           : await medicApi.auth.register({ name, phone: rawPhone, password, experienceYears: Number(experience) || 0 });
-        localStorage.setItem("medic_token", res.access_token);
         localStorage.setItem("medic", JSON.stringify(res.medic));
         localStorage.setItem("user_role", "medic");
         subscribeWebPush();
@@ -106,6 +115,8 @@ export default function AuthPage() {
     boxShadow: focused === name ? "0 0 0 3px rgba(13,148,136,0.12)" : "none",
     transition: "all 0.15s",
   });
+
+  if (!mounted) return <div style={{ minHeight: "100vh", background: "#f8fafc" }} />;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex" }}>
@@ -166,7 +177,7 @@ export default function AuthPage() {
               { key: "doctor", label: "🩺 Врач" },
               { key: "clinic", label: "🏥 Клиника" },
             ] as { key: Role; label: string }[]).map(({ key, label }) => (
-              <button key={key} onClick={() => { setRole(key); setMode("login"); setError(""); }} style={{
+              <button key={key} onClick={() => { setRole(key); setMode("login"); setIsClinic(false); setClinicRole("DOCTOR"); setError(""); }} style={{
                 flex: 1, padding: "9px 4px", borderRadius: 8, border: "none", cursor: "pointer",
                 fontSize: 13, fontWeight: 600, transition: "all 0.15s",
                 background: role === key ? "#fff" : "transparent",
@@ -183,7 +194,7 @@ export default function AuthPage() {
           </h2>
           <p style={{ fontSize: 14, color: "#64748b", marginBottom: 28 }}>
             {role === "clinic"
-              ? "Войдите в аккаунт CEO клиники"
+              ? "Войдите в аккаунт сотрудника клиники"
               : mode === "login"
                 ? role === "doctor" ? "Войдите в аккаунт врача" : "Войдите в свой аккаунт медика"
                 : role === "doctor" ? "Создайте аккаунт врача" : "Создайте аккаунт для работы"}
@@ -207,6 +218,37 @@ export default function AuthPage() {
           )}
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Clinic role selector — только для таба Клиника */}
+            {role === "clinic" && (
+              <div style={{ background: "#f0fdfa", borderRadius: 10, padding: "14px 16px", border: "1.5px solid #99f6e4" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: isClinic ? 12 : 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={isClinic}
+                    onChange={(e) => setIsClinic(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: "#0d9488", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Выбрать роль в клинике</span>
+                </label>
+                {isClinic && (
+                  <select
+                    value={clinicRole}
+                    onChange={(e) => setClinicRole(e.target.value as ClinicRole)}
+                    style={{
+                      width: "100%", height: 44, borderRadius: 8,
+                      border: "1.5px solid #0d9488", padding: "0 12px",
+                      fontSize: 14, fontWeight: 600, color: "#0f172a",
+                      background: "#fff", outline: "none", cursor: "pointer",
+                    }}
+                  >
+                    <option value="CEO">CEO — Руководитель клиники</option>
+                    <option value="RECEPTION">Ресепшн — Регистратура</option>
+                    <option value="DOCTOR">Врач — Сотрудник клиники</option>
+                  </select>
+                )}
+              </div>
+            )}
+
             {mode === "register" && role !== "clinic" && (
               <>
                 <div>

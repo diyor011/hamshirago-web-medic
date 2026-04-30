@@ -1,9 +1,19 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app";
 export const WS_URL = BASE_URL;
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("medic_token");
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = fetch(`${BASE_URL}/auth/refresh-token`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => { refreshPromise = null; });
+  return refreshPromise;
 }
 
 export function getUserRole(): "medic" | "doctor" {
@@ -11,13 +21,59 @@ export function getUserRole(): "medic" | "doctor" {
   return (localStorage.getItem("user_role") as "medic" | "doctor") ?? "medic";
 }
 
+type CloudinaryFolder = "order-photos" | "medic-docs" | "doctor-photos" | "chat-attachments";
+
+interface SignedUploadParams {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  publicId?: string;
+}
+
+/**
+ * AUDIT-M6c: upload a file directly to Cloudinary using signed params from our backend.
+ * Backend signs the params (server-side with API secret), client posts to Cloudinary —
+ * backend never sees the bytes. After upload, caller PATCHes the returned URL to the
+ * relevant entity endpoint (`/medics/documents/urls`, `/medics/profile-photo/url`, etc.).
+ */
+async function uploadDirectToCloudinary(file: File, folder: CloudinaryFolder): Promise<string> {
+  const params = await request<SignedUploadParams>("/uploads/signed-params", {
+    method: "POST",
+    body: JSON.stringify({ folder }),
+  });
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("api_key", params.apiKey);
+  form.append("timestamp", String(params.timestamp));
+  form.append("signature", params.signature);
+  form.append("folder", params.folder);
+  // Backend signs these — must be in the upload too or Cloudinary rejects the signature
+  form.append("quality", "auto");
+  form.append("fetch_format", "auto");
+  if (params.publicId) form.append("public_id", params.publicId);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${params.cloudName}/image/upload`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: { message: "Ошибка загрузки" } }));
+    throw new Error(err?.error?.message || "Ошибка загрузки в Cloudinary");
+  }
+  const data = (await res.json()) as { secure_url?: string };
+  if (!data.secure_url) throw new Error("Cloudinary не вернул secure_url");
+  return data.secure_url;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
@@ -27,11 +83,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       !path.startsWith("/medics/register") &&
       !path.startsWith("/doctors/login") &&
       !path.startsWith("/doctors/register")) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      const retry = await fetch(`${BASE_URL}${path}`, {
+        ...options,
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...options.headers },
+      });
+      if (retry.ok) {
+        const text = await retry.text();
+        if (!text.trim()) return undefined as T;
+        return JSON.parse(text) as T;
+      }
+    }
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     localStorage.removeItem("doctor");
+    localStorage.removeItem("user_role");
     window.location.replace("/auth");
-    return new Promise<T>(() => {}); // страница уходит на /auth, подавляем дальнейшую обработку
+    return new Promise<T>(() => {});
   }
   if (res.status === 429) throw new Error("TOO_MANY_REQUESTS");
   if (res.status === 402) {
@@ -57,7 +127,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const medicApi = {
   auth: {
     login: (phone: string, password: string) =>
-      request<MedicAuthResponse>("/medics/login", {
+      request<MedicAuthResponse>("/medics/login/cookie", {
         method: "POST",
         body: JSON.stringify({ phone, password }),
       }),
@@ -66,6 +136,10 @@ export const medicApi = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    logout: () =>
+      request<{ ok: boolean }>("/medics/logout/cookie", { method: "POST" }),
+    refresh: () =>
+      request<{ access_token: string }>("/auth/refresh-token", { method: "POST" }),
     me: () => request<Medic>(`/medics/me?_=${Date.now()}`),
     updateProfile: (name: string) =>
       request<Medic>("/medics/profile", {
@@ -87,23 +161,14 @@ export const medicApi = {
   },
 
   documents: {
-    upload: (facePhoto: File, licensePhoto: File) => {
-      const token = getToken();
-      const form = new FormData();
-      form.append("facePhoto", facePhoto);
-      form.append("licensePhoto", licensePhoto);
-      return fetch(`${BASE_URL}/medics/documents`, {
-        method: "POST",
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: form,
-      }).then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ message: "Ошибка загрузки" }));
-          throw new Error(err.message || "Ошибка загрузки");
-        }
-        const text = await res.text();
-        if (!text) return undefined as unknown as Medic;
-        return JSON.parse(text) as Medic;
+    upload: async (facePhoto: File, licensePhoto: File): Promise<void> => {
+      const [faceUrl, licenseUrl] = await Promise.all([
+        uploadDirectToCloudinary(facePhoto, "medic-docs"),
+        uploadDirectToCloudinary(licensePhoto, "medic-docs"),
+      ]);
+      await request<void>("/medics/documents/urls", {
+        method: "PATCH",
+        body: JSON.stringify({ facePhotoUrl: faceUrl, licensePhotoUrl: licenseUrl }),
       });
     },
   },
@@ -142,21 +207,13 @@ export const medicApi = {
   },
 
   photo: {
-    upload: (file: File) => {
-      const token = getToken();
-      const form = new FormData();
-      form.append("photo", file);
-      return fetch(`${BASE_URL}/medics/profile-photo`, {
-        method: "POST",
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: form,
-      }).then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ message: "Ошибка загрузки" }));
-          throw new Error(err.message || "Ошибка загрузки");
-        }
-        return res.json() as Promise<Medic>;
+    upload: async (file: File): Promise<Medic> => {
+      const url = await uploadDirectToCloudinary(file, "doctor-photos");
+      await request<void>("/medics/profile-photo/url", {
+        method: "PATCH",
+        body: JSON.stringify({ url }),
       });
+      return request<Medic>(`/medics/me?_=${Date.now()}`);
     },
   },
 
@@ -363,6 +420,7 @@ export interface Review {
 export interface DoctorAuthResponse {
   access_token: string;
   doctor: DoctorProfile;
+  loginType?: "doctor" | "clinic";
 }
 
 export interface RegisterDoctorDto {
@@ -426,7 +484,7 @@ export interface DoctorSlot {
 export const doctorApi = {
   auth: {
     login: (phone: string, password: string) =>
-      request<DoctorAuthResponse>("/doctors/login", {
+      request<DoctorAuthResponse>("/doctors/login/cookie", {
         method: "POST",
         body: JSON.stringify({ phone, password }),
       }),
@@ -435,6 +493,10 @@ export const doctorApi = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    logout: () =>
+      request<{ ok: boolean }>("/doctors/logout/cookie", { method: "POST" }),
+    refresh: () =>
+      request<{ access_token: string }>("/auth/refresh-token", { method: "POST" }),
     me: () => request<DoctorProfile>(`/doctors/me?_=${Date.now()}`),
     updateProfile: (dto: Partial<RegisterDoctorDto>) =>
       request<DoctorProfile>("/doctors/profile", {

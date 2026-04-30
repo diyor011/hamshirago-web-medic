@@ -6,7 +6,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, Consultation } from "@/lib/api";
 import {
   ArrowLeft, Video, CheckCircle, FileText, User, Clock, AlertCircle, Bot,
-  PlusCircle, Send, CalendarPlus, History, Pill, Download,
+  PlusCircle, Send, CalendarPlus, Pill, Download,
 } from "lucide-react";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
@@ -218,21 +218,6 @@ export default function DoctorConsultationDetailPage() {
               <p style={{ fontSize: 14, color: "#166534", lineHeight: 1.6, margin: 0 }}>{c.doctorNotes}</p>
             </div>
           )}
-
-          {/* Visit history placeholder */}
-          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <History size={16} color="#64748b" />
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, margin: 0 }}>
-                История визитов пациента
-              </h3>
-            </div>
-            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 14px" }}>
-              <p style={{ fontSize: 13, color: "#94a3b8", margin: 0, fontStyle: "italic" }}>
-                История предыдущих визитов будет доступна после интеграции с медкартой пациента.
-              </p>
-            </div>
-          </div>
 
           {/* Prescription form */}
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", padding: 20 }}>

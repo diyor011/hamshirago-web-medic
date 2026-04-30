@@ -6,9 +6,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { doctorApi, WS_URL, Consultation, ConsultationStatus } from "@/lib/api";
 import { ClipboardList, Clock, CheckCircle, XCircle, ChevronRight, RefreshCw, Search, X, Wifi, WifiOff, Bell } from "lucide-react";
 import { useDoctor } from "@/context/DoctorContext";
-import { io } from "socket.io-client";
-import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 import { io, Socket } from "socket.io-client";
+import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 
 const STATUS_LABEL: Record<ConsultationStatus, string> = {
   PENDING: "Ожидает",

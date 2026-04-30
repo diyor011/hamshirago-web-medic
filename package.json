@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start"
   },
   "dependencies": {
     "@sentry/nextjs": "^8",
     "@types/leaflet": "^1.9.21",
+    "daisyui": "^5.5.19",
     "i18next": "^25.8.14",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.7.0",

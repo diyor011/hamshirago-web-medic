@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { X, Search, User } from "lucide-react";
-import { clinicApi, ClinicStaff, ClinicRoom, PaymentType, PatientInfo, DoctorRoomSlot } from "@/lib/clinicApi";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { X, Search, User, Phone, Calendar, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  clinicApi, ClinicStaff, ClinicRoom, ClinicService,
+  PaymentType, DoctorRoomSlot, Appointment,
+  PatientSearchResult,
+} from "@/lib/clinicApi";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 interface Props {
   open: boolean;
@@ -11,123 +17,258 @@ interface Props {
   prefillPhone?: string;
 }
 
-const PAYMENT_OPTIONS: { value: PaymentType; label: string }[] = [
-  { value: "CASH", label: "Наличные" },
-  { value: "TERMINAL", label: "Терминал" },
-  { value: "ONLINE", label: "Online" },
+const PAYMENT_KEYS: { value: PaymentType; label: string; emoji: string }[] = [
+  { value: "CASH",     label: "Наличные",  emoji: "💵" },
+  { value: "TERMINAL", label: "Терминал",  emoji: "💳" },
+  { value: "ONLINE",   label: "Online",    emoji: "🌐" },
 ];
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "10px 12px", borderRadius: 10,
-  border: "1.5px solid #e2e8f0", fontSize: 14, color: "#0f172a",
-  outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-};
+const INPUT_CLS = "w-full h-10 px-3.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none transition-all";
+const SELECT_CLS = "w-full h-10 px-3.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none transition-all cursor-pointer";
+
+function getNowTime() {
+  const n = new Date();
+  return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+}
+function getTodayISO() { return new Date().toISOString().slice(0, 10); }
+function getInitials(name: string) {
+  return name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+}
+function fmtLastVisit(iso: string | null) {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }); }
+  catch { return ""; }
+}
+
+// ─── Dropdown ────────────────────────────────────────────────────────────────
+
+function PatientDropdown({
+  results, loading, query, onSelect, onNewPatient,
+}: {
+  results: PatientSearchResult[];
+  loading: boolean;
+  query: string;
+  onSelect: (p: PatientSearchResult) => void;
+  onNewPatient: () => void;
+}) {
+  if (!query || query.length < 2) return null;
+
+  return (
+    <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+      {loading ? (
+        <div className="flex items-center gap-2 px-4 py-3.5 text-sm text-slate-400">
+          <Loader2 size={14} className="animate-spin text-teal-500" /> Поиск…
+        </div>
+      ) : results.length === 0 ? (
+        <div className="px-4 py-3.5">
+          <p className="text-sm text-slate-400 mb-2">Пациент не найден по «{query}»</p>
+          <button onMouseDown={onNewPatient}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold hover:bg-amber-100 transition-colors cursor-pointer">
+            <User size={14} /> Заполнить вручную
+          </button>
+        </div>
+      ) : (
+        <div className="max-h-56 overflow-y-auto">
+          {results.map((p) => (
+            <button key={p.id} onMouseDown={() => onSelect(p)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-teal-50 border-b border-slate-100 last:border-b-0 transition-colors cursor-pointer text-left group">
+              <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-extrabold shrink-0 group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                {getInitials(p.name) || <User size={14} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-slate-900 truncate">{p.name}</span>
+                  {p.allergies && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-200 shrink-0">
+                      <AlertCircle size={9} /> Аллергия
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-slate-400 flex items-center gap-1"><Phone size={10} /> {p.phone}</span>
+                  {p.lastVisit && <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar size={10} /> {fmtLastVisit(p.lastVisit)}</span>}
+                </div>
+              </div>
+              <span className="text-xs text-teal-500 font-semibold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">Выбрать →</span>
+            </button>
+          ))}
+          <button onMouseDown={onNewPatient}
+            className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-600 text-xs font-semibold transition-colors cursor-pointer border-t border-slate-100">
+            <User size={12} /> Добавить нового пациента вручную
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Field ────────────────────────────────────────────────────────────────────
+
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function BookingModal({ open, onClose, onSuccess, prefillPhone }: Props) {
-  const [doctors, setDoctors] = useState<ClinicStaff[]>([]);
-  const [loadingDoctors, setLoadingDoctors] = useState(true);
-  const [allRooms, setAllRooms] = useState<ClinicRoom[]>([]);
+  const { t } = useTranslation();
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
-  // Patient lookup
-  const [phone, setPhone] = useState("");
-  const [searchingPatient, setSearchingPatient] = useState(false);
-  const [patient, setPatient] = useState<PatientInfo | null>(null);
+  // ── Native dialog open/close
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    if (open) { if (!el.open) el.showModal(); }
+    else { if (el.open) el.close(); }
+  }, [open]);
+
+  // ── ESC → onClose
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    el.addEventListener("close", onClose);
+    return () => el.removeEventListener("close", onClose);
+  }, [onClose]);
+
+  // ── Patient smart search state
+  const [searchQuery, setSearchQuery]     = useState("");
+  const [searchResults, setSearchResults] = useState<PatientSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showDropdown, setShowDropdown]   = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<PatientSearchResult | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Form fields
+  const [phone, setPhone]             = useState("");
   const [patientName, setPatientName] = useState("");
-  const [patientNotFound, setPatientNotFound] = useState(false);
-
-  // Booking form
-  const [doctorId, setDoctorId] = useState("");
-  const [roomId, setRoomId] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [time, setTime] = useState("09:00");
+  const [doctorId, setDoctorId]       = useState("");
+  const [roomId, setRoomId]           = useState("");
+  const [serviceId, setServiceId]     = useState("");
+  const [date, setDate]               = useState(getTodayISO);
+  const [time, setTime]               = useState(getNowTime);
   const [paymentType, setPaymentType] = useState<PaymentType>("CASH");
 
+  // ── Async data
+  const [doctors, setDoctors]               = useState<ClinicStaff[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [allRooms, setAllRooms]             = useState<ClinicRoom[]>([]);
+  const [services, setServices]             = useState<ClinicService[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [roomSlots, setRoomSlots]           = useState<DoctorRoomSlot[]>([]);
+  const [loadingRooms, setLoadingRooms]     = useState(false);
+
+  // ── UI state
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError]           = useState("");
 
-  const [roomSlots, setRoomSlots] = useState<DoctorRoomSlot[]>([]);
-  const [loadingRooms, setLoadingRooms] = useState(false);
+  const minTime     = useMemo(() => (date !== getTodayISO() ? undefined : getNowTime()), [date]);
+  const isTimePast  = useMemo(() => !!(minTime && time && time < minTime), [time, minTime]);
 
-  // Load available rooms when doctor + date are set
+  const showSmsHint = useMemo(() => {
+    if (!date || !time || date !== getTodayISO()) return false;
+    const [hh, mm] = time.split(":").map(Number);
+    const diff = (new Date().setHours(hh, mm, 0, 0) - Date.now()) / 3_600_000;
+    return diff > 0 && diff <= 3;
+  }, [date, time]);
+
+  // ── Reset on open
+  useEffect(() => {
+    if (!open) return;
+    setSearchQuery(prefillPhone ?? "");
+    setSearchResults([]); setShowDropdown(false); setSelectedPatient(null);
+    setPhone(prefillPhone ?? ""); setPatientName("");
+    setDoctorId(""); setRoomId(""); setServiceId(""); setServices([]);
+    setPaymentType("CASH"); setError("");
+    setDate(getTodayISO()); setTime(getNowTime());
+  }, [open, prefillPhone]);
+
+  // ── Debounced patient search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!searchQuery || searchQuery.length < 2 || selectedPatient) {
+      setSearchResults([]); setSearchLoading(false); return;
+    }
+    setSearchLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      try { setSearchResults((await clinicApi.patients.search(searchQuery)) ?? []); }
+      catch { setSearchResults([]); }
+      finally { setSearchLoading(false); }
+    }, 320);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery, selectedPatient]);
+
+  function selectPatient(p: PatientSearchResult) {
+    setSelectedPatient(p); setSearchQuery(p.name);
+    setPhone(p.phone); setPatientName(p.name); setShowDropdown(false);
+  }
+  function clearPatient() {
+    setSelectedPatient(null); setSearchQuery(""); setPhone(""); setPatientName(""); setSearchResults([]);
+  }
+
+  // ── Services by doctor
+  useEffect(() => {
+    if (!doctorId) { setServices([]); setServiceId(""); return; }
+    let cancelled = false; setLoadingServices(true);
+    clinicApi.services.list(doctorId)
+      .then(async (list) => {
+        if (cancelled) return;
+        const active = list.filter((s) => s.isActive);
+        if (active.length) { setServices(active); }
+        else {
+          const all = await clinicApi.services.list();
+          if (!cancelled) setServices(all.filter((s) => s.isActive && !s.doctorId));
+        }
+        setServiceId("");
+      })
+      .catch(() => { if (!cancelled) setServices([]); })
+      .finally(() => { if (!cancelled) setLoadingServices(false); });
+    return () => { cancelled = true; };
+  }, [doctorId]);
+
+  // ── Rooms by doctor + date
   useEffect(() => {
     if (!doctorId || !date) { setRoomSlots([]); setRoomId(""); return; }
-    let cancelled = false;
-    setLoadingRooms(true);
-    clinicApi.rooms
-      .forDoctor(doctorId, date)
+    let cancelled = false; setLoadingRooms(true);
+    clinicApi.rooms.forDoctor(doctorId, date)
       .then((slots) => {
         if (cancelled) return;
         setRoomSlots(slots);
-        // Auto-select first if only one room
-        if (slots.length === 1) setRoomId(slots[0].roomId);
-        else setRoomId("");
+        setRoomId(slots.length === 1 ? slots[0].roomId : "");
       })
-      .catch(() => {
-        if (!cancelled) setRoomSlots([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingRooms(false);
-      });
+      .catch(() => { if (!cancelled) setRoomSlots([]); })
+      .finally(() => { if (!cancelled) setLoadingRooms(false); });
     return () => { cancelled = true; };
   }, [doctorId, date]);
 
   const loadDoctors = useCallback(async () => {
     setLoadingDoctors(true);
     try {
-      const [all, rooms] = await Promise.all([
-        clinicApi.staff.list(),
-        clinicApi.rooms.list(),
-      ]);
-      setDoctors(all.filter((s) => s.role === "DOCTOR" && s.isActive));
+      const [staff, rooms] = await Promise.all([clinicApi.staff.list(), clinicApi.rooms.list()]);
+      setDoctors(staff.filter((s) => s.role === "DOCTOR" && s.isActive));
       setAllRooms(rooms);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingDoctors(false);
-    }
+    } catch { /**/ } finally { setLoadingDoctors(false); }
   }, []);
+  useEffect(() => { if (open) loadDoctors(); }, [open, loadDoctors]);
 
-  useEffect(() => {
-    if (open) loadDoctors();
-  }, [open, loadDoctors]);
-
-  // Reset on open, pre-fill phone from lead if provided
-  useEffect(() => {
-    if (open) {
-      setPhone(prefillPhone ?? ""); setPatient(null); setPatientName(""); setPatientNotFound(false);
-      setDoctorId(""); setRoomId(""); setPaymentType("CASH"); setError("");
-      setDate(new Date().toISOString().slice(0, 10)); setTime("09:00");
-    }
-  }, [open, prefillPhone]);
-
-  async function searchPatient() {
-    if (!phone.trim()) return;
-    setSearchingPatient(true); setPatient(null); setPatientNotFound(false); setPatientName("");
-    try {
-      const p = await clinicApi.patients.getByPhone(phone.trim());
-      setPatient(p);
-      setPatientName(p.name ?? "");
-    } catch {
-      setPatientNotFound(true);
-    } finally {
-      setSearchingPatient(false);
-    }
-  }
-
+  // ── Submit
   async function handleSubmit() {
-    if (!phone.trim()) { setError("Введите номер телефона"); return; }
-    if (!doctorId) { setError("Выберите врача"); return; }
-    if (!date) { setError("Выберите дату"); return; }
-    if (!time) { setError("Укажите время"); return; }
-    if (!roomId) { setError("Выберите кабинет"); return; }
-
-    // Validate time is within doctor's room schedule window
+    if (!phone.trim())  { setError("Введите номер телефона пациента"); return; }
+    if (!doctorId)      { setError(t("clinic.booking.errorDoctor")); return; }
+    if (!date)          { setError(t("clinic.booking.errorDate")); return; }
+    if (!time)          { setError(t("clinic.booking.errorTime")); return; }
+    if (!roomId)        { setError(t("clinic.booking.errorRoom")); return; }
+    if (isTimePast)     { setError("Нельзя записать на прошедшее время"); return; }
     const slot = roomSlots.find((s) => s.roomId === roomId);
     if (slot && (time < slot.startTime || time > slot.endTime)) {
-      setError(`Время вне графика врача (${slot.startTime}–${slot.endTime})`);
-      return;
+      setError(t("clinic.booking.errorTimeRange", { start: slot.startTime, end: slot.endTime })); return;
     }
-
     setSubmitting(true); setError("");
 
     // Client-side double booking check
@@ -145,256 +286,262 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
       // Ignore — server will enforce uniqueness
     }
     try {
-      // patientName is required by backend — fall back to phone if no name known
-      const resolvedName = patientName.trim()
-        || (patient?.name ?? "")
-        || phone.trim();
-
-      await clinicApi.appointments.create({
+      const appt: Appointment = await clinicApi.appointments.create({
         patientPhone: phone.trim(),
-        patientName: resolvedName,
-        doctorId: doctorId || undefined,
-        roomId: roomId || undefined,
-        date,
-        time,
-        paymentType,
+        patientName:  patientName.trim() || phone.trim(),
+        doctorId:  doctorId  || undefined,
+        roomId:    roomId    || undefined,
+        serviceId: serviceId || undefined,
+        date, time, paymentType,
       });
-      onSuccess();
+      if (paymentType === "ONLINE") {
+        try { const { paymentUrl } = await clinicApi.payments.initiateClinic(appt.id); window.location.href = paymentUrl; }
+        catch { onSuccess(); }
+      } else { onSuccess(); }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка создания записи");
-    } finally {
-      setSubmitting(false);
-    }
+      setError(e instanceof Error ? e.message : t("clinic.booking.errorCreate"));
+    } finally { setSubmitting(false); }
   }
 
-  if (!open) return null;
-
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 100,
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    }}>
-      <div style={{
-        background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 520,
-        boxShadow: "0 20px 60px rgba(15,23,42,0.18)", maxHeight: "90vh", overflowY: "auto",
-      }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>Записать пациента</h2>
-          <button
-            onClick={onClose}
-            style={{ background: "#f1f5f9", border: "none", borderRadius: 8, padding: 8, cursor: "pointer", color: "#64748b", display: "flex" }}
-          >
+    <dialog
+      ref={dialogRef}
+      onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
+      className="m-auto p-4 border-0 bg-transparent w-full max-w-lg backdrop:bg-slate-900/60 backdrop:backdrop-blur-sm"
+    >
+      <div className="bg-white rounded-2xl flex flex-col shadow-2xl max-h-[88vh]">
+
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-teal-600 to-teal-700 rounded-t-2xl shrink-0">
+          <div>
+            <h3 className="text-base font-extrabold text-white tracking-tight leading-none">
+              {t("clinic.booking.title")}
+            </h3>
+            <p className="text-xs text-teal-200 mt-1">Новая запись на приём</p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/20 hover:bg-white/30 text-white border-0 cursor-pointer transition-colors shrink-0">
             <X size={16} />
           </button>
         </div>
 
-        {/* Phone search */}
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
-            Телефон пациента *
+        {/* ── Patient search — outside scroll so dropdown is never clipped ── */}
+        <div className="px-6 pt-5 pb-4 border-b border-slate-100 shrink-0 relative z-10">
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">
+            Поиск пациента
           </label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              style={{ ...inputStyle, flex: 1 }}
-              value={phone}
-              onChange={(e) => { setPhone(e.target.value); setPatient(null); setPatientNotFound(false); }}
-              placeholder="+998901234567"
-              onKeyDown={(e) => e.key === "Enter" && searchPatient()}
-            />
-            <button
-              onClick={searchPatient}
-              disabled={searchingPatient}
-              style={{
-                padding: "10px 14px", borderRadius: 10, background: "#f0fdfa",
-                border: "1.5px solid #ccfbf1", cursor: "pointer", color: "#0d9488",
-                display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-                opacity: searchingPatient ? 0.6 : 1,
-              }}
-            >
-              <Search size={14} /> {searchingPatient ? "..." : "Найти"}
-            </button>
+
+          {selectedPatient ? (
+            <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-teal-50 border border-teal-200">
+              <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-sm font-extrabold shrink-0">
+                {getInitials(selectedPatient.name) || <User size={14} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-teal-900 truncate">{selectedPatient.name}</span>
+                  <CheckCircle2 size={13} className="text-teal-500 shrink-0" />
+                  {selectedPatient.allergies && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-200 shrink-0">
+                      <AlertCircle size={9} /> Аллергия
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                  <span className="text-xs text-teal-600 flex items-center gap-1"><Phone size={10} />{selectedPatient.phone}</span>
+                  {selectedPatient.lastVisit && (
+                    <span className="text-xs text-teal-500 flex items-center gap-1"><Calendar size={10} />{fmtLastVisit(selectedPatient.lastVisit)}</span>
+                  )}
+                </div>
+              </div>
+              <button onClick={clearPatient}
+                className="w-7 h-7 flex items-center justify-center rounded-lg bg-teal-100 hover:bg-teal-200 text-teal-600 border-0 cursor-pointer transition-colors shrink-0">
+                <X size={13} />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="flex items-center gap-2 px-3.5 h-10 rounded-xl border border-slate-200 bg-white focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+                <Search size={15} className="text-slate-400 shrink-0" />
+                <input
+                  className="flex-1 text-sm bg-transparent border-none outline-none text-slate-800 placeholder:text-slate-400"
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedPatient(null); setShowDropdown(true); }}
+                  onFocus={() => setShowDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowDropdown(false), 160)}
+                  placeholder="Введите имя или телефон…"
+                />
+                {searchLoading
+                  ? <Loader2 size={14} className="text-teal-400 animate-spin shrink-0" />
+                  : searchQuery
+                    ? <button onMouseDown={clearPatient} className="w-5 h-5 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 text-slate-500 border-0 cursor-pointer shrink-0"><X size={10} /></button>
+                    : null}
+              </div>
+              {showDropdown && (
+                <PatientDropdown results={searchResults} loading={searchLoading} query={searchQuery}
+                  onSelect={selectPatient} onNewPatient={() => setShowDropdown(false)} />
+              )}
+              {!searchQuery && <p className="text-xs text-slate-400 mt-1.5 ml-0.5">Введите 2+ символа — или заполните поля ниже вручную</p>}
+            </div>
+          )}
+        </div>
+
+        {/* ── Scrollable body ── */}
+        <div className="px-6 py-5 overflow-y-auto flex-1 flex flex-col gap-4">
+
+          {/* Имя и телефон */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Имя">
+              <input className={INPUT_CLS} value={patientName}
+                onChange={(e) => setPatientName(e.target.value)} placeholder="Имя пациента" />
+            </Field>
+            <Field label="Телефон" required>
+              <input className={INPUT_CLS} value={phone}
+                onChange={(e) => setPhone(e.target.value)} placeholder="+998901234567" type="tel" />
+            </Field>
           </div>
 
-          {/* Patient found */}
-          {patient && (
-            <div style={{
-              marginTop: 10, padding: "10px 14px", borderRadius: 10,
-              background: "#f0fdf4", border: "1px solid #bbf7d0",
-              display: "flex", alignItems: "center", gap: 10,
-            }}>
-              <User size={16} color="#16a34a" />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#166534", margin: 0 }}>{patient.name ?? "Без имени"}</p>
-                <p style={{ fontSize: 11, color: "#4ade80", margin: 0 }}>{patient.appointments.length} визитов в истории</p>
-              </div>
-            </div>
-          )}
+          <div className="border-t border-slate-100" />
 
-          {/* Patient not found — allow manual name */}
-          {patientNotFound && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{
-                padding: "8px 14px", borderRadius: 10,
-                background: "#fffbeb", border: "1px solid #fde68a", marginBottom: 8,
-              }}>
-                <p style={{ fontSize: 12, color: "#92400e", margin: 0 }}>Пациент не найден. Введите имя вручную.</p>
-              </div>
-              <input
-                style={inputStyle}
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-                placeholder="Имя пациента"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Doctor */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Врач *</label>
-          <select
-            style={{ ...inputStyle, background: "#fff" }}
-            value={doctorId}
-            onChange={(e) => setDoctorId(e.target.value)}
-            disabled={loadingDoctors}
-          >
-            <option value="">{loadingDoctors ? "Загрузка..." : "Выберите врача"}</option>
-            {doctors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}{d.specialization ? ` — ${d.specialization}` : ""}
+          {/* Врач */}
+          <Field label={t("clinic.booking.doctor")} required>
+            <select className={SELECT_CLS} value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)} disabled={loadingDoctors}>
+              <option value="">
+                {loadingDoctors ? t("clinic.booking.loadingDoctors") : t("clinic.booking.selectDoctor")}
               </option>
-            ))}
-          </select>
-        </div>
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}{d.specialization ? ` — ${d.specialization}` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-        {/* Room (based on doctor's schedule) */}
-        {doctorId && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>
-              Кабинет *
-            </label>
-            {loadingRooms ? (
-              <div style={{ ...inputStyle, color: "#94a3b8", display: "flex", alignItems: "center" }}>
-                Загрузка расписания...
-              </div>
-            ) : roomSlots.length > 0 ? (
-              <select
-                style={{ ...inputStyle, background: "#fff" }}
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-              >
-                <option value="">Выберите кабинет</option>
-                {roomSlots.map((s) => (
-                  <option key={`${s.roomId}-${s.startTime}`} value={s.roomId}>
-                    {s.roomName}{s.floor != null ? ` (${s.floor} этаж)` : ""} · {s.startTime}–{s.endTime}
-                  </option>
-                ))}
-              </select>
-            ) : allRooms.length > 0 ? (
-              <>
-                <div style={{ fontSize: 11, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "6px 10px", marginBottom: 6 }}>
-                  Расписание врача не настроено — выберите кабинет вручную
+          {/* Услуга */}
+          {doctorId && (
+            <Field label="Услуга">
+              {loadingServices ? (
+                <div className="h-10 flex items-center gap-2 px-3.5 text-sm text-slate-400 rounded-xl border border-slate-200 bg-slate-50">
+                  <Loader2 size={13} className="animate-spin" /> Загрузка услуг…
                 </div>
-                <select
-                  style={{ ...inputStyle, background: "#fff" }}
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                >
-                  <option value="">Выберите кабинет</option>
-                  {allRooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}{r.floor != null ? ` (${r.floor} этаж)` : ""}
+              ) : (
+                <select className={SELECT_CLS} value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
+                  <option value="">— Не выбрана (необязательно)</option>
+                  {services.map((s) => {
+                    const price = s.priceMin != null && s.priceMax != null
+                      ? `${s.priceMin.toLocaleString("ru-RU")} – ${s.priceMax.toLocaleString("ru-RU")} сум`
+                      : `${s.price.toLocaleString("ru-RU")} сум`;
+                    return <option key={s.id} value={s.id}>{s.name} · {price}</option>;
+                  })}
+                </select>
+              )}
+            </Field>
+          )}
+
+          {/* Кабинет */}
+          {doctorId && (
+            <Field label={t("clinic.booking.room")} required>
+              {loadingRooms ? (
+                <div className="h-10 flex items-center gap-2 px-3.5 text-sm text-slate-400 rounded-xl border border-slate-200 bg-slate-50">
+                  <Loader2 size={13} className="animate-spin" /> {t("clinic.booking.loadingSchedule")}
+                </div>
+              ) : roomSlots.length > 0 ? (
+                <select className={SELECT_CLS} value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+                  <option value="">{t("clinic.booking.selectRoom")}</option>
+                  {roomSlots.map((s) => (
+                    <option key={`${s.roomId}-${s.startTime}`} value={s.roomId}>
+                      {s.roomName}{s.floor != null ? ` (${s.floor} эт.)` : ""} · {s.startTime}–{s.endTime}
                     </option>
                   ))}
                 </select>
-              </>
-            ) : (
-              <div style={{
-                ...inputStyle, background: "#fef2f2", border: "1.5px solid #fecaca",
-                color: "#ef4444", fontSize: 13, display: "flex", alignItems: "center",
-              }}>
-                Нет доступных кабинетов — сначала создайте кабинет
-              </div>
-            )}
-          </div>
-        )}
+              ) : allRooms.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                    {t("clinic.booking.noSchedule")}
+                  </p>
+                  <select className={SELECT_CLS} value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+                    <option value="">{t("clinic.booking.selectRoom")}</option>
+                    {allRooms.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}{r.floor != null ? ` (${r.floor} эт.)` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="h-10 flex items-center px-3.5 text-sm text-red-500 rounded-xl border border-red-200 bg-red-50">
+                  {t("clinic.booking.noRooms")}
+                </div>
+              )}
+            </Field>
+          )}
 
-        {/* Date & Time */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Дата *</label>
-            <input
-              type="date"
-              style={inputStyle}
-              value={date}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setDate(e.target.value)}
-            />
+          <div className="border-t border-slate-100" />
+
+          {/* Дата и время */}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t("clinic.booking.date")} required>
+              <input type="date" className={INPUT_CLS} value={date}
+                min={getTodayISO()} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <Field label={t("clinic.booking.time")} required>
+              <input type="time"
+                className={`${INPUT_CLS} ${isTimePast ? "border-red-400 bg-red-50 text-red-600 focus:border-red-400 focus:ring-red-100" : ""}`}
+                value={time} min={minTime}
+                onChange={(e) => { const v = e.target.value; setTime(minTime && v < minTime ? minTime : v); }} />
+              {isTimePast && <p className="text-xs text-red-500 mt-1">Минимум {minTime}</p>}
+            </Field>
           </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>Время *</label>
-            <input
-              type="time"
-              style={inputStyle}
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
-          </div>
+
+          {/* SMS hint */}
+          {showSmsHint && !isTimePast && (
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-green-50 border border-green-200">
+              <span className="text-base">📱</span>
+              <p className="text-xs text-green-700 font-medium">Пациент получит SMS-напоминание за 1 час до приёма</p>
+            </div>
+          )}
+
+          {/* Оплата */}
+          <Field label={t("clinic.booking.paymentType")} required>
+            <div className="flex gap-2">
+              {PAYMENT_KEYS.map(({ value, label, emoji }) => {
+                const active = paymentType === value;
+                return (
+                  <button key={value} onClick={() => setPaymentType(value)}
+                    className={`flex-1 h-10 rounded-xl font-bold text-sm border-[1.5px] cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                      active
+                        ? "bg-teal-50 border-teal-500 text-teal-700"
+                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                    }`}>
+                    <span>{emoji}</span>{label}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />{error}
+            </div>
+          )}
         </div>
 
-        {/* Payment */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 8 }}>Тип оплаты *</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            {PAYMENT_OPTIONS.map(({ value, label }) => {
-              const active = paymentType === value;
-              return (
-                <button
-                  key={value}
-                  onClick={() => setPaymentType(value)}
-                  style={{
-                    flex: 1, padding: "9px 0", borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
-                    background: active ? "#f0fdfa" : "#fff",
-                    color: active ? "#0d9488" : "#475569",
-                    cursor: "pointer",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {error && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 14 }}>{error}</p>}
-
-        {/* Submit */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            style={{
-              flex: 1, background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-              border: "none", borderRadius: 10, padding: "12px 0",
-              fontSize: 14, fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer",
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            {submitting ? "Создание записи..." : "Записать"}
+        {/* ── Footer ── */}
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl shrink-0">
+          <button onClick={handleSubmit} disabled={submitting || isTimePast}
+            className="flex-[2] h-11 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 border-0 cursor-pointer transition-all shadow-sm shadow-teal-200 disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none">
+            {submitting ? t("clinic.booking.submitting") : t("clinic.booking.submit")}
           </button>
-          <button
-            onClick={onClose}
-            style={{
-              flex: 1, background: "#f1f5f9", border: "none", borderRadius: 10,
-              padding: "12px 0", fontSize: 14, cursor: "pointer", color: "#64748b", fontWeight: 600,
-            }}
-          >
-            Отмена
+          <button onClick={onClose}
+            className="flex-1 h-11 rounded-xl font-semibold text-sm bg-white text-slate-500 hover:bg-slate-100 cursor-pointer transition-colors border border-slate-200">
+            {t("clinic.common.cancel")}
           </button>
         </div>
+
       </div>
-    </div>
+    </dialog>
   );
 }

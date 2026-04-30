@@ -1,56 +1,88 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, ChevronRight, X, Download, AlertCircle } from "lucide-react";
-import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
+import {
+  Activity,
+  CalendarClock,
+  CheckCircle,
+  ChevronRight,
+  Clock,
+  DoorOpen,
+  Download,
+  RefreshCw,
+  Sparkles,
+  Stethoscope,
+  TrendingUp,
+  Users,
+  X,
+  AlertCircle,
+} from "lucide-react";
+import {
+  clinicApi,
+  StatsOverview,
+  MonthlyStats,
+  DoctorStats,
+  Appointment,
+  Lead,
+  ClinicRoom,
+  ClinicStaff,
+} from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 
 type Period = "today" | "week" | "month" | "year";
 
-const LEAD_STATUS_STYLES: Record<string, React.CSSProperties> = {
-  NEW:       { background: "#eff6ff", color: "#2563eb" },
-  IN_PROGRESS: { background: "#fefce8", color: "#ca8a04" },
-  DONE:      { background: "#f0fdf4", color: "#16a34a" },
-  CANCELED:  { background: "#fef2f2", color: "#ef4444" },
+const ONBOARDING_DISMISS_KEY = "clinic-onboarding-dismissed";
+
+const UZ_MONTHS = [
+  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
+];
+
+const UZ_WEEKDAYS = [
+  "Yakshanba", "Dushanba", "Seshanba", "Chorshanba",
+  "Payshanba", "Juma", "Shanba",
+];
+
+const LEAD_STATUS_META: Record<string, string> = {
+  NEW: "border-blue-200 bg-blue-50 text-blue-700",
+  IN_PROGRESS: "border-amber-200 bg-amber-50 text-amber-700",
+  DONE: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  CANCELED: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
-function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: number }) {
-  return (
-    <div style={{
-      height, borderRadius: radius, background: "#f1f5f9",
-      animation: "pulse 1.5s ease-in-out infinite",
-    }} />
-  );
-}
-
-function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div style={{
-      background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
-      padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-    }}>
-      <span style={{ fontSize: 13, color: "#ef4444" }}>{message}</span>
-      <button onClick={onRetry} style={{
-        display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-        color: "#ef4444", background: "none", border: "none", cursor: "pointer",
-      }}>
-        <RefreshCw size={13} /> {t("clinic.common.retry")}
-      </button>
-    </div>
-  );
-}
-
-interface KpiCardProps {
-  icon: React.ReactNode;
-  iconBg: string;
-  value: number | string;
-  label: string;
-}
-
-const ONBOARDING_DISMISS_KEY = "clinic-onboarding-dismissed";
+const KPI_TONES = [
+  {
+    card: "border-sky-200/70 bg-sky-50/80",
+    iconWrap: "bg-sky-600 text-white shadow-sky-200/70",
+    accent: "bg-sky-500",
+    value: "text-sky-950",
+    hint: "text-sky-700/80",
+  },
+  {
+    card: "border-emerald-200/70 bg-emerald-50/80",
+    iconWrap: "bg-emerald-600 text-white shadow-emerald-200/70",
+    accent: "bg-emerald-500",
+    value: "text-emerald-950",
+    hint: "text-emerald-700/80",
+  },
+  {
+    card: "border-violet-200/70 bg-violet-50/80",
+    iconWrap: "bg-violet-600 text-white shadow-violet-200/70",
+    accent: "bg-violet-500",
+    value: "text-violet-950",
+    hint: "text-violet-700/80",
+  },
+  {
+    card: "border-amber-200/70 bg-amber-50/80",
+    iconWrap: "bg-amber-500 text-white shadow-amber-200/70",
+    accent: "bg-amber-400",
+    value: "text-amber-950",
+    hint: "text-amber-700/80",
+  },
+];
 
 interface OnboardingStep {
   key: string;
@@ -60,130 +92,269 @@ interface OnboardingStep {
   done: boolean;
 }
 
-function OnboardingBanner({ steps, onDismiss }: { steps: OnboardingStep[]; onDismiss: () => void }) {
+function Skeleton({ className = "h-14" }: { className?: string }) {
+  return <div className={`${className} animate-pulse rounded-2xl bg-slate-200/80`} />;
+}
+
+function Surface({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={[
+        "rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.05),0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur sm:p-6",
+        className,
+      ].join(" ")}
+    >
+      {children}
+    </section>
+  );
+}
+
+function ErrorBanner({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation();
-  const completed = steps.filter((s) => s.done).length;
-  const pct = Math.round((completed / steps.length) * 100);
 
   return (
-    <div style={{
-      background: "linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)",
-      border: "1.5px solid #99f6e4", borderRadius: 16,
-      padding: "20px 24px", marginBottom: 24, position: "relative",
-    }}>
-      <button onClick={onDismiss} style={{
-        position: "absolute", top: 14, right: 14,
-        background: "none", border: "none", cursor: "pointer",
-        color: "#94a3b8", display: "flex", padding: 4,
-      }}>
-        <X size={16} />
-      </button>
-
-      <div style={{ marginBottom: 16 }}>
-        <p style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>
-          🚀 {t("clinic.dashboard.onboarding.title")} — {completed}/{steps.length} шагов
-        </p>
-        <p style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
-          {t("clinic.dashboard.onboarding.subtitle")}
-        </p>
-        <div style={{ height: 6, borderRadius: 3, background: "#e2e8f0", overflow: "hidden" }}>
-          <div style={{
-            height: "100%", borderRadius: 3,
-            background: "linear-gradient(90deg, #0d9488, #5eead4)",
-            width: `${pct}%`, transition: "width 0.4s ease",
-          }} />
-        </div>
+    <div className="flex items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50/90 px-4 py-3.5">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-rose-700">{message}</p>
       </div>
+      <button
+        onClick={onRetry}
+        className="group inline-flex shrink-0 items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+      >
+        <RefreshCw size={14} className="transition group-hover:rotate-180" />
+        {t("clinic.common.retry")}
+      </button>
+    </div>
+  );
+}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {steps.map((step) => (
-          <a key={step.key} href={step.done ? undefined : step.href} style={{
-            display: "flex", alignItems: "center", gap: 12,
-            padding: "10px 14px", borderRadius: 10,
-            background: step.done ? "rgba(255,255,255,0.5)" : "#fff",
-            border: `1px solid ${step.done ? "#bbf7d0" : "#e2e8f0"}`,
-            textDecoration: "none", cursor: step.done ? "default" : "pointer",
-            transition: "all 0.15s",
-          }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-              background: step.done ? "#dcfce7" : "#f1f5f9",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              {step.done
-                ? <CheckCircle size={16} color="#16a34a" />
-                : <span style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8" }}>
-                    {steps.indexOf(step) + 1}
-                  </span>
-              }
-            </div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: step.done ? "#16a34a" : "#0f172a", margin: 0 }}>
-                {step.label}
-              </p>
-              <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>{step.hint}</p>
-            </div>
-            {!step.done && <ChevronRight size={15} color="#94a3b8" />}
-          </a>
-        ))}
+function SectionHeader({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-5 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="text-base font-extrabold tracking-tight text-slate-950 sm:text-lg">
+          {title}
+        </h2>
+        {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  hint,
+  toneIndex,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  hint: string;
+  toneIndex: number;
+}) {
+  const tone = KPI_TONES[toneIndex % KPI_TONES.length];
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl border p-4 sm:rounded-[24px] sm:p-5 ${tone.card}`}>
+      <div className={`absolute inset-x-0 top-0 h-1 ${tone.accent}`} />
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">{label}</p>
+          <p className={`mt-2 text-2xl font-black tracking-tight sm:mt-3 sm:text-3xl ${tone.value}`}>{value}</p>
+          <p className={`mt-1.5 truncate text-[11px] font-medium sm:mt-2 sm:text-xs ${tone.hint}`}>{hint}</p>
+        </div>
+        <div
+          className={[
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-md sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-lg",
+            tone.iconWrap,
+          ].join(" ")}
+        >
+          {icon}
+        </div>
       </div>
     </div>
   );
 }
 
-function KpiCard({ icon, iconBg, value, label }: KpiCardProps) {
+function EmptyState({ label }: { label: string }) {
   return (
-    <div style={{
-      background: "#fff", borderRadius: 16, padding: "20px 20px",
-      border: "1px solid #f1f5f9", boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
-          background: iconBg, display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          {icon}
-        </div>
+    <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 text-center text-sm text-slate-400">
+      {label}
+    </div>
+  );
+}
+
+function OnboardingBanner({
+  steps,
+  onDismiss,
+}: {
+  steps: OnboardingStep[];
+  onDismiss: () => void;
+}) {
+  const { t } = useTranslation();
+  const completed = steps.filter((step) => step.done).length;
+  const progress = Math.round((completed / steps.length) * 100);
+
+  return (
+    <Surface className="overflow-hidden border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-sky-50">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", lineHeight: 1.1 }}>{value}</div>
-          <div style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>{label}</div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-teal-600 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+            <Sparkles size={12} />
+            Setup
+          </div>
+          <h2 className="mt-4 text-xl font-black tracking-tight text-slate-950">
+            {t("clinic.dashboard.onboarding.title")}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            {t("clinic.dashboard.onboarding.subtitle")}
+          </p>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-400 transition hover:border-slate-300 hover:text-slate-600"
+          aria-label="Dismiss onboarding"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-700">
+            {completed}/{steps.length}
+          </p>
+          <p className="text-xs text-slate-500">Progress</p>
+        </div>
+        <div className="w-full max-w-xl">
+          <div className="h-2 rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
       </div>
-    </div>
+
+      <div className="mt-6 grid gap-3 lg:grid-cols-3">
+        {steps.map((step, index) => {
+          const content = (
+            <>
+              <div
+                className={[
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-sm font-black",
+                  step.done
+                    ? "border-emerald-200 bg-emerald-100 text-emerald-700"
+                    : "border-slate-200 bg-white text-slate-500",
+                ].join(" ")}
+              >
+                {step.done ? <CheckCircle size={18} /> : index + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={[
+                    "text-sm font-bold",
+                    step.done ? "text-emerald-700" : "text-slate-900",
+                  ].join(" ")}
+                >
+                  {step.label}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">{step.hint}</p>
+              </div>
+              <div className="shrink-0">
+                {step.done ? (
+                  <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700">
+                    Ready
+                  </span>
+                ) : (
+                  <ChevronRight size={16} className="text-slate-400" />
+                )}
+              </div>
+            </>
+          );
+
+          const cardClass = [
+            "flex min-h-[104px] items-start gap-3 rounded-[24px] border p-4 transition",
+            step.done
+              ? "border-emerald-200 bg-white/70"
+              : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md",
+          ].join(" ");
+
+          return step.done ? (
+            <div key={step.key} className={cardClass}>
+              {content}
+            </div>
+          ) : (
+            <Link key={step.key} href={step.href} className={cardClass}>
+              {content}
+            </Link>
+          );
+        })}
+      </div>
+    </Surface>
   );
 }
 
 export default function DashboardPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const locale =
+    i18n.language === "uz" ? "uz-UZ" : i18n.language === "en" ? "en-US" : "ru-RU";
 
   const PERIOD_LABELS: Record<Period, string> = {
     today: t("clinic.finance.periodToday"),
-    week:  t("clinic.finance.periodWeek"),
+    week: t("clinic.finance.periodWeek"),
     month: t("clinic.finance.periodMonth"),
-    year:  t("clinic.finance.periodYear"),
+    year: t("clinic.finance.periodYear"),
   };
 
   const LEAD_STATUS_LABELS: Record<string, string> = {
-    NEW:        t("clinic.leads.status.NEW"),
+    NEW: t("clinic.leads.status.NEW"),
     IN_PROGRESS: t("clinic.leads.status.IN_PROGRESS"),
-    DONE:       t("clinic.leads.status.DONE"),
-    CANCELED:   t("clinic.leads.status.CANCELED"),
+    DONE: t("clinic.leads.status.DONE"),
+    CANCELED: t("clinic.leads.status.CANCELED"),
   };
 
-  const [period, setPeriod] = useState<Period>("today");
+  const [period, setPeriod] = useState<Period>("month");
   const [overview, setOverview] = useState<StatsOverview | null>(null);
   const [monthly, setMonthly] = useState<MonthlyStats[]>([]);
   const [doctors, setDoctors] = useState<DoctorStats[]>([]);
   const [todayApps, setTodayApps] = useState<Appointment[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
-
-  const [roomStats, setRoomStats] = useState<Array<{ roomId: string; name: string; floor: number | null; todayAppointments: number }>>([]);
-  const [serviceStats, setServiceStats] = useState<Array<{ serviceId: string; serviceName: string; count: number }>>([]);
+  const [roomStats, setRoomStats] = useState<
+    Array<{ roomId: string; name: string; floor: number | null; todayAppointments: number }>
+  >([]);
+  const [serviceStats, setServiceStats] = useState<
+    Array<{ serviceId: string; serviceName: string; count: number }>
+  >([]);
   const [showBooking, setShowBooking] = useState(false);
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
-  const [hasStaff, setHasStaff]       = useState<boolean | null>(null);
-  const [hasRooms, setHasRooms]       = useState<boolean | null>(null);
+  const [hasStaff, setHasStaff] = useState<boolean | null>(null);
+  const [hasRooms, setHasRooms] = useState<boolean | null>(null);
   const [hasServices, setHasServices] = useState<boolean | null>(null);
 
   const [loadingOverview, setLoadingOverview] = useState(true);
@@ -202,247 +373,475 @@ export default function DashboardPage() {
   const [errRooms, setErrRooms] = useState<string | null>(null);
   const [errServices, setErrServices] = useState<string | null>(null);
 
-  const fetchOverview = useCallback(async (p: Period) => {
-    setLoadingOverview(true); setErrOverview(null);
-    try { setOverview(await clinicApi.stats.overview(p)); }
-    catch (e) { setErrOverview(e instanceof Error ? e.message : t("clinic.common.error")); }
-    finally { setLoadingOverview(false); }
-  }, [t]);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  const fetchOverview = useCallback(
+    async (nextPeriod: Period) => {
+      setLoadingOverview(true);
+      setErrOverview(null);
+      try {
+        setOverview(await clinicApi.stats.overview(nextPeriod));
+      } catch (error) {
+        setErrOverview(error instanceof Error ? error.message : t("clinic.common.error"));
+      } finally {
+        setLoadingOverview(false);
+      }
+    },
+    [t],
+  );
 
   const fetchMonthly = useCallback(async () => {
-    setLoadingMonthly(true); setErrMonthly(null);
-    try { setMonthly(await clinicApi.stats.monthly()); }
-    catch (e) { setErrMonthly(e instanceof Error ? e.message : t("clinic.common.error")); }
-    finally { setLoadingMonthly(false); }
+    setLoadingMonthly(true);
+    setErrMonthly(null);
+    try {
+      setMonthly(await clinicApi.stats.monthly());
+    } catch (error) {
+      setErrMonthly(error instanceof Error ? error.message : t("clinic.common.error"));
+    } finally {
+      setLoadingMonthly(false);
+    }
   }, [t]);
 
   const fetchDoctors = useCallback(async () => {
-    setLoadingDoctors(true); setErrDoctors(null);
-    try { setDoctors(await clinicApi.stats.doctors()); }
-    catch (e) { setErrDoctors(e instanceof Error ? e.message : t("clinic.common.error")); }
-    finally { setLoadingDoctors(false); }
+    setLoadingDoctors(true);
+    setErrDoctors(null);
+    try {
+      setDoctors(await clinicApi.stats.doctors());
+    } catch (error) {
+      setErrDoctors(error instanceof Error ? error.message : t("clinic.common.error"));
+    } finally {
+      setLoadingDoctors(false);
+    }
   }, [t]);
 
   const fetchingQueue = useRef(false);
   const fetchQueue = useCallback(async () => {
     if (fetchingQueue.current) return;
     fetchingQueue.current = true;
-    setLoadingQueue(true); setErrQueue(null);
-    try { setTodayApps(await clinicApi.appointments.today()); }
-    catch (e) { setErrQueue(e instanceof Error ? e.message : "Ошибка"); }
-    finally { setLoadingQueue(false); fetchingQueue.current = false; }
-  }, []);
+    setLoadingQueue(true);
+    setErrQueue(null);
+    try {
+      setTodayApps(await clinicApi.appointments.today());
+    } catch (error) {
+      setErrQueue(error instanceof Error ? error.message : t("clinic.common.error"));
+    } finally {
+      setLoadingQueue(false);
+      fetchingQueue.current = false;
+    }
+  }, [t]);
 
   const fetchLeads = useCallback(async () => {
-    setLoadingLeads(true); setErrLeads(null);
+    setLoadingLeads(true);
+    setErrLeads(null);
     try {
-      const res = await clinicApi.leads.list({ limit: 5 });
-      setLeads(res.data);
+      const response = await clinicApi.leads.list({ limit: 5 });
+      setLeads(response.data);
+    } catch (error) {
+      setErrLeads(error instanceof Error ? error.message : t("clinic.common.error"));
+    } finally {
+      setLoadingLeads(false);
     }
-    catch (e) { setErrLeads(e instanceof Error ? e.message : t("clinic.common.error")); }
-    finally { setLoadingLeads(false); }
   }, [t]);
 
   const fetchRoomStats = useCallback(async () => {
-    setLoadingRooms(true); setErrRooms(null);
-    try { setRoomStats(await clinicApi.stats.rooms()); }
-    catch (e) { setErrRooms(e instanceof Error ? e.message : t("clinic.common.error")); }
-    finally { setLoadingRooms(false); }
+    setLoadingRooms(true);
+    setErrRooms(null);
+    try {
+      setRoomStats(await clinicApi.stats.rooms());
+    } catch (error) {
+      setErrRooms(error instanceof Error ? error.message : t("clinic.common.error"));
+    } finally {
+      setLoadingRooms(false);
+    }
   }, [t]);
 
   const fetchServiceStats = useCallback(async () => {
-    setLoadingServices(true); setErrServices(null);
-    try { setServiceStats(await clinicApi.stats.services()); }
-    catch (e) { setErrServices(e instanceof Error ? e.message : t("clinic.common.error")); }
-    finally { setLoadingServices(false); }
+    setLoadingServices(true);
+    setErrServices(null);
+    try {
+      setServiceStats(await clinicApi.stats.services());
+    } catch (error) {
+      setErrServices(error instanceof Error ? error.message : t("clinic.common.error"));
+    } finally {
+      setLoadingServices(false);
+    }
   }, [t]);
 
-  useEffect(() => { fetchOverview(period); }, [period, fetchOverview]);
   useEffect(() => {
-    fetchMonthly(); fetchDoctors(); fetchLeads(); fetchQueue();
-    fetchRoomStats(); fetchServiceStats();
-  }, [fetchMonthly, fetchDoctors, fetchLeads, fetchQueue, fetchRoomStats, fetchServiceStats]);
+    fetchOverview(period);
+  }, [fetchOverview, period]);
+
   useEffect(() => {
-    const id = setInterval(fetchQueue, 10000);
+    fetchMonthly();
+    fetchDoctors();
+    fetchLeads();
+    fetchQueue();
+    fetchRoomStats();
+    fetchServiceStats();
+  }, [fetchDoctors, fetchLeads, fetchMonthly, fetchQueue, fetchRoomStats, fetchServiceStats]);
+
+  useEffect(() => {
+    const id = setInterval(fetchQueue, 10_000);
     return () => clearInterval(id);
   }, [fetchQueue]);
 
-  const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
-    setOnboardingDismissed(!!localStorage.getItem(ONBOARDING_DISMISS_KEY));
+    setOnboardingDismissed(Boolean(localStorage.getItem(ONBOARDING_DISMISS_KEY)));
+
     Promise.all([
       clinicApi.staff.list(),
       clinicApi.rooms.list(),
       clinicApi.services.list(),
-    ]).then(([staff, rooms, svcs]) => {
-      setHasStaff(staff.length > 0);
-      setHasRooms(rooms.length > 0);
-      setHasServices(svcs.length > 0);
-    }).catch(() => {
-      setHasStaff(true); setHasRooms(true); setHasServices(true);
-    });
+    ])
+      .then(([staff, rooms, services]) => {
+        setHasStaff(staff.length > 0);
+        setHasRooms(rooms.length > 0);
+        setHasServices(services.length > 0);
+      })
+      .catch(() => {
+        setHasStaff(true);
+        setHasRooms(true);
+        setHasServices(true);
+      });
   }, []);
 
   const todayDate = mounted
-    ? new Date().toLocaleDateString("ru-RU", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    ? i18n.language === "uz"
+      ? (() => {
+          const now = new Date();
+          return `${UZ_WEEKDAYS[now.getDay()]}, ${now.getDate()}-${UZ_MONTHS[now.getMonth()].toLowerCase()} ${now.getFullYear()}`;
+        })()
+      : new Intl.DateTimeFormat(locale, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).format(new Date())
     : "";
-  const waiting = todayApps.filter((a) => a.status === "SCHEDULED").length;
-  const inProgress = todayApps.filter((a) => ["CHECKED_IN", "IN_PROGRESS"].includes(a.status)).length;
-  const done = todayApps.filter((a) => a.status === "DONE").length;
-  const maxDoc = Math.max(...doctors.map((d) => d.appointments), 1);
-  const maxMonth = Math.max(...monthly.map((m) => m.appointments), 1);
+
+  const waiting = todayApps.filter((appointment) => appointment.status === "SCHEDULED").length;
+  const inProgress = todayApps.filter((appointment) =>
+    ["CHECKED_IN", "IN_PROGRESS"].includes(appointment.status),
+  ).length;
+  const done = todayApps.filter((appointment) => appointment.status === "DONE").length;
+
+  const maxDoctorAppointments = Math.max(...doctors.map((doctor) => doctor.appointments), 1);
+  const maxMonthAppointments = Math.max(...monthly.map((item) => item.appointments), 1);
+  const maxRoomAppointments = Math.max(...roomStats.map((item) => item.todayAppointments), 1);
+  const visibleServiceStats = serviceStats.filter(
+    (item) => (item.serviceName ?? "").trim().length >= 3,
+  );
+  const maxServiceCount = Math.max(...visibleServiceStats.map((item) => item.count), 1);
 
   const onboardingSteps: OnboardingStep[] = [
-    { key: "staff",    label: t("clinic.dashboard.onboarding.addStaff"),   hint: t("clinic.dashboard.onboarding.addStaffHint"),   href: "/clinic/staff",    done: hasStaff    === true },
-    { key: "rooms",    label: t("clinic.dashboard.onboarding.createRoom"),  hint: t("clinic.dashboard.onboarding.createRoomHint"),  href: "/clinic/rooms",    done: hasRooms    === true },
-    { key: "services", label: t("clinic.dashboard.onboarding.addService"),  hint: t("clinic.dashboard.onboarding.addServiceHint"),  href: "/clinic/services", done: hasServices === true },
+    {
+      key: "staff",
+      label: t("clinic.dashboard.onboarding.addStaff"),
+      hint: t("clinic.dashboard.onboarding.addStaffHint"),
+      href: "/clinic/staff",
+      done: hasStaff === true,
+    },
+    {
+      key: "rooms",
+      label: t("clinic.dashboard.onboarding.createRoom"),
+      hint: t("clinic.dashboard.onboarding.createRoomHint"),
+      href: "/clinic/rooms",
+      done: hasRooms === true,
+    },
+    {
+      key: "services",
+      label: t("clinic.dashboard.onboarding.addService"),
+      hint: t("clinic.dashboard.onboarding.addServiceHint"),
+      href: "/clinic/services",
+      done: hasServices === true,
+    },
   ];
-  const allOnboardingDone = onboardingSteps.every((s) => s.done);
+
+  const allOnboardingDone = onboardingSteps.every((step) => step.done);
   const showOnboarding = !onboardingDismissed && !allOnboardingDone && hasStaff !== null;
 
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const formatNumber = (value: number) => value.toLocaleString(locale);
+  const formatCurrency = (value: number) =>
+    `${value.toLocaleString(locale)} ${t("common.sum")}`;
+  const formatLeadDate = (value: string) =>
+    new Intl.DateTimeFormat(locale, {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+
+  const formatMonthLabel = (value: string) => {
+    if (!value) return "";
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+    if (!match) return value;
+    const [, year, month] = match;
+    const monthIndex = Number(month) - 1;
+    if (monthIndex < 0 || monthIndex > 11) return value;
+    if (i18n.language === "uz") {
+      return `${UZ_MONTHS[monthIndex]} ${year}`;
+    }
+    const date = new Date(Number(year), monthIndex, 1);
+    if (Number.isNaN(date.getTime())) return value;
+    const formatted = new Intl.DateTimeFormat(locale, {
+      month: "long",
+      year: "numeric",
+    }).format(date);
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  };
 
   function downloadCSV(filename: string, rows: string[][]) {
-    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = rows
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   async function exportAppointments() {
-    setExporting(true); setExportOpen(false); setExportError(null);
+    setExporting(true);
+    setExportOpen(false);
+    setExportError(null);
     try {
       const endDate = new Date().toISOString().slice(0, 10);
-      const startD = new Date(); startD.setDate(startD.getDate() - 29);
-      const startDate = startD.toISOString().slice(0, 10);
-      const all: Appointment[] = await clinicApi.appointments.list({ startDate, endDate });
+      const startDateObj = new Date();
+      startDateObj.setDate(startDateObj.getDate() - 29);
+      const startDate = startDateObj.toISOString().slice(0, 10);
+      const data: Appointment[] = await clinicApi.appointments.list({ startDate, endDate });
+
       const rows: string[][] = [
-        ["ID", t("reception.patient"), t("reception.phone"), t("reception.doctor"), t("reception.date"), "Time", t("reception.status"), t("reception.payment")],
-        ...all.map((a) => [
-          a.id.slice(0, 8),
-          a.patientName ?? "",
-          a.patientPhone,
-          a.doctorId ?? "",
-          a.date,
-          a.time,
-          a.status,
-          a.paymentType ?? "",
+        [
+          "ID",
+          t("reception.patient"),
+          t("reception.phone"),
+          t("reception.doctor"),
+          t("reception.date"),
+          "Time",
+          t("reception.status"),
+          t("reception.payment"),
+        ],
+        ...data.map((appointment) => [
+          appointment.id.slice(0, 8),
+          appointment.patientName ?? "",
+          appointment.patientPhone,
+          appointment.doctorId ?? "",
+          appointment.date,
+          appointment.time,
+          appointment.status,
+          appointment.paymentType ?? "",
         ]),
       ];
-      downloadCSV(`appointments-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+
+      downloadCSV(`appointments-${endDate}.csv`, rows);
     } catch (e) {
       setExportError(e instanceof Error ? e.message : "Ошибка экспорта");
-    } finally { setExporting(false); }
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function exportLeads() {
-    setExporting(true); setExportOpen(false); setExportError(null);
+    setExporting(true);
+    setExportOpen(false);
+    setExportError(null);
     try {
-      const res = await clinicApi.leads.list({ limit: 500 });
+      const response = await clinicApi.leads.list({ limit: 500 });
       const rows: string[][] = [
         ["ID", "Name", "Phone", "Status", "Notes", "Date"],
-        ...res.data.map((l) => [
-          l.id.slice(0, 8),
-          l.name ?? "",
-          l.phone,
-          l.status,
-          l.notes ?? "",
-          new Date(l.createdAt).toLocaleDateString("ru-RU"),
+        ...response.data.map((lead) => [
+          lead.id.slice(0, 8),
+          lead.name ?? "",
+          lead.phone,
+          lead.status,
+          lead.notes ?? "",
+          new Intl.DateTimeFormat(locale).format(new Date(lead.createdAt)),
         ]),
       ];
+
       downloadCSV(`leads-${new Date().toISOString().slice(0, 10)}.csv`, rows);
     } catch (e) {
       setExportError(e instanceof Error ? e.message : "Ошибка экспорта");
-    } finally { setExporting(false); }
+    } finally {
+      setExporting(false);
+    }
   }
 
-  const card: React.CSSProperties = {
-    background: "#fff", borderRadius: 16, padding: "20px 24px",
-    border: "1px solid #f1f5f9", boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
-  };
-
-  const avatarColors = [
-    { bg: "#eff6ff", color: "#2563eb" },
-    { bg: "#faf5ff", color: "#9333ea" },
-    { bg: "#f0fdf4", color: "#16a34a" },
-    { bg: "#fff7ed", color: "#ea580c" },
-    { bg: "#fdf2f8", color: "#db2777" },
-  ];
-
   return (
-    <div style={{ minHeight: "100%", background: "#f8fafc" }}>
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
-
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.dashboard.title")}</h1>
-          <p style={{ fontSize: 13, color: "#64748b", textTransform: "capitalize" }}>{todayDate}</p>
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6 sm:py-7">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-16 top-0 h-56 w-56 rounded-full bg-teal-500/20 blur-3xl" />
+          <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" />
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {exportError && (
-            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#ef4444" }}>
-              <AlertCircle size={13} /> {exportError}
-            </span>
-          )}
-          {/* Export dropdown */}
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setExportOpen((v) => !v)}
-              disabled={exporting}
-              style={{
-                display: "flex", alignItems: "center", gap: 7,
-                padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700,
-                background: "#fff", border: "1.5px solid #e2e8f0", color: "#475569",
-                cursor: exporting ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1,
-              }}
-            >
-              <Download size={14} /> {exporting ? t("clinic.dashboard.exporting") : t("clinic.dashboard.export")}
-            </button>
-            {exportOpen && (
-              <>
-                <div onClick={() => setExportOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
-                <div style={{
-                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 100,
-                  background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)", minWidth: 200, overflow: "hidden",
-                }}>
-                  {[
-                    { label: t("clinic.dashboard.exportAppointments"), fn: exportAppointments },
-                    { label: t("clinic.dashboard.exportLeads"),         fn: exportLeads },
-                  ].map(({ label, fn }) => (
-                    <button key={label} onClick={fn} style={{
-                      display: "block", width: "100%", padding: "11px 16px",
-                      textAlign: "left", background: "none", border: "none",
-                      fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer",
-                    }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                    >
-                      {label}
-                    </button>
-                  ))}
+
+        <div className="relative">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+                <Sparkles size={12} />
+                Clinic OS
+              </div>
+              <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
+                {t("clinic.dashboard.title")}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-[15px]">
+                {todayDate}
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {t("clinic.dashboard.kpi.newPatients")}
+                  </p>
+                  <p className="mt-1 text-xl font-black">
+                    {loadingOverview || !overview ? "-" : formatNumber(overview.newPatients ?? 0)}
+                  </p>
                 </div>
-              </>
-            )}
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {t("clinic.dashboard.kpi.appointments")}
+                  </p>
+                  <p className="mt-1 text-xl font-black">
+                    {loadingOverview || !overview ? "-" : formatNumber(overview.appointments ?? 0)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    {t("clinic.dashboard.kpi.revenue")}
+                  </p>
+                  <p className="mt-1 text-xl font-black">
+                    {loadingOverview || !overview ? "-" : formatCurrency(overview.revenue ?? 0)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <div className="relative">
+                {exportError && (
+                  <div className="absolute right-0 top-[-30px] flex items-center gap-1.5 whitespace-nowrap text-xs font-bold text-rose-400">
+                    <AlertCircle size={13} /> {exportError}
+                  </div>
+                )}
+                <button
+                  onClick={() => setExportOpen((value) => !value)}
+                  disabled={exporting}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                >
+                  <Download size={15} />
+                  {exporting ? t("clinic.dashboard.exporting") : t("clinic.dashboard.export")}
+                </button>
+
+                {exportOpen ? (
+                  <>
+                    <div
+                      onClick={() => setExportOpen(false)}
+                      className="fixed inset-0 z-[90]"
+                    />
+                    <div className="absolute right-0 top-[calc(100%+10px)] z-[95] min-w-[240px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 text-slate-900 shadow-2xl">
+                      {[
+                        {
+                          label: t("clinic.dashboard.exportAppointments"),
+                          onClick: exportAppointments,
+                        },
+                        {
+                          label: t("clinic.dashboard.exportLeads"),
+                          onClick: exportLeads,
+                        },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          onClick={item.onClick}
+                          className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                          <span>{item.label}</span>
+                          <ChevronRight size={14} className="text-slate-400" />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              <button
+                onClick={() => setShowBooking(true)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-teal-950/20 transition hover:-translate-y-0.5 hover:bg-teal-50 sm:w-auto"
+              >
+                <CalendarClock size={16} />
+                {t("clinic.dashboard.recordPatient")}
+              </button>
+            </div>
           </div>
 
-          <button onClick={() => setShowBooking(true)} style={{
-            background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-            fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
-            border: "none", cursor: "pointer",
-          }}>
-            {t("clinic.dashboard.recordPatient")}
-          </button>
-        </div>
-      </div>
+          <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Period
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(Object.keys(PERIOD_LABELS) as Period[]).map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => setPeriod(item)}
+                    className={[
+                      "rounded-full px-4 py-2 text-sm font-semibold transition",
+                      period === item
+                        ? "bg-white text-slate-950 shadow-sm"
+                        : "bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white",
+                    ].join(" ")}
+                  >
+                    {PERIOD_LABELS[item]}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-      {/* Onboarding checklist */}
-      {showOnboarding && (
+            <div className="grid grid-cols-3 gap-2 sm:min-w-[320px]">
+              {[
+                {
+                  label: t("clinic.dashboard.waiting"),
+                  value: waiting,
+                  tone: "border-amber-400/20 bg-amber-400/10 text-amber-100",
+                },
+                {
+                  label: t("clinic.dashboard.inProgress"),
+                  value: inProgress,
+                  tone: "border-sky-400/20 bg-sky-400/10 text-sky-100",
+                },
+                {
+                  label: t("clinic.dashboard.done"),
+                  value: done,
+                  tone: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className={`rounded-2xl border px-3 py-3 ${item.tone}`}
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-black">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {showOnboarding ? (
         <OnboardingBanner
           steps={onboardingSteps}
           onDismiss={() => {
@@ -450,130 +849,176 @@ export default function DashboardPage() {
             setOnboardingDismissed(true);
           }}
         />
-      )}
+      ) : null}
 
-      {/* Period selector */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-        {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-          <button key={p} onClick={() => setPeriod(p)} style={{
-            padding: "8px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-            border: `1.5px solid ${period === p ? "#0d9488" : "#e2e8f0"}`,
-            background: period === p ? "#f0fdfa" : "#fff",
-            color: period === p ? "#0d9488" : "#475569",
-            cursor: "pointer", transition: "all 0.15s",
-          }}>
-            {PERIOD_LABELS[p]}
-          </button>
-        ))}
-      </div>
+      {errOverview ? <ErrorBanner message={errOverview} onRetry={() => fetchOverview(period)} /> : null}
 
-      {errOverview && <div style={{ marginBottom: 20 }}><ErrorBanner message={errOverview} onRetry={() => fetchOverview(period)} /></div>}
-
-      {/* KPI Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {loadingOverview ? (
-          [1,2,3,4].map(i => (
-            <div key={i} style={card}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#f1f5f9", animation: "pulse 1.5s ease-in-out infinite" }} />
-                <div style={{ flex: 1 }}>
-                  <Skeleton height={28} radius={6} />
-                  <div style={{ marginTop: 6 }}><Skeleton height={14} radius={4} /></div>
-                </div>
-              </div>
-            </div>
+          Array.from({ length: 4 }, (_, index) => (
+            <Surface key={index} className="space-y-3">
+              <Skeleton className="h-10 w-10 rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl" />
+              <Skeleton className="h-3 w-20 sm:h-4 sm:w-28" />
+              <Skeleton className="h-8 w-24 sm:h-10 sm:w-40" />
+              <Skeleton className="h-3 w-16 sm:w-24" />
+            </Surface>
           ))
         ) : overview ? (
           <>
-            <KpiCard icon={<Users size={22} color="#2563eb" />} iconBg="#eff6ff" value={overview.newPatients} label={t("clinic.dashboard.kpi.newPatients")} />
-            <KpiCard icon={<CheckCircle size={22} color="#16a34a" />} iconBg="#f0fdf4" value={overview.appointments} label={t("clinic.dashboard.kpi.appointments")} />
-            <KpiCard icon={<TrendingUp size={22} color="#9333ea" />} iconBg="#faf5ff" value={`${(overview.revenue ?? 0).toLocaleString("ru-RU")} ${t("common.sum")}`} label={t("clinic.dashboard.kpi.revenue")} />
-            <KpiCard icon={<Activity size={22} color="#ea580c" />} iconBg="#fff7ed" value={`${overview.cancelRate ?? 0}%`} label={t("clinic.dashboard.kpi.cancelRate")} />
+            <MetricCard
+              icon={<Users size={22} />}
+              label={t("clinic.dashboard.kpi.newPatients")}
+              value={formatNumber(overview.newPatients ?? 0)}
+              hint={PERIOD_LABELS[period]}
+              toneIndex={0}
+            />
+            <MetricCard
+              icon={<CheckCircle size={22} />}
+              label={t("clinic.dashboard.kpi.appointments")}
+              value={formatNumber(overview.appointments ?? 0)}
+              hint={`${todayApps.length} ${t("clinic.dashboard.appointmentsCount")}`}
+              toneIndex={1}
+            />
+            <MetricCard
+              icon={<TrendingUp size={22} />}
+              label={t("clinic.dashboard.kpi.revenue")}
+              value={formatCurrency(overview.revenue ?? 0)}
+              hint={t("clinic.finance.revenue")}
+              toneIndex={2}
+            />
+            <MetricCard
+              icon={<Activity size={22} />}
+              label={t("clinic.dashboard.kpi.cancelRate")}
+              value={`${overview.cancelRate ?? 0}%`}
+              hint={t("clinic.finance.cancelRate")}
+              toneIndex={3}
+            />
           </>
         ) : null}
       </div>
 
-      {/* Charts row */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 24 }} className="clinic-grid-stack">
-        {/* Monthly */}
-        <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.monthlyPatients")}</h2>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
+        <Surface>
+          <SectionHeader
+            title={t("clinic.dashboard.monthlyPatients")}
+            subtitle={t("clinic.finance.monthlyStats")}
+          />
+
           {loadingMonthly ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[1,2,3,4].map(i => <Skeleton key={i} height={18} radius={6} />)}
+            <div className="space-y-3">
+              {Array.from({ length: 5 }, (_, index) => (
+                <Skeleton key={index} className="h-24" />
+              ))}
             </div>
           ) : errMonthly ? (
             <ErrorBanner message={errMonthly} onRetry={fetchMonthly} />
           ) : monthly.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "40px 0" }}>{t("clinic.dashboard.noData")}</div>
+            <EmptyState label={t("clinic.dashboard.noData")} />
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <th style={{ textAlign: "left", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.month")}</th>
-                  <th style={{ textAlign: "right", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.appointmentsCount")}</th>
-                  <th style={{ textAlign: "right", padding: "0 0 10px", color: "#64748b", fontWeight: 600 }}>{t("clinic.finance.revenueCol")}</th>
-                  <th style={{ width: 120, padding: "0 0 10px" }} />
-                </tr>
-              </thead>
-              <tbody>
-                {monthly.map((row) => (
-                  <tr key={row.month} style={{ borderBottom: "1px solid #f8fafc" }}>
-                    <td style={{ padding: "9px 0", color: "#374151", fontWeight: 600 }}>{row.month}</td>
-                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{row.appointments}</td>
-                    <td style={{ padding: "9px 0", textAlign: "right", color: "#374151" }}>{(row.revenue ?? 0).toLocaleString("ru-RU")} {t("common.sum")}</td>
-                    <td style={{ padding: "9px 0 9px 16px" }}>
-                      <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
-                        <div style={{ height: "100%", borderRadius: 3, background: "#0d9488", width: `${(row.appointments / maxMonth) * 100}%` }} />
+            <div className="space-y-3">
+              {monthly.map((item) => {
+                const width = Math.max(8, Math.round((item.appointments / maxMonthAppointments) * 100));
+                return (
+                  <div
+                    key={item.month}
+                    className="rounded-[22px] border border-slate-200 bg-slate-50/80 p-4 transition hover:border-teal-200 hover:bg-teal-50/40"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900">{formatMonthLabel(item.month)}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatNumber(item.appointments)} {t("clinic.finance.appointmentsCount")}
+                        </p>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <div className="text-left sm:text-right">
+                        <p className="text-sm font-extrabold text-slate-950">
+                          {formatCurrency(item.revenue ?? 0)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">{t("clinic.finance.revenueCol")}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 h-2 rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-500"
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
-        </div>
+        </Surface>
 
-        {/* Queue */}
-        <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.todayQueue")}</h2>
+        <Surface>
+          <SectionHeader
+            title={t("clinic.dashboard.todayQueue")}
+            subtitle={`${todayApps.length} ${t("clinic.dashboard.appointmentsCount")}`}
+          />
+
           {loadingQueue ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[1,2,3].map(i => <Skeleton key={i} height={60} />)}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              {Array.from({ length: 3 }, (_, index) => (
+                <Skeleton key={index} className="h-28" />
+              ))}
             </div>
           ) : errQueue ? (
             <ErrorBanner message={errQueue} onRetry={fetchQueue} />
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:grid-cols-1">
               {[
-                { icon: <Clock size={20} color="#ca8a04" />, count: waiting, label: t("clinic.dashboard.waiting"), bg: "#fefce8", color: "#92400e" },
-                { icon: <Activity size={20} color="#2563eb" />, count: inProgress, label: t("clinic.dashboard.inProgress"), bg: "#eff6ff", color: "#1e40af" },
-                { icon: <CheckCircle size={20} color="#16a34a" />, count: done, label: t("clinic.dashboard.done"), bg: "#f0fdf4", color: "#14532d" },
-              ].map(({ icon, count, label, bg, color }) => (
-                <div key={label} style={{ background: bg, borderRadius: 12, padding: "16px 8px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  {icon}
-                  <span style={{ fontSize: 22, fontWeight: 800, color }}>{count}</span>
-                  <span style={{ fontSize: 11, color, opacity: 0.8, lineHeight: 1.2 }}>{label}</span>
+                {
+                  label: t("clinic.dashboard.waiting"),
+                  count: waiting,
+                  icon: <Clock size={18} />,
+                  className: "border-amber-200 bg-amber-50 text-amber-800",
+                },
+                {
+                  label: t("clinic.dashboard.inProgress"),
+                  count: inProgress,
+                  icon: <Activity size={18} />,
+                  className: "border-sky-200 bg-sky-50 text-sky-800",
+                },
+                {
+                  label: t("clinic.dashboard.done"),
+                  count: done,
+                  icon: <CheckCircle size={18} />,
+                  className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className={`rounded-[22px] border p-4 ${item.className}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/80">
+                      {item.icon}
+                    </div>
+                    <p className="text-3xl font-black">{item.count}</p>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold">{item.label}</p>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Surface>
       </div>
 
-      {/* Bottom row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }} className="clinic-grid-stack">
-        {/* Doctors */}
-        <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.doctorsActivity")}</h2>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
+        <Surface>
+          <SectionHeader
+            title={t("clinic.dashboard.doctorsActivity")}
+            subtitle={t("clinic.dashboard.byAppointments")}
+          />
+
           {loadingDoctors ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[1,2,3].map(i => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#f1f5f9", flexShrink: 0, animation: "pulse 1.5s ease-in-out infinite" }} />
-                  <div style={{ flex: 1 }}>
-                    <Skeleton height={14} radius={4} />
-                    <div style={{ marginTop: 6 }}><Skeleton height={6} radius={3} /></div>
+            <div className="space-y-4">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-2xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-2 w-full" />
                   </div>
                 </div>
               ))}
@@ -581,29 +1026,43 @@ export default function DashboardPage() {
           ) : errDoctors ? (
             <ErrorBanner message={errDoctors} onRetry={fetchDoctors} />
           ) : doctors.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noData")}</div>
+            <EmptyState label={t("clinic.dashboard.noData")} />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {doctors.map((doc, idx) => {
-                const c = avatarColors[idx % avatarColors.length];
-                const pct = Math.round((doc.appointments / maxDoc) * 100);
+            <div className="space-y-4">
+              {doctors.map((doctor, index) => {
+                const percent = Math.round((doctor.appointments / maxDoctorAppointments) * 100);
+                const tone = KPI_TONES[index % KPI_TONES.length];
+                const initial = (doctor.doctorName ?? "?").charAt(0).toUpperCase();
+
                 return (
-                  <div key={doc.doctorId} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
-                      background: c.bg, color: c.color,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 15, fontWeight: 700,
-                    }}>
-                      {(doc.doctorName ?? "?").charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.doctorName}</span>
-                        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{doc.appointments} {t("clinic.dashboard.appointmentsCount")}</span>
+                  <div
+                    key={doctor.doctorId}
+                    className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={[
+                          "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black shadow-sm",
+                          tone.iconWrap,
+                        ].join(" ")}
+                      >
+                        {initial}
                       </div>
-                      <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
-                        <div style={{ height: "100%", borderRadius: 3, background: "#0d9488", width: `${pct}%`, transition: "width 0.5s ease" }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-bold text-slate-900">
+                            {doctor.doctorName}
+                          </p>
+                          <span className="shrink-0 text-xs font-semibold text-slate-500">
+                            {doctor.appointments} {t("clinic.dashboard.appointmentsCount")}
+                          </span>
+                        </div>
+                        <div className="mt-3 h-2 rounded-full bg-white">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500"
+                            style={{ width: `${Math.max(percent, 8)}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -611,154 +1070,196 @@ export default function DashboardPage() {
               })}
             </div>
           )}
-        </div>
+        </Surface>
 
-        {/* Leads */}
-        <div style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 18 }}>{t("clinic.dashboard.latestLeads")}</h2>
+        <Surface>
+          <SectionHeader
+            title={t("clinic.dashboard.latestLeads")}
+            subtitle={t("clinic.leads.subtitle")}
+          />
+
           {loadingLeads ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[1,2,3,4,5].map(i => <Skeleton key={i} height={52} />)}
+            <div className="space-y-3">
+              {Array.from({ length: 4 }, (_, index) => (
+                <Skeleton key={index} className="h-24" />
+              ))}
             </div>
           ) : errLeads ? (
             <ErrorBanner message={errLeads} onRetry={fetchLeads} />
           ) : leads.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noLeads")}</div>
+            <EmptyState label={t("clinic.dashboard.noLeads")} />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div className="space-y-3">
               {leads.map((lead) => {
-                const summary = lead.notes ? (lead.notes.length > 60 ? lead.notes.slice(0, 60) + "…" : lead.notes) : null;
-                const statusStyle = LEAD_STATUS_STYLES[lead.status] ?? { background: "#f1f5f9", color: "#475569" };
-                const dateStr = new Date(lead.createdAt).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+                const summary = lead.notes
+                  ? lead.notes.length > 88
+                    ? `${lead.notes.slice(0, 88)}...`
+                    : lead.notes
+                  : null;
+
                 return (
-                  <div key={lead.id} style={{
-                    display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10,
-                    padding: "10px 8px", borderRadius: 10, transition: "background 0.1s",
-                  }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#f8fafc"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  <div
+                    key={lead.id}
+                    className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4 transition hover:border-teal-200 hover:bg-teal-50/40"
                   >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{lead.name ?? t("clinic.dashboard.withoutName")}</span>
-                        <span style={{ fontSize: 12, color: "#94a3b8" }}>{lead.phone}</span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900">
+                            {lead.name ?? t("clinic.dashboard.withoutName")}
+                          </p>
+                          <span className="text-xs text-slate-400">{lead.phone}</span>
+                        </div>
+                        {summary ? (
+                          <p className="mt-2 text-sm leading-6 text-slate-500">{summary}</p>
+                        ) : null}
                       </div>
-                      {summary && <p style={{ fontSize: 12, color: "#64748b", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</p>}
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6, ...statusStyle }}>
+                      <span
+                        className={[
+                          "inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold",
+                          LEAD_STATUS_META[lead.status] ??
+                            "border-slate-200 bg-slate-100 text-slate-600",
+                        ].join(" ")}
+                      >
                         {LEAD_STATUS_LABELS[lead.status] ?? lead.status}
                       </span>
-                      <span style={{ fontSize: 11, color: "#94a3b8" }}>{dateStr}</span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-400">
+                      <span>{formatLeadDate(lead.createdAt)}</span>
+                      <span className="inline-flex items-center gap-1 font-semibold text-teal-600">
+                        Salomat AI
+                        <ChevronRight size={12} />
+                      </span>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-        </div>
+        </Surface>
       </div>
 
-      {/* Extra KPI row: room stats today + top services */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 24 }} className="clinic-grid-stack">
-        {/* Room stats */}
-        <div style={card}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 18 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{t("clinic.dashboard.roomsToday")}</h2>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>{t("clinic.dashboard.appointmentsCount")}</span>
-          </div>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Surface>
+          <SectionHeader
+            title={t("clinic.dashboard.roomsToday")}
+            subtitle={t("clinic.dashboard.appointmentsCount")}
+          />
+
           {loadingRooms ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[1,2,3,4].map(i => (
-                <div key={i}>
-                  <Skeleton height={14} radius={4} />
-                  <div style={{ marginTop: 6 }}><Skeleton height={6} radius={3} /></div>
-                </div>
+            <div className="space-y-3">
+              {Array.from({ length: 4 }, (_, index) => (
+                <Skeleton key={index} className="h-20" />
               ))}
             </div>
           ) : errRooms ? (
             <ErrorBanner message={errRooms} onRetry={fetchRoomStats} />
           ) : roomStats.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noRooms")}</div>
+            <EmptyState label={t("clinic.dashboard.noRooms")} />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {(() => {
-                const maxApps = Math.max(...roomStats.map((r) => r.todayAppointments), 1);
-                return roomStats.map((r) => {
-                  const pct = Math.round((r.todayAppointments / maxApps) * 100);
-                  return (
-                    <div key={r.roomId}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {r.name}{r.floor != null ? ` · ${r.floor} ${t("clinic.rooms.floorSuffix")}` : ""}
-                        </span>
-                        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{r.todayAppointments} {t("clinic.dashboard.appointmentsCount")}</span>
+            <div className="space-y-3">
+              {roomStats.map((room) => {
+                const percent = Math.round((room.todayAppointments / maxRoomAppointments) * 100);
+
+                return (
+                  <div
+                    key={room.roomId}
+                    className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                        <DoorOpen size={18} />
                       </div>
-                      <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
-                        <div style={{
-                          height: "100%", borderRadius: 3,
-                          background: pct >= 80 ? "#ef4444" : pct >= 40 ? "#0d9488" : "#94a3b8",
-                          width: `${pct}%`, transition: "width 0.5s ease",
-                        }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-900">
+                              {room.name}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {room.floor != null
+                                ? `${room.floor} ${t("clinic.rooms.floorSuffix")}`
+                                : "-"}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-xs font-semibold text-slate-500">
+                            {room.todayAppointments} {t("clinic.dashboard.appointmentsCount")}
+                          </span>
+                        </div>
+                        <div className="mt-3 h-2 rounded-full bg-white">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-slate-700 to-teal-500"
+                            style={{ width: `${Math.max(percent, 8)}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  );
-                });
-              })()}
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
+        </Surface>
 
-        {/* Top services */}
-        <div style={card}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 18 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>{t("clinic.dashboard.topServices")}</h2>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>{t("clinic.dashboard.byAppointments")}</span>
-          </div>
+        <Surface>
+          <SectionHeader
+            title={t("clinic.dashboard.topServices")}
+            subtitle={t("clinic.dashboard.byAppointments")}
+          />
+
           {loadingServices ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[1,2,3,4,5].map(i => <Skeleton key={i} height={44} />)}
+            <div className="space-y-3">
+              {Array.from({ length: 5 }, (_, index) => (
+                <Skeleton key={index} className="h-20" />
+              ))}
             </div>
           ) : errServices ? (
             <ErrorBanner message={errServices} onRetry={fetchServiceStats} />
-          ) : serviceStats.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "32px 0" }}>{t("clinic.dashboard.noData")}</div>
+          ) : visibleServiceStats.length === 0 ? (
+            <EmptyState label={t("clinic.dashboard.noData")} />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {(() => {
-                const maxCount = Math.max(...serviceStats.map((s) => s.count), 1);
-                return serviceStats.slice(0, 8).map((s, idx) => {
-                  const c = avatarColors[idx % avatarColors.length];
-                  const pct = Math.round((s.count / maxCount) * 100);
-                  return (
-                    <div key={s.serviceId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px", borderRadius: 8 }}>
-                      <div style={{
-                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                        background: c.bg, color: c.color,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 12, fontWeight: 800,
-                      }}>{idx + 1}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.serviceName}</span>
-                          <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0, marginLeft: 6 }}>{s.count}</span>
+            <div className="space-y-3">
+              {visibleServiceStats.slice(0, 8).map((service, index) => {
+                const percent = Math.round((service.count / maxServiceCount) * 100);
+
+                return (
+                  <div
+                    key={service.serviceId}
+                    className="rounded-[22px] border border-slate-200 bg-slate-50/70 p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-100 text-teal-700">
+                        <Stethoscope size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-900">
+                              {service.serviceName}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Top {index + 1}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-xs font-semibold text-slate-500">
+                            {service.count}
+                          </span>
                         </div>
-                        <div style={{ height: 4, borderRadius: 2, background: "#f1f5f9", overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 2, background: "#0d9488", width: `${pct}%` }} />
+                        <div className="mt-3 h-2 rounded-full bg-white">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500"
+                            style={{ width: `${Math.max(percent, 8)}%` }}
+                          />
                         </div>
                       </div>
                     </div>
-                  );
-                });
-              })()}
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
+        </Surface>
       </div>
-
-      <style>{`
-        @media (max-width: 900px) { .clinic-grid-stack { grid-template-columns: 1fr !important; } }
-      `}</style>
 
       <BookingModal
         open={showBooking}

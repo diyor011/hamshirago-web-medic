@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Trash2, UserPlus, RefreshCw, Building2, Clock } from "lucide-react";
+import { Plus, RefreshCw, UserPlus, Building2, Clock } from "lucide-react";
 import {
   clinicApi,
   ClinicRoom,
@@ -12,50 +12,21 @@ import { useTranslation } from "react-i18next";
 import "@/i18n";
 
 const DAY_LABELS: Record<number, string> = {
-  1: "Пн",
-  2: "Вт",
-  3: "Ср",
-  4: "Чт",
-  5: "Пт",
-  6: "Сб",
-  7: "Вс",
+  1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс",
 };
 
-const UI_DAY_OPTIONS = [
-  { value: 1, label: DAY_LABELS[1] },
-  { value: 2, label: DAY_LABELS[2] },
-  { value: 3, label: DAY_LABELS[3] },
-  { value: 4, label: DAY_LABELS[4] },
-  { value: 5, label: DAY_LABELS[5] },
-  { value: 6, label: DAY_LABELS[6] },
-  { value: 7, label: DAY_LABELS[7] },
-];
+const UI_DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((v) => ({ value: v, label: DAY_LABELS[v] }));
 
-function Skeleton({ height = 56, radius = 12 }: { height?: number; radius?: number }) {
-  return (
-    <div
-      style={{
-        height,
-        borderRadius: radius,
-        background: "#f1f5f9",
-        animation: "pulse 1.5s ease-in-out infinite",
-      }}
-    />
-  );
+function Skeleton() {
+  return <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />;
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   const { t } = useTranslation();
   return (
-    <div style={{
-      background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12,
-      padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-    }}>
-      <span style={{ fontSize: 13, color: "#ef4444" }}>{message}</span>
-      <button onClick={onRetry} style={{
-        display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600,
-        color: "#ef4444", background: "none", border: "none", cursor: "pointer",
-      }}>
+    <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <span className="text-sm text-red-500">{message}</span>
+      <button onClick={onRetry} className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
         <RefreshCw size={13} /> {t("clinic.common.retry")}
       </button>
     </div>
@@ -71,7 +42,6 @@ interface AssignDoctorForm {
 
 interface RoomWithSchedule extends ClinicRoom {
   schedules?: RoomDoctorSchedule[];
-  loadingSchedule?: boolean;
 }
 
 export default function RoomsPage() {
@@ -82,20 +52,15 @@ export default function RoomsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Create room form
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createFloor, setCreateFloor] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  // Assign doctor modal
   const [assignRoomId, setAssignRoomId] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState<AssignDoctorForm>({
-    doctorId: "",
-    days: [],
-    startTime: "09:00",
-    endTime: "18:00",
+    doctorId: "", days: [], startTime: "09:00", endTime: "18:00",
   });
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
@@ -103,15 +68,13 @@ export default function RoomsPage() {
   const doctors = staff.filter((s) => s.role === "DOCTOR" && s.isActive);
 
   const loadRooms = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const [roomList, staffList] = await Promise.all([
         clinicApi.rooms.list(),
         clinicApi.staff.list(),
       ]);
       setStaff(staffList);
-      // Load schedules for each room
       const withSchedules = await Promise.all(
         roomList.map(async (r) => {
           try {
@@ -134,16 +97,13 @@ export default function RoomsPage() {
 
   async function handleCreate() {
     if (!createName.trim()) { setCreateError(t("clinic.rooms.errorCreate")); return; }
-    setCreating(true);
-    setCreateError("");
+    setCreating(true); setCreateError("");
     try {
       await clinicApi.rooms.create({
         name: createName.trim(),
         floor: createFloor ? createFloor.trim() : undefined,
       });
-      setCreateName("");
-      setCreateFloor("");
-      setShowCreate(false);
+      setCreateName(""); setCreateFloor(""); setShowCreate(false);
       await loadRooms();
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : t("clinic.rooms.errorCreateGeneral"));
@@ -157,15 +117,9 @@ export default function RoomsPage() {
     if (!assignForm.doctorId) { setAssignError(t("clinic.rooms.errorAssignDoctor")); return; }
     if (assignForm.days.length === 0) { setAssignError(t("clinic.rooms.errorAssignDays")); return; }
     if (!assignForm.startTime || !assignForm.endTime) { setAssignError(t("clinic.rooms.errorAssignTime")); return; }
-    setAssigning(true);
-    setAssignError("");
+    setAssigning(true); setAssignError("");
     try {
-      await clinicApi.rooms.addDoctor(assignRoomId, {
-        doctorId: assignForm.doctorId,
-        days: assignForm.days,
-        startTime: assignForm.startTime,
-        endTime: assignForm.endTime,
-      });
+      await clinicApi.rooms.addDoctor(assignRoomId, assignForm);
       setAssignRoomId(null);
       setAssignForm({ doctorId: "", days: [], startTime: "09:00", endTime: "18:00" });
       await loadRooms();
@@ -183,90 +137,61 @@ export default function RoomsPage() {
     }));
   }
 
-  const getDoctorName = (id: string) =>
-    staff.find((s) => s.id === id)?.name ?? id;
+  const getDoctorName = (id: string) => staff.find((s) => s.id === id)?.name ?? id;
 
-  const card: React.CSSProperties = {
-    background: "#fff", borderRadius: 16, border: "1px solid #f1f5f9",
-    boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "10px 12px", borderRadius: 10,
-    border: "1.5px solid #e2e8f0", fontSize: 14, color: "#0f172a",
-    outline: "none", fontFamily: "inherit", boxSizing: "border-box",
-  };
+  const inputCls = "w-full rounded-xl border-[1.5px] border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-teal-500";
 
   return (
-    <div style={{ minHeight: "100%", background: "#f8fafc" }}>
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
-
+    <div className="min-h-full space-y-5">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>{t("clinic.rooms.title")}</h1>
-          <p style={{ fontSize: 13, color: "#64748b" }}>{t("clinic.rooms.subtitle")}</p>
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -left-16 top-0 h-48 w-48 rounded-full bg-teal-500/20 blur-3xl" />
+          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-violet-500/10 blur-2xl" />
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          style={{
-            background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-            fontSize: 14, fontWeight: 700, borderRadius: 10, padding: "10px 20px",
-            border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
-          }}
-        >
-          <Plus size={16} /> {t("clinic.rooms.addRoom")}
-        </button>
-      </div>
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.rooms.title")}</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-400">{t("clinic.rooms.subtitle")}</p>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-teal-50"
+          >
+            <Plus size={16} /> {t("clinic.rooms.addRoom")}
+          </button>
+        </div>
+      </section>
 
-      {error && <div style={{ marginBottom: 20 }}><ErrorBanner message={error} onRetry={loadRooms} /></div>}
+      {error && <ErrorBanner message={error} onRetry={loadRooms} />}
 
       {/* Create form */}
       {showCreate && (
-        <div style={{ ...card, padding: 20, marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>{t("clinic.rooms.newRoom")}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 text-[15px] font-bold text-slate-950">{t("clinic.rooms.newRoom")}</h3>
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.roomName")}</label>
-              <input
-                style={inputStyle}
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder={t("clinic.rooms.roomNamePlaceholder")}
-              />
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.rooms.roomName")}</label>
+              <input className={inputCls} value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("clinic.rooms.roomNamePlaceholder")} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.floor")}</label>
-              <input
-                style={inputStyle}
-                type="number"
-                min={1}
-                value={createFloor}
-                onChange={(e) => setCreateFloor(e.target.value)}
-                placeholder="1"
-              />
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.rooms.floor")}</label>
+              <input type="number" min={1} className={inputCls} value={createFloor} onChange={(e) => setCreateFloor(e.target.value)} placeholder="1" />
             </div>
           </div>
-          {createError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 10 }}>{createError}</p>}
-          <div style={{ display: "flex", gap: 8 }}>
+          {createError && <p className="mb-2.5 text-sm text-red-500">{createError}</p>}
+          <div className="flex gap-2">
             <button
               onClick={handleCreate}
               disabled={creating}
-              style={{
-                background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-                border: "none", borderRadius: 8, padding: "10px 20px",
-                fontSize: 14, fontWeight: 700, cursor: creating ? "not-allowed" : "pointer",
-                opacity: creating ? 0.7 : 1,
-              }}
+              className="rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-70"
             >
               {creating ? t("clinic.common.saving") : t("clinic.common.create")}
             </button>
             <button
               onClick={() => { setShowCreate(false); setCreateName(""); setCreateFloor(""); setCreateError(""); }}
-              style={{
-                background: "#f1f5f9", border: "none", borderRadius: 8,
-                padding: "10px 20px", fontSize: 14, cursor: "pointer", color: "#64748b",
-              }}
+              className="rounded-xl bg-slate-100 px-5 py-2.5 text-sm text-slate-500 transition hover:bg-slate-200"
             >
               {t("clinic.common.cancel")}
             </button>
@@ -276,124 +201,107 @@ export default function RoomsPage() {
 
       {/* Rooms table */}
       {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {[1, 2, 3].map((i) => <Skeleton key={i} height={80} />)}
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} />)}
         </div>
       ) : rooms.length === 0 ? (
-        <div style={{ ...card, padding: 60, textAlign: "center" }}>
-          <Building2 size={40} color="#cbd5e1" style={{ marginBottom: 12 }} />
-          <p style={{ color: "#94a3b8", fontSize: 14 }}>{t("clinic.rooms.noRooms")}</p>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white p-16 text-center shadow-sm">
+          <Building2 size={40} className="mb-3 text-slate-200" />
+          <p className="text-sm text-slate-400">{t("clinic.rooms.noRooms")}</p>
         </div>
       ) : (
-        <div style={{ ...card, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                <th style={{ textAlign: "left", padding: "12px 20px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.roomHeader")}</th>
-                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.floorHeader")}</th>
-                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.doctorHeader")}</th>
-                <th style={{ textAlign: "left", padding: "12px 16px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.scheduleHeader")}</th>
-                <th style={{ textAlign: "right", padding: "12px 20px", color: "#64748b", fontWeight: 600 }}>{t("clinic.rooms.actionsHeader")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rooms.map((room) => {
-                const sched = room.schedules ?? [];
-                return (
-                  <tr key={room.id} style={{ borderBottom: "1px solid #f8fafc" }}>
-                    <td style={{ padding: "14px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: 10,
-                          background: "#f0fdfa", display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          <Building2 size={16} color="#0d9488" />
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-5 py-3 text-left font-semibold text-slate-500">{t("clinic.rooms.roomHeader")}</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-500">{t("clinic.rooms.floorHeader")}</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-500">{t("clinic.rooms.doctorHeader")}</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-500">{t("clinic.rooms.scheduleHeader")}</th>
+                  <th className="px-5 py-3 text-right font-semibold text-slate-500">{t("clinic.rooms.actionsHeader")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rooms.map((room) => {
+                  const sched = Array.isArray(room.schedules) ? room.schedules : [];
+                  return (
+                    <tr key={room.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50">
+                            <Building2 size={16} className="text-teal-600" />
+                          </div>
+                          <span className="font-bold text-slate-950">{room.name}</span>
                         </div>
-                        <span style={{ fontWeight: 700, color: "#0f172a" }}>{room.name}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "14px 16px", color: "#475569" }}>
-                      {room.floor != null ? `${room.floor} ${t("clinic.rooms.floorSuffix")}` : "—"}
-                    </td>
-                    <td style={{ padding: "14px 16px" }}>
-                      {sched.length === 0 ? (
-                        <span style={{ color: "#94a3b8", fontSize: 12 }}>{t("clinic.rooms.notAssigned")}</span>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          {sched.map((s) => (
-                            <span key={s.id} style={{ fontSize: 12, color: "#374151", fontWeight: 600 }}>
-                              {getDoctorName(s.doctorId)}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: "14px 16px" }}>
-                      {sched.length === 0 ? (
-                        <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          {sched.map((s) => (
-                            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <div style={{ display: "flex", gap: 2 }}>
-                                {(s.days ?? []).map((d) => (
-                                  <span key={d} style={{
-                                    fontSize: 10, fontWeight: 700, padding: "1px 5px",
-                                    borderRadius: 5, background: "#f0fdfa", color: "#0d9488",
-                                  }}>
-                                    {DAY_LABELS[d] ?? String(d)}
-                                  </span>
-                                ))}
-                              </div>
-                              <span style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 3 }}>
-                                <Clock size={10} /> {s.startTime}–{s.endTime}
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-600">
+                        {room.floor != null ? `${room.floor} ${t("clinic.rooms.floorSuffix")}` : "—"}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {sched.length === 0 ? (
+                          <span className="text-xs text-slate-400">{t("clinic.rooms.notAssigned")}</span>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            {sched.map((s) => (
+                              <span key={s.id} className="text-xs font-semibold text-slate-700">
+                                {getDoctorName(s.doctorId)}
                               </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: "14px 20px", textAlign: "right" }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {sched.length === 0 ? (
+                          <span className="text-xs text-slate-400">—</span>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            {sched.map((s) => (
+                              <div key={s.id} className="flex items-center gap-1.5">
+                                <div className="flex gap-0.5">
+                                  {(s.days ?? []).map((d) => (
+                                    <span key={d} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-600">
+                                      {DAY_LABELS[d] ?? String(d)}
+                                    </span>
+                                  ))}
+                                </div>
+                                <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                                  <Clock size={10} /> {s.startTime}–{s.endTime}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
                         <button
                           onClick={() => { setAssignRoomId(room.id); setAssignError(""); }}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 6,
-                            padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                            background: "#f0fdfa", color: "#0d9488", border: "1px solid #ccfbf1",
-                            cursor: "pointer",
-                          }}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-600 transition hover:bg-teal-100"
                         >
                           <UserPlus size={13} /> {t("clinic.rooms.assignDoctor")}
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Assign doctor modal */}
       {assignRoomId && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 50,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-        }}>
-          <div style={{
-            background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 480,
-            boxShadow: "0 20px 60px rgba(15,23,42,0.15)",
-          }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 20 }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-5 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[20px] bg-white p-7 shadow-2xl">
+            <h3 className="mb-5 text-lg font-extrabold text-slate-950">
               {t("clinic.rooms.assignDoctorTitle")} — {rooms.find((r) => r.id === assignRoomId)?.name}
             </h3>
 
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.doctor")}</label>
+            <div className="mb-3.5">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.rooms.doctor")}</label>
               <select
-                style={{ ...inputStyle, background: "#fff" }}
+                className={`${inputCls} bg-white`}
                 value={assignForm.doctorId}
                 onChange={(e) => setAssignForm((f) => ({ ...f, doctorId: e.target.value }))}
               >
@@ -404,22 +312,21 @@ export default function RoomsPage() {
               </select>
             </div>
 
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 8 }}>{t("clinic.rooms.weekdays")}</label>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div className="mb-3.5">
+              <label className="mb-2 block text-xs font-semibold text-slate-500">{t("clinic.rooms.weekdays")}</label>
+              <div className="flex flex-wrap gap-1.5">
                 {UI_DAY_OPTIONS.map(({ label, value }) => {
                   const active = assignForm.days.includes(value);
                   return (
                     <button
                       key={value}
                       onClick={() => toggleDay(value)}
-                      style={{
-                        padding: "6px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                        border: `1.5px solid ${active ? "#0d9488" : "#e2e8f0"}`,
-                        background: active ? "#f0fdfa" : "#fff",
-                        color: active ? "#0d9488" : "#475569",
-                        cursor: "pointer",
-                      }}
+                      className={[
+                        "rounded-xl border-[1.5px] px-3 py-1.5 text-sm font-semibold transition",
+                        active
+                          ? "border-teal-500 bg-teal-50 text-teal-600"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
+                      ].join(" ")}
                     >
                       {label}
                     </button>
@@ -428,39 +335,24 @@ export default function RoomsPage() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div className="mb-3.5 grid grid-cols-2 gap-3">
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.startTime")}</label>
-                <input
-                  type="time"
-                  style={inputStyle}
-                  value={assignForm.startTime}
-                  onChange={(e) => setAssignForm((f) => ({ ...f, startTime: e.target.value }))}
-                />
+                <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.rooms.startTime")}</label>
+                <input type="time" className={inputCls} value={assignForm.startTime} onChange={(e) => setAssignForm((f) => ({ ...f, startTime: e.target.value }))} />
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 6 }}>{t("clinic.rooms.endTime")}</label>
-                <input
-                  type="time"
-                  style={inputStyle}
-                  value={assignForm.endTime}
-                  onChange={(e) => setAssignForm((f) => ({ ...f, endTime: e.target.value }))}
-                />
+                <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.rooms.endTime")}</label>
+                <input type="time" className={inputCls} value={assignForm.endTime} onChange={(e) => setAssignForm((f) => ({ ...f, endTime: e.target.value }))} />
               </div>
             </div>
 
-            {assignError && <p style={{ fontSize: 13, color: "#ef4444", marginBottom: 12 }}>{assignError}</p>}
+            {assignError && <p className="mb-3 text-sm text-red-500">{assignError}</p>}
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="flex gap-2">
               <button
                 onClick={handleAssign}
                 disabled={assigning}
-                style={{
-                  flex: 1, background: "linear-gradient(135deg, #0d9488, #0f766e)", color: "#fff",
-                  border: "none", borderRadius: 10, padding: "12px 0",
-                  fontSize: 14, fontWeight: 700, cursor: assigning ? "not-allowed" : "pointer",
-                  opacity: assigning ? 0.7 : 1,
-                }}
+                className="flex-1 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 py-3 text-sm font-bold text-white disabled:opacity-70"
               >
                 {assigning ? t("clinic.common.saving") : t("clinic.rooms.assignDoctor")}
               </button>
@@ -470,10 +362,7 @@ export default function RoomsPage() {
                   setAssignForm({ doctorId: "", days: [], startTime: "09:00", endTime: "18:00" });
                   setAssignError("");
                 }}
-                style={{
-                  flex: 1, background: "#f1f5f9", border: "none", borderRadius: 10,
-                  padding: "12px 0", fontSize: 14, cursor: "pointer", color: "#64748b", fontWeight: 600,
-                }}
+                className="flex-1 rounded-xl bg-slate-100 py-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-200"
               >
                 {t("clinic.common.cancel")}
               </button>

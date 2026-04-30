@@ -94,6 +94,7 @@ export default function DashboardPage() {
   const [isOnline, setIsOnline] = useState(false);
   const [myOrders, setMyOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [togglingOnline, setTogglingOnline] = useState(false);
   const [socketOk, setSocketOk] = useState(true);
   const [walletModal, setWalletModal] = useState<{ required: number; current: number } | null>(null);
@@ -101,6 +102,7 @@ export default function DashboardPage() {
   const socketRef = useRef<Socket | null>(null);
   const isOnlineRef = useRef(false);
   const titleBlinkRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const titleBlinkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [invite, setInvite] = useState<DispatchInvitePayload | null>(null);
   const [inviteSecondsLeft, setInviteSecondsLeft] = useState(60);
   const inviteTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -111,13 +113,15 @@ export default function DashboardPage() {
   const notifyNewOrder = useCallback((order?: Order) => {
     playOrderAlert();
     if (titleBlinkRef.current) clearInterval(titleBlinkRef.current);
+    if (titleBlinkTimeoutRef.current) clearTimeout(titleBlinkTimeoutRef.current);
     let on = true;
     titleBlinkRef.current = setInterval(() => {
       document.title = on ? "🔔 НОВЫЙ ЗАКАЗ!" : "HamshiraGo Медик";
       on = !on;
     }, 700);
-    setTimeout(() => {
+    titleBlinkTimeoutRef.current = setTimeout(() => {
       if (titleBlinkRef.current) { clearInterval(titleBlinkRef.current); titleBlinkRef.current = null; }
+      titleBlinkTimeoutRef.current = null;
       document.title = "HamshiraGo Медик";
     }, 30000);
     const chatId = localStorage.getItem("tg_chat_id");
@@ -178,6 +182,7 @@ export default function DashboardPage() {
     return () => {
       clearInterval(locationInterval);
       if (titleBlinkRef.current) clearInterval(titleBlinkRef.current);
+      if (titleBlinkTimeoutRef.current) clearTimeout(titleBlinkTimeoutRef.current);
       if (inviteTimerRef.current) clearInterval(inviteTimerRef.current);
       socketRef.current?.disconnect();
     };
@@ -227,7 +232,7 @@ export default function DashboardPage() {
       updateCountdown();
       inviteTimerRef.current = setInterval(updateCountdown, 500);
       setInvite(payload);
-      playOrderAlert();
+      notifyNewOrder(payload.order as unknown as Order);
       // Get medic's location for map + distance
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -253,10 +258,13 @@ export default function DashboardPage() {
 
   async function loadData() {
     setLoading(true);
+    setLoadError("");
     try {
-      const my = await medicApi.orders.my().catch(() => [] as Order[]);
+      const my = await medicApi.orders.my();
       const myArr = Array.isArray(my) ? my : [];
       setMyOrders(myArr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -287,13 +295,20 @@ export default function DashboardPage() {
         return next;
       });
       if (!isOnline) loadData();
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === "INSUFFICIENT_WALLET") {
+        setWalletModal({ required: (err as any).required, current: (err as any).current });
+      } else {
+        alert(err instanceof Error ? err.message : t("common.error"));
+      }
     } finally {
       setTogglingOnline(false);
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     unsubscribeWebPush();
+    try { await medicApi.auth.logout(); } catch { /* ignore — cookie will expire */ }
     localStorage.removeItem("medic_token");
     localStorage.removeItem("medic");
     router.push("/auth");
@@ -503,7 +518,16 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {!loading && (
+            {!loading && loadError && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "14px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <p style={{ fontSize: 14, color: "#ef4444", margin: 0 }}>{loadError}</p>
+                <button onClick={loadData} style={{ flexShrink: 0, background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  {t("common.retry")}
+                </button>
+              </div>
+            )}
+
+            {!loading && !loadError && (
               <>
                 {activeOrders.length === 0 && historyOrders.length > 0 && (
                   <div style={{ background: "#fff", borderRadius: 12, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.04)", color: "#94a3b8", fontSize: 14, fontWeight: 500 }}>

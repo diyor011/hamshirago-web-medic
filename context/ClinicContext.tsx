@@ -36,16 +36,18 @@ function companyToState(c: ClinicCompany): ClinicState {
 }
 
 export function ClinicProvider({ children }: { children: React.ReactNode }) {
-  const [clinic, setClinicState] = useState<ClinicState | null>(() => {
-    if (typeof window === "undefined") return null;
+  // Always null on first render (server + client match → no hydration error)
+  // Populated from localStorage via useEffect on client only
+  const [clinic, setClinicState] = useState<ClinicState | null>(null);
+
+  const [clinicError, setClinicError] = useState<string | null>(null);
+
+  useEffect(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
-      return cached ? (JSON.parse(cached) as ClinicState) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [clinicError, setClinicError] = useState<string | null>(null);
+      if (cached) setClinicState(JSON.parse(cached) as ClinicState);
+    } catch {}
+  }, []);
 
   const setClinic = useCallback((c: ClinicState | null) => {
     setClinicState(c);
