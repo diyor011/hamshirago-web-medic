@@ -175,19 +175,17 @@ function MetricCard({
   const tone = KPI_TONES[toneIndex % KPI_TONES.length];
 
   return (
-    <div className={`relative overflow-hidden rounded-[24px] border p-5 ${tone.card}`}>
-      <div className="absolute inset-x-0 top-0 h-1.5">
-        <div className={`h-full w-20 rounded-br-full ${tone.accent}`} />
-      </div>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-500">{label}</p>
-          <p className={`mt-3 text-3xl font-black tracking-tight ${tone.value}`}>{value}</p>
-          <p className={`mt-2 text-xs font-medium ${tone.hint}`}>{hint}</p>
+    <div className={`relative overflow-hidden rounded-2xl border p-4 sm:rounded-[24px] sm:p-5 ${tone.card}`}>
+      <div className={`absolute inset-x-0 top-0 h-1 ${tone.accent}`} />
+      <div className="flex items-start justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold text-slate-500 sm:text-sm">{label}</p>
+          <p className={`mt-2 text-2xl font-black tracking-tight sm:mt-3 sm:text-3xl ${tone.value}`}>{value}</p>
+          <p className={`mt-1.5 truncate text-[11px] font-medium sm:mt-2 sm:text-xs ${tone.hint}`}>{hint}</p>
         </div>
         <div
           className={[
-            "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-md sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-lg",
             tone.iconWrap,
           ].join(" ")}
         >
@@ -840,14 +838,14 @@ export default function DashboardPage() {
 
       {errOverview ? <ErrorBanner message={errOverview} onRetry={() => fetchOverview(period)} /> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {loadingOverview ? (
           Array.from({ length: 4 }, (_, index) => (
             <Surface key={index} className="space-y-3">
-              <Skeleton className="h-12 w-12 rounded-2xl" />
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-10 w-40" />
-              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-10 w-10 rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl" />
+              <Skeleton className="h-3 w-20 sm:h-4 sm:w-28" />
+              <Skeleton className="h-8 w-24 sm:h-10 sm:w-40" />
+              <Skeleton className="h-3 w-16 sm:w-24" />
             </Surface>
           ))
         ) : overview ? (
