@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, ChevronRight, X, Download } from "lucide-react";
-import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead } from "@/lib/clinicApi";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Users, CheckCircle, Clock, Activity, TrendingUp, RefreshCw, ChevronRight, X, Download, AlertCircle } from "lucide-react";
+import { clinicApi, StatsOverview, MonthlyStats, DoctorStats, Appointment, Lead, ClinicRoom, ClinicStaff } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
@@ -223,12 +223,15 @@ export default function DashboardPage() {
     finally { setLoadingDoctors(false); }
   }, [t]);
 
+  const fetchingQueue = useRef(false);
   const fetchQueue = useCallback(async () => {
+    if (fetchingQueue.current) return;
+    fetchingQueue.current = true;
     setLoadingQueue(true); setErrQueue(null);
     try { setTodayApps(await clinicApi.appointments.today()); }
-    catch (e) { setErrQueue(e instanceof Error ? e.message : t("clinic.common.error")); }
-    finally { setLoadingQueue(false); }
-  }, [t]);
+    catch (e) { setErrQueue(e instanceof Error ? e.message : "Ошибка"); }
+    finally { setLoadingQueue(false); fetchingQueue.current = false; }
+  }, []);
 
   const fetchLeads = useCallback(async () => {
     setLoadingLeads(true); setErrLeads(null);
@@ -300,6 +303,7 @@ export default function DashboardPage() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   function downloadCSV(filename: string, rows: string[][]) {
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -310,7 +314,7 @@ export default function DashboardPage() {
   }
 
   async function exportAppointments() {
-    setExporting(true); setExportOpen(false);
+    setExporting(true); setExportOpen(false); setExportError(null);
     try {
       const endDate = new Date().toISOString().slice(0, 10);
       const startD = new Date(); startD.setDate(startD.getDate() - 29);
@@ -329,13 +333,14 @@ export default function DashboardPage() {
           a.paymentType ?? "",
         ]),
       ];
-      downloadCSV(`appointments-${endDate}.csv`, rows);
-    } catch { /* ignore */ }
-    finally { setExporting(false); }
+      downloadCSV(`appointments-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Ошибка экспорта");
+    } finally { setExporting(false); }
   }
 
   async function exportLeads() {
-    setExporting(true); setExportOpen(false);
+    setExporting(true); setExportOpen(false); setExportError(null);
     try {
       const res = await clinicApi.leads.list({ limit: 500 });
       const rows: string[][] = [
@@ -350,8 +355,9 @@ export default function DashboardPage() {
         ]),
       ];
       downloadCSV(`leads-${new Date().toISOString().slice(0, 10)}.csv`, rows);
-    } catch { /* ignore */ }
-    finally { setExporting(false); }
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Ошибка экспорта");
+    } finally { setExporting(false); }
   }
 
   const card: React.CSSProperties = {
@@ -378,6 +384,11 @@ export default function DashboardPage() {
           <p style={{ fontSize: 13, color: "#64748b", textTransform: "capitalize" }}>{todayDate}</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {exportError && (
+            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#ef4444" }}>
+              <AlertCircle size={13} /> {exportError}
+            </span>
+          )}
           {/* Export dropdown */}
           <div style={{ position: "relative" }}>
             <button

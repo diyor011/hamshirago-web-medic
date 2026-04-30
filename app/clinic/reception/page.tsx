@@ -12,7 +12,11 @@ import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 
-// ─── Constants ───────────────────────────────────────────────────────────────────
+// ─── Calendar constants ───────────────────────────────────────────────────────
+const CALENDAR_START_HOUR = 8;
+const CALENDAR_END_HOUR   = 20;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   SCHEDULED:  "Запись",
@@ -209,11 +213,11 @@ export default function ReceptionPage() {
 
   const timeSlots = useMemo(() => {
     const arr: string[] = [];
-    for (let h = 8; h < 20; h++) {
+    for (let h = CALENDAR_START_HOUR; h < CALENDAR_END_HOUR; h++) {
       arr.push(`${String(h).padStart(2, "0")}:00`);
       arr.push(`${String(h).padStart(2, "0")}:30`);
     }
-    arr.push("20:00");
+    arr.push(`${String(CALENDAR_END_HOUR).padStart(2, "0")}:00`);
     return arr;
   }, []);
 
@@ -233,9 +237,10 @@ export default function ReceptionPage() {
   const slotIndexFor = (time: string): number => {
     const [hh, mm] = time.split(":").map(Number);
     const total = hh * 60 + mm;
-    const base = 8 * 60;
+    const base  = CALENDAR_START_HOUR * 60;
+    const end   = CALENDAR_END_HOUR   * 60;
     if (total < base) return 0;
-    if (total > 20 * 60) return timeSlots.length - 1;
+    if (total > end)  return timeSlots.length - 1;
     return Math.floor((total - base) / 30);
   };
 

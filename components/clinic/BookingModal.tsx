@@ -129,6 +129,21 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
     }
 
     setSubmitting(true); setError("");
+
+    // Client-side double booking check
+    try {
+      const existing = await clinicApi.appointments.list({ date, doctorId });
+      const conflict = existing.find(
+        (a) => a.time === time && !["CANCELED", "NO_SHOW"].includes(a.status)
+      );
+      if (conflict) {
+        setError(`На ${time} у этого врача уже есть запись`);
+        setSubmitting(false);
+        return;
+      }
+    } catch {
+      // Ignore — server will enforce uniqueness
+    }
     try {
       // patientName is required by backend — fall back to phone if no name known
       const resolvedName = patientName.trim()

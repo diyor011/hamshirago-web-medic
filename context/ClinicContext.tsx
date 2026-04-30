@@ -14,11 +14,13 @@ export interface ClinicState {
 interface ClinicContextValue {
   clinic: ClinicState | null;
   setClinic: (c: ClinicState | null) => void;
+  clinicError: string | null;
 }
 
 const ClinicContext = createContext<ClinicContextValue>({
   clinic: null,
   setClinic: () => {},
+  clinicError: null,
 });
 
 const STORAGE_KEY = "clinic_company";
@@ -43,6 +45,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   });
+  const [clinicError, setClinicError] = useState<string | null>(null);
 
   const setClinic = useCallback((c: ClinicState | null) => {
     setClinicState(c);
@@ -56,17 +59,22 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     clinicApi.company.get().then((company) => {
       setClinic(companyToState(company));
-    }).catch(() => {
-      // 401 уже обработан API клиентом (redirect → /auth)
-      // Для остальных ошибок: если нет кеша — редиректим
+      setClinicError(null);
+    }).catch((e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Ошибка загрузки клиники";
+      // UNAUTHORIZED — API client already redirects to /auth
+      if (msg === "UNAUTHORIZED") return;
+      // No cached data — redirect to auth
       if (!localStorage.getItem(STORAGE_KEY)) {
         window.location.replace("/clinic/auth");
+        return;
       }
+      setClinicError(msg);
     });
   }, [setClinic]);
 
   return (
-    <ClinicContext.Provider value={{ clinic, setClinic }}>
+    <ClinicContext.Provider value={{ clinic, setClinic, clinicError }}>
       {children}
     </ClinicContext.Provider>
   );

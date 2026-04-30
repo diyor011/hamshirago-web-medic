@@ -46,8 +46,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401 && !path.startsWith("/clinic-auth/")) {
     clearClinicSession();
-    window.location.replace("/clinic/auth");
-    return new Promise<T>(() => {});
+    if (typeof window !== "undefined") window.location.replace("/clinic/auth");
+    throw new Error("UNAUTHORIZED");
+  }
+  if (res.status === 429) {
+    throw new Error("Слишком много запросов. Подождите немного и попробуйте снова.");
   }
 
   if (!res.ok) {
@@ -93,6 +96,7 @@ export interface ClinicCompany {
   logoUrl?: string | null;
   isVerified?: boolean;
   isActive?: boolean;
+  settings?: Record<string, unknown>;
 }
 
 export interface ClinicStaff {
@@ -135,7 +139,8 @@ export interface ClinicService {
   name: string;
   category: string;
   price: number;
-  durationMinutes: number | null;
+  durationMinutes: number;
+  category?: string;
   isActive: boolean;
 }
 

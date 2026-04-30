@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, RefreshCw, UserX, Users } from "lucide-react";
+import { Plus, RefreshCw, UserX, Users, Pencil, Check, X } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRole } from "@/lib/clinicApi";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
@@ -78,6 +78,11 @@ export default function StaffPage() {
 
   const [deactivating, setDeactivating] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", specialization: "", photoUrl: "" });
+  const [updating, setUpdating] = useState(false);
+
   const { toasts, toast, closeToast } = useToast();
 
   const loadStaff = useCallback(async () => {
@@ -109,6 +114,34 @@ export default function StaffPage() {
       setCreateError(e instanceof Error ? e.message : t("clinic.staff.errorCreate"));
     } finally {
       setCreating(false);
+    }
+  }
+
+  function startEdit(member: ClinicStaff) {
+    setEditingId(member.id);
+    setEditForm({
+      name: member.name,
+      specialization: member.specialization ?? "",
+      photoUrl: member.photoUrl ?? "",
+    });
+  }
+
+  async function handleUpdate() {
+    if (!editingId || !editForm.name.trim()) return;
+    setUpdating(true);
+    try {
+      await clinicApi.staff.update(editingId, {
+        name: editForm.name.trim(),
+        specialization: editForm.specialization.trim() || null,
+        photoUrl: editForm.photoUrl.trim() || null,
+      });
+      toast.success("Сотрудник обновлён");
+      setEditingId(null);
+      await loadStaff();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка обновления");
+    } finally {
+      setUpdating(false);
     }
   }
 
@@ -289,8 +322,45 @@ export default function StaffPage() {
                     )}
                   </div>
                 </div>
-                {member.isActive && (
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+                {/* Inline edit form */}
+                {editingId === member.id && (
+                  <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Имя *</label>
+                      <input style={inputStyle} value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Специализация</label>
+                      <input style={inputStyle} value={editForm.specialization} onChange={(e) => setEditForm((f) => ({ ...f, specialization: e.target.value }))} placeholder="Терапевт, хирург..." />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Фото URL</label>
+                      <input style={inputStyle} value={editForm.photoUrl} onChange={(e) => setEditForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://..." />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={handleUpdate} disabled={updating} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 0", borderRadius: 8, background: "#0d9488", color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: updating ? "not-allowed" : "pointer", opacity: updating ? 0.7 : 1 }}>
+                        <Check size={13} /> {updating ? "..." : "Сохранить"}
+                      </button>
+                      <button onClick={() => setEditingId(null)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px 0", borderRadius: 8, background: "#f1f5f9", border: "none", fontSize: 12, fontWeight: 600, color: "#64748b", cursor: "pointer" }}>
+                        <X size={13} /> Отмена
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {member.isActive && editingId !== member.id && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
+                    <button
+                      onClick={() => startEdit(member)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                        background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Pencil size={13} /> Изменить
+                    </button>
                     <button
                       onClick={() => handleDeactivate(member.id)}
                       disabled={deactivating === member.id}

@@ -166,7 +166,10 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   const isAuthPage = pathname === "/clinic/auth" || pathname === "/clinic/register";
 
   const [role, setRole] = useState<ClinicRole | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileMenuOpen(false); }, [pathname]);
 
   useEffect(() => {
     if (isAuthPage) {
@@ -196,6 +199,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
   // (useEffect on pathname would cause re-render loop — using inline is fine)
 
   // Only block non-auth pages while resolving auth
+
   if (!role && !isAuthPage) {
     return (
       <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -209,46 +213,41 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
     return <>{children}</>;
   }
 
+  function handleLogoutAndClose() {
+    setMobileMenuOpen(false);
+    handleLogout();
+  }
+
   return (
     <ContextErrorBoundary zone="Clinic">
       <ClinicProvider>
         <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
-          {/* Desktop sidebar */}
-          <div className="clinic-sidebar">
-            <SidebarInner role={role!} pathname={pathname} onLogout={handleLogout} />
-          </div>
 
           {/* Mobile overlay */}
-          {mobileOpen && (
+          {mobileMenuOpen && (
             <div
-              onClick={() => setMobileOpen(false)}
-              style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.4)", zIndex: 99, display: "none" }}
-              className="clinic-overlay"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 49 }}
             />
           )}
 
-          {/* Mobile drawer */}
-          <div
-            className="clinic-drawer"
-            style={{
-              position: "fixed", top: 0, left: 0, bottom: 0, width: 240, zIndex: 100,
-              transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
-              transition: "transform 0.25s ease", display: "none",
-            }}
-          >
-            <SidebarInner role={role!} pathname={pathname} onLogout={() => { setMobileOpen(false); handleLogout(); }} />
+          {/* Sidebar — desktop always visible, mobile via mobileMenuOpen */}
+          <div className={`clinic-sidebar${mobileMenuOpen ? " clinic-sidebar--open" : ""}`}>
+            <SidebarInner role={role!} pathname={pathname} onLogout={handleLogoutAndClose} />
           </div>
 
           <main style={{ flex: 1, minHeight: "100vh" }} className="clinic-main">
             {/* Mobile top bar */}
-            <div className="clinic-topbar" style={{ display: "none" }}>
+            <div className="clinic-topbar">
               <button
-                onClick={() => setMobileOpen((v) => !v)}
-                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 8, borderRadius: 8 }}
+                onClick={() => setMobileMenuOpen((v) => !v)}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 8, color: "#0f172a", display: "flex" }}
+                aria-label="Открыть меню"
               >
-                {mobileOpen ? <X size={22} color="#0f172a" /> : <Menu size={22} color="#0f172a" />}
+                {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>HamshiraGo</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>HamshiraGo</span>
+              <div style={{ width: 38 }} />
             </div>
             <div className="clinic-inner">
               {children}
@@ -257,12 +256,22 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
           <style>{`
             @keyframes spin { to { transform: rotate(360deg); } }
+            .clinic-topbar { display: none; }
             .clinic-sidebar { display: block; }
             .clinic-main { margin-left: 240px; }
             .clinic-inner { max-width: 1200px; margin: 0 auto; padding: 32px 28px 60px; }
             .clinic-topbar { display: none; }
             @media (max-width: 768px) {
-              .clinic-sidebar { display: none !important; }
+              .clinic-topbar {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 12px 16px; background: #fff;
+                border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 40;
+              }
+              .clinic-sidebar {
+                position: fixed; top: 0; left: 0; z-index: 50;
+                transform: translateX(-100%); transition: transform 0.25s ease;
+              }
+              .clinic-sidebar--open { transform: translateX(0); }
               .clinic-main { margin-left: 0 !important; }
               .clinic-inner { padding: 60px 16px 40px !important; }
               .clinic-topbar {

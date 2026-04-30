@@ -5,6 +5,7 @@ import { Plus, Pencil, Check, X, Trash2, RefreshCw, Stethoscope } from "lucide-r
 import { clinicApi, ClinicService } from "@/lib/clinicApi";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 type ServiceCategory = "ALL" | "CONSULTATION" | "LAB" | "DIAGNOSTIC" | "PROCEDURE";
 
@@ -76,6 +77,7 @@ export default function ServicesPage() {
   const [updating, setUpdating]       = useState(false);
 
   const [deactivating, setDeactivating] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -121,14 +123,14 @@ export default function ServicesPage() {
         durationMinutes: Number(editForm.durationMinutes),
       });
       setEditingId(null); await load();
-    } catch { /* ignore */ }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка обновления"); }
     finally { setUpdating(false); }
   }
 
   async function handleDeactivate(id: string) {
     setDeactivating(id);
-    try { await clinicApi.services.deactivate(id); await load(); }
-    catch { /* ignore */ }
+    try { await clinicApi.services.deactivate(id); toast.success("Услуга деактивирована"); await load(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка деактивации"); }
     finally { setDeactivating(null); }
   }
 
@@ -146,6 +148,7 @@ export default function ServicesPage() {
 
   return (
     <div style={{ minHeight: "100%", background: "#f8fafc" }}>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
 
       {/* Header */}
