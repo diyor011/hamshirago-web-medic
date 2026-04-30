@@ -33,6 +33,16 @@ type Period = "today" | "week" | "month" | "year";
 
 const ONBOARDING_DISMISS_KEY = "clinic-onboarding-dismissed";
 
+const UZ_MONTHS = [
+  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
+];
+
+const UZ_WEEKDAYS = [
+  "Yakshanba", "Dushanba", "Seshanba", "Chorshanba",
+  "Payshanba", "Juma", "Shanba",
+];
+
 const LEAD_STATUS_META: Record<string, string> = {
   NEW: "border-blue-200 bg-blue-50 text-blue-700",
   IN_PROGRESS: "border-amber-200 bg-amber-50 text-amber-700",
@@ -494,12 +504,17 @@ export default function DashboardPage() {
   }, []);
 
   const todayDate = mounted
-    ? new Intl.DateTimeFormat(locale, {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }).format(new Date())
+    ? i18n.language === "uz"
+      ? (() => {
+          const now = new Date();
+          return `${UZ_WEEKDAYS[now.getDay()]}, ${now.getDate()}-${UZ_MONTHS[now.getMonth()].toLowerCase()} ${now.getFullYear()}`;
+        })()
+      : new Intl.DateTimeFormat(locale, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        }).format(new Date())
     : "";
 
   const waiting = todayApps.filter((appointment) => appointment.status === "SCHEDULED").length;
@@ -559,7 +574,12 @@ export default function DashboardPage() {
     const match = /^(\d{4})-(\d{2})$/.exec(value);
     if (!match) return value;
     const [, year, month] = match;
-    const date = new Date(Number(year), Number(month) - 1, 1);
+    const monthIndex = Number(month) - 1;
+    if (monthIndex < 0 || monthIndex > 11) return value;
+    if (i18n.language === "uz") {
+      return `${UZ_MONTHS[monthIndex]} ${year}`;
+    }
+    const date = new Date(Number(year), monthIndex, 1);
     if (Number.isNaN(date.getTime())) return value;
     const formatted = new Intl.DateTimeFormat(locale, {
       month: "long",
