@@ -327,7 +327,7 @@ export default function DashboardPage() {
     CANCELED: t("clinic.leads.status.CANCELED"),
   };
 
-  const [period, setPeriod] = useState<Period>("today");
+  const [period, setPeriod] = useState<Period>("month");
   const [overview, setOverview] = useState<StatsOverview | null>(null);
   const [monthly, setMonthly] = useState<MonthlyStats[]>([]);
   const [doctors, setDoctors] = useState<DoctorStats[]>([]);
@@ -511,7 +511,10 @@ export default function DashboardPage() {
   const maxDoctorAppointments = Math.max(...doctors.map((doctor) => doctor.appointments), 1);
   const maxMonthAppointments = Math.max(...monthly.map((item) => item.appointments), 1);
   const maxRoomAppointments = Math.max(...roomStats.map((item) => item.todayAppointments), 1);
-  const maxServiceCount = Math.max(...serviceStats.map((item) => item.count), 1);
+  const visibleServiceStats = serviceStats.filter(
+    (item) => (item.serviceName ?? "").trim().length >= 3,
+  );
+  const maxServiceCount = Math.max(...visibleServiceStats.map((item) => item.count), 1);
 
   const onboardingSteps: OnboardingStep[] = [
     {
@@ -550,6 +553,20 @@ export default function DashboardPage() {
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(value));
+
+  const formatMonthLabel = (value: string) => {
+    if (!value) return "";
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+    if (!match) return value;
+    const [, year, month] = match;
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    if (Number.isNaN(date.getTime())) return value;
+    const formatted = new Intl.DateTimeFormat(locale, {
+      month: "long",
+      year: "numeric",
+    }).format(date);
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+  };
 
   function downloadCSV(filename: string, rows: string[][]) {
     const csv = rows
@@ -875,7 +892,7 @@ export default function DashboardPage() {
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900">{item.month}</p>
+                        <p className="text-sm font-bold text-slate-900">{formatMonthLabel(item.month)}</p>
                         <p className="mt-1 text-xs text-slate-500">
                           {formatNumber(item.appointments)} {t("clinic.finance.appointmentsCount")}
                         </p>
@@ -1165,11 +1182,11 @@ export default function DashboardPage() {
             </div>
           ) : errServices ? (
             <ErrorBanner message={errServices} onRetry={fetchServiceStats} />
-          ) : serviceStats.length === 0 ? (
+          ) : visibleServiceStats.length === 0 ? (
             <EmptyState label={t("clinic.dashboard.noData")} />
           ) : (
             <div className="space-y-3">
-              {serviceStats.slice(0, 8).map((service, index) => {
+              {visibleServiceStats.slice(0, 8).map((service, index) => {
                 const percent = Math.round((service.count / maxServiceCount) * 100);
 
                 return (
