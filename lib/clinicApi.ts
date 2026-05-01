@@ -114,6 +114,10 @@ export interface ClinicCompany {
   isVerified?: boolean;
   isActive?: boolean;
   settings?: Record<string, unknown>;
+  legalName?: string | null;
+  inn?: string | null;
+  bankAccount?: string | null;
+  bankName?: string | null;
 }
 
 export interface ClinicStaff {

@@ -228,11 +228,33 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       doctorBlocked.some((path) => pathname.startsWith(path))
     ) {
       router.replace("/clinic/reception");
+      return;
     } else if (
       nextRole === "RECEPTION" &&
       ceoOnly.some((path) => pathname.startsWith(path))
     ) {
       router.replace("/clinic/reception");
+      return;
+    }
+
+    // CEO: redirect to onboarding if clinic not set up yet (only on dashboard entry)
+    if (nextRole === "CEO" && pathname === "/clinic/dashboard") {
+      const onboardingDone = localStorage.getItem("clinic-onboarding-complete");
+      if (!onboardingDone) {
+        import("@/lib/clinicApi").then(({ clinicApi: api }) => {
+          Promise.all([
+            api.staff.list().then((d) => d.length > 0).catch(() => false),
+            api.rooms.list().then((d) => d.length > 0).catch(() => false),
+            api.services.list().then((d) => d.length > 0).catch(() => false),
+          ]).then(([hasStaff, hasRooms, hasServices]) => {
+            if (!hasStaff || !hasRooms || !hasServices) {
+              router.replace("/clinic/onboarding");
+            } else {
+              localStorage.setItem("clinic-onboarding-complete", "1");
+            }
+          }).catch(() => {});
+        });
+      }
     }
   }, [router, pathname, isAuthPage]);
 
