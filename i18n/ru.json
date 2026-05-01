@@ -439,6 +439,10 @@
       "close": "Закрыть",
       "startReception": "Начать приём",
       "finishReception": "Завершить",
+      "arrived": "Пришёл",
+      "ready": "Готово",
+      "noShow": "Не пришёл",
+      "cancel": "Отменить",
       "withoutName": "Без имени",
       "bookFromLead": "Записать",
       "paymentLabels": {
@@ -484,7 +488,15 @@
         "createRoom": "Создайте кабинет",
         "createRoomHint": "Где принимают врачи",
         "addService": "Добавьте услугу",
-        "addServiceHint": "Консультация, анализ…"
+        "addServiceHint": "Консультация, анализ…",
+        "billing": "Реквизиты для выплат",
+        "billingHint": "Счёт для получения выплат от HamshiraGo",
+        "welcomeTitle": "Добро пожаловать в HamshiraGo",
+        "progress": "Прогресс",
+        "step": "Шаг",
+        "done": "Готово",
+        "go": "Перейти",
+        "skip": "Пропустить, перейти на дашборд"
       },
       "kpi": {
         "newPatients": "Новых пациентов",
@@ -550,6 +562,18 @@
       "errorRoom": "Выберите кабинет",
       "errorTimeRange": "Время вне графика врача ({{start}}–{{end}})",
       "errorCreate": "Ошибка создания записи"
+    },
+    "billing": {
+      "subtitle": "Данные необходимы для перечисления выплат от HamshiraGo",
+      "legalName": "Юридическое название",
+      "legalNamePlaceholder": "ООО «Медцентр Здоровье»",
+      "inn": "ИНН",
+      "innHint": "9 цифр, без пробелов",
+      "bankAccount": "Расчётный счёт",
+      "bankName": "Название банка",
+      "bankNamePlaceholder": "АКБ «Ипотека-Банк»",
+      "save": "Сохранить и продолжить",
+      "saved": "Сохранено! Переходим на дашборд…"
     }
   }
 }

@@ -110,6 +110,10 @@ export interface ClinicCompany {
   logoUrl?: string | null;
   isVerified?: boolean;
   isActive?: boolean;
+  legalName?: string | null;
+  inn?: string | null;
+  bankAccount?: string | null;
+  bankName?: string | null;
 }
 
 export interface ClinicStaff {

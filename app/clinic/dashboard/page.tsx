@@ -31,7 +31,7 @@ import "@/i18n";
 
 type Period = "today" | "week" | "month" | "year";
 
-const ONBOARDING_DISMISS_KEY = "clinic-onboarding-dismissed";
+const ONBOARDING_COLLAPSE_KEY = "clinic-onboarding-collapsed";
 
 const UZ_MONTHS = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
@@ -206,14 +206,44 @@ function EmptyState({ label }: { label: string }) {
 
 function OnboardingBanner({
   steps,
-  onDismiss,
+  collapsed,
+  onToggleCollapse,
 }: {
   steps: OnboardingStep[];
-  onDismiss: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   const { t } = useTranslation();
   const completed = steps.filter((step) => step.done).length;
   const progress = Math.round((completed / steps.length) * 100);
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={onToggleCollapse}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-teal-200/80 bg-gradient-to-r from-teal-50 to-sky-50 px-5 py-3.5 transition hover:border-teal-300 hover:shadow-sm"
+      >
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-teal-600 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+            <Sparkles size={12} />
+            Setup
+          </div>
+          <span className="text-sm font-semibold text-slate-700">
+            {t("clinic.dashboard.onboarding.title")} — {completed}/{steps.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-2 w-32 rounded-full bg-slate-200">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-teal-500 to-sky-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <ChevronRight size={16} className="rotate-90 text-slate-400" />
+        </div>
+      </button>
+    );
+  }
 
   return (
     <Surface className="overflow-hidden border-teal-200/80 bg-gradient-to-br from-teal-50 via-white to-sky-50">
@@ -231,11 +261,11 @@ function OnboardingBanner({
           </p>
         </div>
         <button
-          onClick={onDismiss}
+          onClick={onToggleCollapse}
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-400 transition hover:border-slate-300 hover:text-slate-600"
-          aria-label="Dismiss onboarding"
+          aria-label="Collapse onboarding"
         >
-          <X size={16} />
+          <ChevronRight size={16} className="-rotate-90" />
         </button>
       </div>
 
@@ -349,7 +379,7 @@ export default function DashboardPage() {
   >([]);
   const [showBooking, setShowBooking] = useState(false);
 
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [onboardingCollapsed, setOnboardingCollapsed] = useState(false);
   const [hasStaff, setHasStaff] = useState<boolean | null>(null);
   const [hasRooms, setHasRooms] = useState<boolean | null>(null);
   const [hasServices, setHasServices] = useState<boolean | null>(null);
@@ -482,7 +512,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setMounted(true);
-    setOnboardingDismissed(Boolean(localStorage.getItem(ONBOARDING_DISMISS_KEY)));
+    setOnboardingCollapsed(Boolean(localStorage.getItem(ONBOARDING_COLLAPSE_KEY)));
 
     Promise.all([
       clinicApi.staff.list(),
@@ -554,7 +584,7 @@ export default function DashboardPage() {
   ];
 
   const allOnboardingDone = onboardingSteps.every((step) => step.done);
-  const showOnboarding = !onboardingDismissed && !allOnboardingDone && hasStaff !== null;
+  const showOnboarding = !allOnboardingDone && hasStaff !== null;
 
   const formatNumber = (value: number) => value.toLocaleString(locale);
   const formatCurrency = (value: number) =>
@@ -829,9 +859,15 @@ export default function DashboardPage() {
       {showOnboarding ? (
         <OnboardingBanner
           steps={onboardingSteps}
-          onDismiss={() => {
-            localStorage.setItem(ONBOARDING_DISMISS_KEY, "1");
-            setOnboardingDismissed(true);
+          collapsed={onboardingCollapsed}
+          onToggleCollapse={() => {
+            const next = !onboardingCollapsed;
+            setOnboardingCollapsed(next);
+            if (next) {
+              localStorage.setItem(ONBOARDING_COLLAPSE_KEY, "1");
+            } else {
+              localStorage.removeItem(ONBOARDING_COLLAPSE_KEY);
+            }
           }}
         />
       ) : null}

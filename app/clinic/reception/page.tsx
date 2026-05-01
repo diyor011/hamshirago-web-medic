@@ -118,6 +118,7 @@ export default function ReceptionPage() {
   const [errLeads, setErrLeads] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [openMoreMenu, setOpenMoreMenu] = useState<string | null>(null);
   const [initiatingPayment, setInitiatingPayment] = useState<string | null>(null);
   const [pendingPaymentIds, setPendingPaymentIds] = useState<Set<string>>(new Set());
   const [checkingPayment, setCheckingPayment] = useState<string | null>(null);
@@ -920,37 +921,87 @@ export default function ReceptionPage() {
                             {STATUS_LABELS[st]}
                           </span>
 
-                          {canCheckin && (
-                            <button
-                              onClick={() => handleCheckin(app.id)}
-                              disabled={isLoading}
-                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-                            >
-                              <CheckSquare size={13} />
-                              {isLoading ? "..." : "Check In"}
-                            </button>
-                          )}
+                          {/* 3 main action buttons based on status */}
+                          {!["CANCELED", "NO_SHOW", "DONE"].includes(st) && (
+                            <div className="flex items-center gap-1.5">
 
-                          {st === "CHECKED_IN" && (
-                            <button
-                              onClick={() => handleUpdateStatus(app.id, "IN_PROGRESS")}
-                              disabled={updatingStatus === app.id}
-                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-                            >
-                              <PlayCircle size={13} />
-                              {updatingStatus === app.id ? "..." : t("clinic.reception.startReception")}
-                            </button>
-                          )}
+                              {/* Keldi (SCHEDULED → CHECKED_IN) */}
+                              {st === "SCHEDULED" && (
+                                <button
+                                  onClick={() => handleCheckin(app.id)}
+                                  disabled={isLoading}
+                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-teal-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-teal-700 disabled:opacity-50"
+                                >
+                                  <CheckSquare size={12} />
+                                  {isLoading ? "..." : t("clinic.reception.arrived")}
+                                </button>
+                              )}
 
-                          {st === "IN_PROGRESS" && (
-                            <button
-                              onClick={() => handleUpdateStatus(app.id, "DONE")}
-                              disabled={updatingStatus === app.id}
-                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-                            >
-                              <CheckCircle size={13} />
-                              {updatingStatus === app.id ? "..." : t("clinic.reception.finishReception")}
-                            </button>
+                              {/* Tayyor (CHECKED_IN → DONE or IN_PROGRESS → DONE) */}
+                              {(st === "CHECKED_IN" || st === "IN_PROGRESS") && (
+                                <button
+                                  onClick={() => handleUpdateStatus(app.id, "DONE")}
+                                  disabled={updatingStatus === app.id}
+                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  <CheckCircle size={12} />
+                                  {updatingStatus === app.id ? "..." : t("clinic.reception.ready")}
+                                </button>
+                              )}
+
+                              {/* Kelmadi (SCHEDULED → NO_SHOW) */}
+                              {st === "SCHEDULED" && (
+                                <button
+                                  onClick={() => handleUpdateStatus(app.id, "NO_SHOW")}
+                                  disabled={updatingStatus === app.id}
+                                  className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                                >
+                                  <X size={12} />
+                                  {updatingStatus === app.id ? "..." : t("clinic.reception.noShow")}
+                                </button>
+                              )}
+
+                              {/* More menu (⋯) */}
+                              {clinicRole !== "DOCTOR" && (
+                                <div className="relative">
+                                  <button
+                                    onClick={() => setOpenMoreMenu(openMoreMenu === app.id ? null : app.id)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition hover:border-slate-300 hover:text-slate-600"
+                                  >
+                                    <span className="text-base font-bold leading-none">⋯</span>
+                                  </button>
+                                  {openMoreMenu === app.id && (
+                                    <div className="absolute right-0 top-9 z-50 min-w-[160px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                                      {st !== "CHECKED_IN" && st !== "IN_PROGRESS" && (
+                                        <button
+                                          onClick={() => { handleCheckin(app.id); setOpenMoreMenu(null); }}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <PlayCircle size={14} className="text-blue-500" />
+                                          {t("clinic.reception.startReception")}
+                                        </button>
+                                      )}
+                                      {st === "CHECKED_IN" && (
+                                        <button
+                                          onClick={() => { handleUpdateStatus(app.id, "IN_PROGRESS"); setOpenMoreMenu(null); }}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <PlayCircle size={14} className="text-blue-500" />
+                                          {t("clinic.reception.startReception")}
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => { handleUpdateStatus(app.id, "CANCELED"); setOpenMoreMenu(null); }}
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                      >
+                                        <X size={14} />
+                                        {t("clinic.reception.cancel")}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
 
                           {app.paymentType === "ONLINE" && app.paymentStatus === "paid" && (

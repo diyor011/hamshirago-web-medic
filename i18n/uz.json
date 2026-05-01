@@ -439,6 +439,10 @@
       "close": "Yopish",
       "startReception": "Qabulni boshlash",
       "finishReception": "Yakunlash",
+      "arrived": "Keldi",
+      "ready": "Tayyor",
+      "noShow": "Kelmadi",
+      "cancel": "Bekor qilish",
       "withoutName": "Nomsiz",
       "bookFromLead": "Yozish",
       "paymentLabels": {
@@ -484,7 +488,15 @@
         "createRoom": "Xona yarating",
         "createRoomHint": "Shifokorlar qabul qiladigan joy",
         "addService": "Xizmat qo'shing",
-        "addServiceHint": "Maslahat, tahlil…"
+        "addServiceHint": "Maslahat, tahlil…",
+        "billing": "To'lov rekvizitlari",
+        "billingHint": "HamshiraGo to'lovlarini qabul qilish uchun hisob",
+        "welcomeTitle": "HamshiraGo ga xush kelibsiz",
+        "progress": "Jarayon",
+        "step": "Qadam",
+        "done": "Bajarildi",
+        "go": "O'tish",
+        "skip": "O'tkazib yuborish, boshqaruv paneliga"
       },
       "kpi": {
         "newPatients": "Yangi bemorlar",
@@ -550,6 +562,18 @@
       "errorRoom": "Xonani tanlang",
       "errorTimeRange": "Vaqt shifokor jadvalidan tashqarida ({{start}}–{{end}})",
       "errorCreate": "Yozuv yaratishda xatolik"
+    },
+    "billing": {
+      "subtitle": "HamshiraGo to'lovlarini o'tkazish uchun ma'lumotlar",
+      "legalName": "Yuridik nomi",
+      "legalNamePlaceholder": "MChJ «Sog'liqni saqlash markazi»",
+      "inn": "STIR",
+      "innHint": "9 ta raqam, bo'shliqsiz",
+      "bankAccount": "Hisob raqami",
+      "bankName": "Bank nomi",
+      "bankNamePlaceholder": "«Ipoteka-Bank» AKB",
+      "save": "Saqlash va davom etish",
+      "saved": "Saqlandi! Dashboard ga o'tamiz…"
     }
   }
 }
