@@ -24,6 +24,7 @@ function getNowTime() {
   const n = new Date();
   return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
 }
+const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 function getTodayISO() { return new Date().toISOString().slice(0, 10); }
 function getInitials(name: string) {
   return name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
@@ -162,7 +163,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   const [error, setError]           = useState("");
 
   const minTime     = useMemo(() => (date !== getTodayISO() ? undefined : getNowTime()), [date]);
-  const isTimePast  = useMemo(() => !!(minTime && time && time < minTime), [time, minTime]);
+  const isTimePast  = useMemo(() => !!(minTime && time && toMin(time) < toMin(minTime)), [time, minTime]);
 
   const showSmsHint = useMemo(() => {
     if (!date || !time || date !== getTodayISO()) return false;
@@ -259,7 +260,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
     if (!roomId)        { setError(t("clinic.booking.errorRoom")); return; }
     if (isTimePast)     { setError("Нельзя записать на прошедшее время"); return; }
     const slot = roomSlots.find((s) => s.roomId === roomId);
-    if (slot && (time < slot.startTime || time > slot.endTime)) {
+    if (slot && (toMin(time) < toMin(slot.startTime) || toMin(time) > toMin(slot.endTime))) {
       setError(t("clinic.booking.errorTimeRange", { start: slot.startTime, end: slot.endTime })); return;
     }
     setSubmitting(true); setError("");
@@ -491,7 +492,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
               <input type="time"
                 className={`${INPUT_CLS} ${isTimePast ? "border-red-400 bg-red-50 text-red-600 focus:border-red-400 focus:ring-red-100" : ""}`}
                 value={time} min={minTime}
-                onChange={(e) => { const v = e.target.value; setTime(minTime && v < minTime ? minTime : v); }} />
+                onChange={(e) => { const v = e.target.value; setTime(minTime && toMin(v) < toMin(minTime) ? minTime : v); }} />
               {isTimePast && <p className="text-xs text-red-500 mt-1">Минимум {minTime}</p>}
             </Field>
           </div>

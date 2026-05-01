@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   RefreshCw, CheckSquare, CalendarPlus, List as ListIcon,
   Calendar as CalendarIcon, ChevronLeft, ChevronRight,
-  Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle,
+  Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle, X,
 } from "lucide-react";
 import { clinicApi, getClinicRole, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
@@ -143,6 +143,7 @@ export default function ReceptionPage() {
   const [quickBook, setQuickBook] = useState<{ time: string; date: string; roomId: string | null; doctorId: string | null; colLabel: string } | null>(null);
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
+  const [quickTime, setQuickTime] = useState("");
   const [quickLoading, setQuickBookLoading] = useState(false);
 
   // Calendar date picker (CLINIC-R5)
@@ -362,10 +363,10 @@ export default function ReceptionPage() {
         doctorId: quickBook.doctorId ?? undefined,
         roomId: quickBook.roomId ?? undefined,
         date: quickBook.date,
-        time: quickBook.time,
+        time: quickTime || quickBook.time,
       });
       toast.success("Запись добавлена");
-      setQuickBook(null); setQuickName(""); setQuickPhone("");
+      setQuickBook(null); setQuickName(""); setQuickPhone(""); setQuickTime("");
       await loadCalendar(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
@@ -434,7 +435,14 @@ export default function ReceptionPage() {
             <input
               value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)}
               placeholder="+998 xx xxx xx xx" type="tel" className={inputCls}
+              onFocus={(e) => { if (!e.target.value) setQuickPhone("+998"); }}
+              onBlur={(e) => { if (e.target.value === "+998") setQuickPhone(""); }}
               onKeyDown={(e) => e.key === "Enter" && handleQuickBook()}
+            />
+            <input
+              type="time" value={quickTime}
+              onChange={(e) => setQuickTime(e.target.value)}
+              className={inputCls}
             />
           </div>
           <div className="flex gap-2">
@@ -672,7 +680,7 @@ export default function ReceptionPage() {
                             <button
                               onClick={() => {
                                 setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
-                                setQuickName(""); setQuickPhone("");
+                                setQuickName(""); setQuickPhone(""); setQuickTime(slot);
                               }}
                               className="group flex min-h-[26px] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 text-[10px] text-slate-300 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-500"
                             >
@@ -851,7 +859,7 @@ export default function ReceptionPage() {
                               )}
 
                               {/* More menu (⋯) */}
-                              {clinicRole !== "DOCTOR" && (
+                              {getClinicRole() !== "DOCTOR" && (
                                 <div className="relative">
                                   <button
                                     onClick={() => setOpenMoreMenu(openMoreMenu === app.id ? null : app.id)}
@@ -909,7 +917,7 @@ export default function ReceptionPage() {
                            (st === "IN_PROGRESS" || st === "DONE") &&
                            clinicUser != null &&
                            clinicUser.role !== "RECEPTION" &&
-                           (clinicUser.role !== "DOCTOR" || app.doctorId === clinicUser.doctorId) && (
+                           (clinicUser.role !== "DOCTOR" || app.doctorId === clinicUser.id) && (
                             <button
                               onClick={() => {
                                 setFinalPriceModal({ apptId: app.id, priceMin: app.priceMin!, priceMax: app.priceMax! });
