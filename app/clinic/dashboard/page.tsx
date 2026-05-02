@@ -30,6 +30,7 @@ import {
 } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useTranslation } from "react-i18next";
+import { useLanguage } from "@/context/LanguageContext";
 import "@/i18n";
 
 type Period = "today" | "week" | "month" | "year";
@@ -350,9 +351,9 @@ function OnboardingBanner({
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation();
+  const { language } = useLanguage();
 
-  const locale =
-    i18n.language === "uz" ? "uz-UZ" : i18n.language === "en" ? "en-US" : "ru-RU";
+  const locale = language === "uz" ? "uz-UZ" : "ru-RU";
 
   const PERIOD_LABELS: Record<Period, string> = {
     today: t("clinic.finance.periodToday"),
@@ -540,17 +541,15 @@ export default function DashboardPage() {
   }, []);
 
   const todayDate = mounted
-    ? i18n.language === "uz"
-      ? (() => {
-          const now = new Date();
+    ? (() => {
+        const now = new Date();
+        if (language === "uz") {
           return `${UZ_WEEKDAYS[now.getDay()]}, ${now.getDate()}-${UZ_MONTHS[now.getMonth()].toLowerCase()} ${now.getFullYear()}`;
-        })()
-      : new Intl.DateTimeFormat(locale, {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }).format(new Date())
+        }
+        const RU_MONTHS = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+        const RU_DAYS = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
+        return `${RU_DAYS[now.getDay()]}, ${now.getDate()} ${RU_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+      })()
     : "";
 
   const waiting = todayApps.filter((appointment) => appointment.status === "SCHEDULED").length;
@@ -612,7 +611,7 @@ export default function DashboardPage() {
     const [, year, month] = match;
     const monthIndex = Number(month) - 1;
     if (monthIndex < 0 || monthIndex > 11) return value;
-    if (i18n.language === "uz") {
+    if (language === "uz") {
       return `${UZ_MONTHS[monthIndex]} ${year}`;
     }
     const date = new Date(Number(year), monthIndex, 1);
@@ -912,7 +911,7 @@ export default function DashboardPage() {
               icon={<CheckCircle size={22} />}
               label={t("clinic.dashboard.kpi.appointments")}
               value={formatNumber(overview.appointments ?? 0)}
-              hint={`${todayApps.length} ${t("clinic.dashboard.appointmentsCount")}`}
+              hint={`${t("clinic.dashboard.todayLabel")}: ${todayApps.length}`}
               toneIndex={1}
             />
             <MetricCard

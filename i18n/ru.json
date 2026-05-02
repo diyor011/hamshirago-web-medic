@@ -444,6 +444,19 @@
       "ready": "Готово",
       "noShow": "Не пришёл",
       "cancel": "Отменить",
+      "addNote": "Добавить комментарий",
+      "reschedule": "Перенести запись",
+      "changeDoctor": "Сменить врача",
+      "slotTaken": "На это время уже есть запись — выберите другое время",
+      "tabNotes": "Комментарий",
+      "tabReschedule": "Перенести",
+      "tabDoctor": "Сменить врача",
+      "notesHint": "Например: опаздывает, перезвонить, не придёт",
+      "notesPlaceholder": "Опаздывает на 20 минут...",
+      "newDate": "Новая дата",
+      "newTime": "Новое время",
+      "newDoctor": "Новый врач",
+      "selectDoctor": "Выберите врача",
       "withoutName": "Без имени",
       "bookFromLead": "Записать",
       "paymentLabels": {
@@ -519,7 +532,8 @@
       "noRooms": "Нет кабинетов",
       "noLeads": "Нет лидов",
       "noData": "Нет данных",
-      "withoutName": "Без имени"
+      "withoutName": "Без имени",
+      "todayLabel": "Сегодня"
     },
     "leads": {
       "title": "Лиды",

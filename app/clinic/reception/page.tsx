@@ -6,7 +6,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight,
   Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle, X,
 } from "lucide-react";
-import { clinicApi, getClinicRole, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats } from "@/lib/clinicApi";
+import { clinicApi, getClinicRole, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats, WaitlistEntry } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
@@ -122,6 +122,16 @@ export default function ReceptionPage() {
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [openMoreMenu, setOpenMoreMenu] = useState<string | null>(null);
+
+  // Manage appointment modal (notes / reschedule / reassign doctor)
+  const [manageModal, setManageModal] = useState<Appointment | null>(null);
+  const [manageTab, setManageTab] = useState<"notes" | "reschedule" | "doctor">("notes");
+  const [manageNotes, setManageNotes] = useState("");
+  const [manageDate, setManageDate] = useState("");
+  const [manageTime, setManageTime] = useState("");
+  const [manageDoctorId, setManageDoctorId] = useState("");
+  const [manageSaving, setManageSaving] = useState(false);
+
   const [initiatingPayment, setInitiatingPayment] = useState<string | null>(null);
   const [pendingPaymentIds, setPendingPaymentIds] = useState<Set<string>>(new Set());
   const [checkingPayment, setCheckingPayment] = useState<string | null>(null);
@@ -348,11 +358,151 @@ export default function ReceptionPage() {
     return map;
   }, [calendarAppts, doctors]);
 
+  // Manage appointment: notes / reschedule / reassign doctor
+  function openManage(app: Appointment, tab: "notes" | "reschedule" | "doctor") {
+    setManageModal(app);
+    setManageTab(tab);
+    setManageNotes(app.notes ?? "");
+    setManageDate(app.date);
+    setManageTime(app.time);
+    setManageDoctorId(app.doctorId ?? "");
+    setOpenMoreMenu(null);
+  }
+
+  async function handleManageSave() {
+    if (!manageModal) return;
+    setManageSaving(true);
+    try {
+      if (manageTab === "notes") {
+        await clinicApi.appointments.updateNotes(manageModal.id, manageNotes);
+        toast.success(t("clinic.common.saved"));
+      } else if (manageTab === "reschedule") {
+        await clinicApi.appointments.reschedule(manageModal.id, manageDate, manageTime);
+        toast.success(t("clinic.common.saved"));
+      } else if (manageTab === "doctor") {
+        await clinicApi.appointments.reassignDoctor(manageModal.id, manageDoctorId);
+        toast.success(t("clinic.common.saved"));
+      }
+      setManageModal(null);
+      await loadApps(doctorIdFilter ?? null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : t("clinic.common.error");
+      if (msg === "SLOT_TAKEN") {
+        toast.error(t("clinic.reception.slotTaken"));
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setManageSaving(false);
+    }
+  }
+
   // ─── Render ──────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-full space-y-5">
       <ToastContainer toasts={toasts} onClose={closeToast} />
+
+      {/* Manage appointment modal: notes / reschedule / reassign doctor */}
+      {manageModal && (
+        <Modal onClose={() => setManageModal(null)}>
+          <h3 className="mb-4 text-base font-extrabold text-slate-950">
+            {manageModal.patientName ?? manageModal.patientPhone} — {manageModal.time}
+          </h3>
+          {/* Tabs */}
+          <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+            {([
+              { key: "notes", label: t("clinic.reception.tabNotes") },
+              { key: "reschedule", label: t("clinic.reception.tabReschedule") },
+              { key: "doctor", label: t("clinic.reception.tabDoctor") },
+            ] as const).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setManageTab(tab.key)}
+                className={[
+                  "flex-1 rounded-lg py-2 text-xs font-bold transition",
+                  manageTab === tab.key ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                ].join(" ")}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Notes tab */}
+          {manageTab === "notes" && (
+            <div>
+              <p className="mb-2 text-xs text-slate-500">{t("clinic.reception.notesHint")}</p>
+              <textarea
+                value={manageNotes}
+                onChange={(e) => setManageNotes(e.target.value)}
+                placeholder={t("clinic.reception.notesPlaceholder")}
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-100"
+              />
+            </div>
+          )}
+
+          {/* Reschedule tab */}
+          {manageTab === "reschedule" && (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("clinic.reception.newDate")}</label>
+                <input
+                  type="date"
+                  value={manageDate}
+                  onChange={(e) => setManageDate(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none focus:border-teal-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("clinic.reception.newTime")}</label>
+                <input
+                  type="time"
+                  value={manageTime}
+                  onChange={(e) => setManageTime(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none focus:border-teal-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Doctor reassign tab */}
+          {manageTab === "doctor" && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("clinic.reception.newDoctor")}</label>
+              <select
+                value={manageDoctorId}
+                onChange={(e) => setManageDoctorId(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none focus:border-teal-400"
+              >
+                <option value="">{t("clinic.reception.selectDoctor")}</option>
+                {doctors.map((d) => (
+                  <option key={d.doctorId} value={d.doctorId}>
+                    {d.doctorName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={handleManageSave}
+              disabled={manageSaving}
+              className="flex-1 rounded-xl bg-teal-600 py-2.5 text-sm font-bold text-white transition hover:bg-teal-700 disabled:opacity-60"
+            >
+              {manageSaving ? t("clinic.common.saving") : t("clinic.common.save")}
+            </button>
+            <button
+              onClick={() => setManageModal(null)}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+            >
+              {t("clinic.common.cancel")}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {/* Final price modal */}
       {finalPriceModal && (
@@ -746,9 +896,12 @@ export default function ReceptionPage() {
                               {app.patientPhone}
                             </div>
                           )}
-                          <div className="text-[11px] text-slate-400">
-                            {PAYMENT_LABELS[app.paymentType ?? ""] ?? app.paymentType ?? "—"}
-                          </div>
+                          {app.notes && (
+                            <div className="mt-1 flex items-start gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                              <span className="shrink-0">💬</span>
+                              <span className="truncate">{app.notes}</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Status + actions */}
@@ -798,7 +951,7 @@ export default function ReceptionPage() {
                               )}
 
                               {/* More menu (⋯) */}
-                              {getClinicRole() !== "DOCTOR" && (
+                              {clinicUser?.role !== "DOCTOR" && (
                                 <div className="relative">
                                   <button
                                     onClick={() => setOpenMoreMenu(openMoreMenu === app.id ? null : app.id)}
@@ -807,8 +960,9 @@ export default function ReceptionPage() {
                                     <span className="text-base font-bold leading-none">⋯</span>
                                   </button>
                                   {openMoreMenu === app.id && (
-                                    <div className="absolute right-0 top-9 z-50 min-w-[160px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-                                      {st !== "CHECKED_IN" && st !== "IN_PROGRESS" && (
+                                    <div className="absolute right-0 top-9 z-50 min-w-[180px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                                      {/* Start reception */}
+                                      {st === "SCHEDULED" && (
                                         <button
                                           onClick={() => { handleCheckin(app.id); setOpenMoreMenu(null); }}
                                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
@@ -826,13 +980,44 @@ export default function ReceptionPage() {
                                           {t("clinic.reception.startReception")}
                                         </button>
                                       )}
+                                      {/* Add comment */}
                                       <button
-                                        onClick={() => { handleUpdateStatus(app.id, "CANCELED"); setOpenMoreMenu(null); }}
-                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                        onClick={() => openManage(app, "notes")}
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                                       >
-                                        <X size={14} />
-                                        {t("clinic.reception.cancel")}
+                                        <span className="text-amber-500">💬</span>
+                                        {t("clinic.reception.addNote")}
                                       </button>
+                                      {/* Reschedule */}
+                                      {!["DONE", "CANCELED", "NO_SHOW"].includes(st) && (
+                                        <button
+                                          onClick={() => openManage(app, "reschedule")}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <span className="text-sky-500">📅</span>
+                                          {t("clinic.reception.reschedule")}
+                                        </button>
+                                      )}
+                                      {/* Reassign doctor */}
+                                      {clinicUser?.role !== "DOCTOR" && !["DONE", "CANCELED", "NO_SHOW"].includes(st) && (
+                                        <button
+                                          onClick={() => openManage(app, "doctor")}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <span className="text-violet-500">👨‍⚕️</span>
+                                          {t("clinic.reception.changeDoctor")}
+                                        </button>
+                                      )}
+                                      {/* Cancel */}
+                                      {!["DONE", "CANCELED", "NO_SHOW"].includes(st) && (
+                                        <button
+                                          onClick={() => { handleUpdateStatus(app.id, "CANCELED"); setOpenMoreMenu(null); }}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                        >
+                                          <X size={14} />
+                                          {t("clinic.reception.cancel")}
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>

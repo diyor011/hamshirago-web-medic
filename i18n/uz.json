@@ -444,6 +444,19 @@
       "ready": "Tayyor",
       "noShow": "Kelmadi",
       "cancel": "Bekor qilish",
+      "addNote": "Izoh qo'shish",
+      "reschedule": "Vaqtni o'zgartirish",
+      "changeDoctor": "Shifokorni almashtirish",
+      "slotTaken": "Bu vaqtda yozuv mavjud — boshqa vaqt tanlang",
+      "tabNotes": "Izoh",
+      "tabReschedule": "Vaqt o'zgartirish",
+      "tabDoctor": "Shifokor almashtirish",
+      "notesHint": "Masalan: kechikadi, qo'ng'iroq qiling, kelmaydi",
+      "notesPlaceholder": "20 daqiqa kechikadi...",
+      "newDate": "Yangi sana",
+      "newTime": "Yangi vaqt",
+      "newDoctor": "Yangi shifokor",
+      "selectDoctor": "Shifokorni tanlang",
       "withoutName": "Nomsiz",
       "bookFromLead": "Yozish",
       "paymentLabels": {
@@ -519,7 +532,8 @@
       "noRooms": "Xonalar yo'q",
       "noLeads": "Lidlar yo'q",
       "noData": "Ma'lumot yo'q",
-      "withoutName": "Nomsiz"
+      "withoutName": "Nomsiz",
+      "todayLabel": "Bugun"
     },
     "leads": {
       "title": "Lidlar",

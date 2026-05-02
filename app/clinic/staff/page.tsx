@@ -122,7 +122,7 @@ export default function StaffPage() {
 
   async function handleUpdate() {
     if (!editingId) return;
-    if (!editForm.name.trim()) { toast(t("clinic.staff.errorName"), "error"); return; }
+    if (!editForm.name.trim()) { toast.error(t("clinic.staff.errorName")); return; }
     setUpdating(true);
     try {
       await clinicApi.staff.update(editingId, {
@@ -131,10 +131,10 @@ export default function StaffPage() {
         ...(editForm.photoUrl ? { photoUrl: editForm.photoUrl } : {}),
       });
       setEditingId(null);
-      toast(t("clinic.common.saved"), "success");
+      toast.success(t("clinic.common.saved"));
       await loadStaff();
     } catch (e) {
-      toast(e instanceof Error ? e.message : t("clinic.staff.errorCreate"), "error");
+      toast.error(e instanceof Error ? e.message : t("clinic.staff.errorCreate"));
     } finally {
       setUpdating(false);
     }
@@ -144,10 +144,10 @@ export default function StaffPage() {
     setDeactivating(id); setConfirmId(null);
     try {
       await clinicApi.staff.deactivate(id);
-      toast(t("clinic.staff.deactivated"), "success");
+      toast.success(t("clinic.staff.deactivated"));
       await loadStaff();
     } catch (e) {
-      toast(e instanceof Error ? e.message : t("clinic.staff.errorDeactivate"), "error");
+      toast.error(e instanceof Error ? e.message : t("clinic.staff.errorDeactivate"));
     } finally {
       setDeactivating(null);
     }

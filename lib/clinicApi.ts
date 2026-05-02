@@ -194,6 +194,7 @@ export interface Appointment {
   priceMax?: number | null;
   finalPrice?: number | null;
   serviceTitle?: string | null;
+  notes?: string | null;
 }
 
 export interface CreateAppointmentDto {
@@ -693,6 +694,21 @@ export const clinicApi = {
       request<Appointment>(`/clinic/appointments/${id}/replace`, {
         method: "POST",
         body: JSON.stringify(dto),
+      }).then(normalizeAppointment),
+    updateNotes: (id: string, notes: string) =>
+      request<Appointment>(`/clinic/appointments/${id}/notes`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes }),
+      }).then(normalizeAppointment),
+    reschedule: (id: string, date: string, time: string, force = false) =>
+      request<Appointment>(`/clinic/appointments/${id}/reschedule`, {
+        method: "PATCH",
+        body: JSON.stringify({ date, time, force }),
+      }).then(normalizeAppointment),
+    reassignDoctor: (id: string, doctorId: string, force = false) =>
+      request<Appointment>(`/clinic/appointments/${id}/doctor`, {
+        method: "PATCH",
+        body: JSON.stringify({ doctorId, force }),
       }).then(normalizeAppointment),
   },
 
