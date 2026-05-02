@@ -250,7 +250,7 @@ export default function ReceptionPage() {
 
   useEffect(() => {
     if (viewMode === "calendar") loadCalendar(doctorIdFilter ?? null);
-  }, [viewMode, loadCalendar, doctorIdFilter]);
+  }, [viewMode, loadCalendar, doctorIdFilter, calendarDate]);
 
   useEffect(() => {
     const id = setInterval(() => loadApps(doctorIdFilter ?? null), 30000);

@@ -297,7 +297,10 @@
       "errorAssignDays": "Kamida bir kun tanlang",
       "errorAssignTime": "Vaqtni ko'rsating",
       "errorAssignGeneral": "Tayinlashda xatolik",
-      "errorLoad": "Yuklashda xatolik"
+      "errorLoad": "Yuklashda xatolik",
+      "delete": "O'chirish",
+      "deleteConfirm": "Kabinetni o'chirishni tasdiqlaysizmi?",
+      "errorDelete": "Kabinetni o'chirishda xatolik"
     },
     "staff": {
       "title": "Xodimlar",

@@ -297,7 +297,10 @@
       "errorAssignDays": "Выберите хотя бы один день",
       "errorAssignTime": "Укажите время",
       "errorAssignGeneral": "Ошибка назначения",
-      "errorLoad": "Ошибка загрузки"
+      "errorLoad": "Ошибка загрузки",
+      "delete": "Удалить",
+      "deleteConfirm": "Удалить кабинет? Это действие нельзя отменить.",
+      "errorDelete": "Ошибка удаления кабинета"
     },
     "staff": {
       "title": "Сотрудники",

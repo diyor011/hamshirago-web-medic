@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, RefreshCw, UserPlus, Building2, Clock } from "lucide-react";
+import { Plus, RefreshCw, UserPlus, Building2, Clock, Trash2 } from "lucide-react";
 import {
   clinicApi,
   ClinicRoom,
@@ -58,6 +58,8 @@ export default function RoomsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
 
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+
   const [assignRoomId, setAssignRoomId] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState<AssignDoctorForm>({
     doctorId: "", days: [], startTime: "09:00", endTime: "18:00",
@@ -109,6 +111,19 @@ export default function RoomsPage() {
       setCreateError(e instanceof Error ? e.message : t("clinic.rooms.errorCreateGeneral"));
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDelete(roomId: string) {
+    if (!confirm(t("clinic.rooms.deleteConfirm"))) return;
+    setDeletingRoomId(roomId);
+    try {
+      await clinicApi.rooms.delete(roomId);
+      await loadRooms();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("clinic.rooms.errorDelete"));
+    } finally {
+      setDeletingRoomId(null);
     }
   }
 
@@ -274,12 +289,21 @@ export default function RoomsPage() {
                         )}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        <button
-                          onClick={() => { setAssignRoomId(room.id); setAssignError(""); }}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-600 transition hover:bg-teal-100"
-                        >
-                          <UserPlus size={13} /> {t("clinic.rooms.assignDoctor")}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => { setAssignRoomId(room.id); setAssignError(""); }}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-600 transition hover:bg-teal-100"
+                          >
+                            <UserPlus size={13} /> {t("clinic.rooms.assignDoctor")}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(room.id)}
+                            disabled={deletingRoomId === room.id}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-50"
+                          >
+                            <Trash2 size={13} /> {deletingRoomId === room.id ? "..." : t("clinic.rooms.delete")}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -624,6 +624,7 @@ export const clinicApi = {
         }
         return Array.from(grouped.values());
       }),
+    delete: (id: string) => request<void>(`/clinic/rooms/${id}`, { method: "DELETE" }),
     forDoctor: (doctorId: string, date?: string) => {
       const q = date ? `?date=${encodeURIComponent(date)}` : "";
       return request<DoctorRoomSlot[]>(`/clinic/doctors/${doctorId}/rooms${q}`);
