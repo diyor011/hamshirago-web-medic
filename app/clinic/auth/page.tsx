@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Phone, Lock, Eye, EyeOff, AlertCircle, Building2 } from "lucide-react";
-import { clinicApi, getClinicRole } from "@/lib/clinicApi";
+import { clinicApi } from "@/lib/clinicApi";
 
 function formatPhone(raw: string): string {
   let digits = raw.replace(/\D/g, "");
@@ -54,8 +54,9 @@ export default function ClinicAuthPage() {
       if (!token) throw new Error("Сервер не вернул токен. Попробуйте ещё раз.");
       localStorage.setItem("clinic_token", token);
       localStorage.setItem("clinic_user", JSON.stringify(res.user));
-      const jwtRole = getClinicRole();
-      if (jwtRole === "DOCTOR" || jwtRole === "RECEPTION") {
+      // Use role from response directly — token may not yet be readable by getClinicRole()
+      const role = res.user.role;
+      if (role === "DOCTOR" || role === "RECEPTION") {
         router.replace("/clinic/reception");
       } else {
         router.replace("/clinic/dashboard");

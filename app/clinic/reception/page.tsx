@@ -4,16 +4,19 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   RefreshCw, CheckSquare, CalendarPlus, List as ListIcon,
   Calendar as CalendarIcon, ChevronLeft, ChevronRight,
-  Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle,
-  Users, X,
+  Bot, Phone, Plus, Clock, User, PlayCircle, CheckCircle, X,
 } from "lucide-react";
-import { clinicApi, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats, WaitlistEntry, getClinicRole } from "@/lib/clinicApi";
+import { clinicApi, getClinicRole, Appointment, AppointmentStatus, Lead, ClinicRoom, DoctorStats, WaitlistEntry } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 
-// ─── Constants ───────────────────────────────────────────────────────────────────
+// ─── Calendar constants ───────────────────────────────────────────────────────
+const CALENDAR_START_HOUR = 8;
+const CALENDAR_END_HOUR   = 20;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<AppointmentStatus, string> = {
   SCHEDULED:  "Запись",
@@ -33,7 +36,7 @@ const STATUS_BADGE: Record<AppointmentStatus, string> = {
   NO_SHOW:     "bg-slate-100 text-slate-500",
 };
 
-// Left-border accent color per status (stays inline since it's dynamic hex)
+// Left-border accent color per status
 const STATUS_ACCENT: Record<AppointmentStatus, string> = {
   SCHEDULED:   "#94a3b8",
   CHECKED_IN:  "#2563eb",
@@ -47,7 +50,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   CASH: "Наличные", TERMINAL: "Терминал", ONLINE: "Online",
 };
 
-// Calendar cell colors (dynamic hex — stay inline)
+// Calendar cell colors
 const CAL_STATUS_COLORS: Record<AppointmentStatus, { bg: string; bd: string; fg: string }> = {
   SCHEDULED:   { bg: "#ccfbf1", bd: "#14b8a6", fg: "#0f766e" },
   CHECKED_IN:  { bg: "#fef3c7", bd: "#f59e0b", fg: "#b45309" },
@@ -119,6 +122,16 @@ export default function ReceptionPage() {
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [openMoreMenu, setOpenMoreMenu] = useState<string | null>(null);
+
+  // Manage appointment modal (notes / reschedule / reassign doctor)
+  const [manageModal, setManageModal] = useState<Appointment | null>(null);
+  const [manageTab, setManageTab] = useState<"notes" | "reschedule" | "doctor">("notes");
+  const [manageNotes, setManageNotes] = useState("");
+  const [manageDate, setManageDate] = useState("");
+  const [manageTime, setManageTime] = useState("");
+  const [manageDoctorId, setManageDoctorId] = useState("");
+  const [manageSaving, setManageSaving] = useState(false);
+
   const [initiatingPayment, setInitiatingPayment] = useState<string | null>(null);
   const [pendingPaymentIds, setPendingPaymentIds] = useState<Set<string>>(new Set());
   const [checkingPayment, setCheckingPayment] = useState<string | null>(null);
@@ -136,29 +149,32 @@ export default function ReceptionPage() {
   const { toasts, toast, closeToast } = useToast();
   const [mounted, setMounted] = useState(false);
 
+  // Quick booking (CLINIC-R3)
   const [quickBook, setQuickBook] = useState<{ time: string; date: string; roomId: string | null; doctorId: string | null; colLabel: string } | null>(null);
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
   const [quickLoading, setQuickBookLoading] = useState(false);
 
+  // Calendar date picker (CLINIC-R5)
   const [showCalPicker, setShowCalPicker] = useState(false);
   const [pickerViewDate, setPickerViewDate] = useState(() => new Date());
   const [clinicUser, setClinicUser] = useState<{ id: string; role: string } | null>(null);
-  const clinicRole = getClinicRole();
-
-  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
-  const [waitlistModal, setWaitlistModal] = useState<{ slotDate: string; slotTime: string; doctorId: string | null; colLabel: string } | null>(null);
-  const [waitlistName, setWaitlistName] = useState("");
-  const [waitlistPhone, setWaitlistPhone] = useState("");
-  const [addingWaitlist, setAddingWaitlist] = useState(false);
-  const [removingWaitlistId, setRemovingWaitlistId] = useState<string | null>(null);
+  // undefined = не определён ещё, null = не доктор, string = CompanyUser.id доктора
+  const [doctorIdFilter, setDoctorIdFilter] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     setMounted(true);
     try {
       const raw = localStorage.getItem("clinic_user");
-      if (raw) setClinicUser(JSON.parse(raw));
-    } catch { /* ignore */ }
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed) setClinicUser(parsed);
+      // ClinicAppointment.doctorId = CompanyUser.id — он всегда есть в clinic_user.id
+      if (getClinicRole() === "DOCTOR" && parsed?.id) {
+        setDoctorIdFilter(parsed.id);
+      } else {
+        setDoctorIdFilter(null);
+      }
+    } catch { setDoctorIdFilter(null); }
   }, []);
 
   const todayLabel = mounted
@@ -177,18 +193,15 @@ export default function ReceptionPage() {
   const isForbidden = (e: unknown) =>
     e instanceof Error && (e.message.includes("прав") || e.message.toLowerCase().includes("forbidden") || e.message === "UNAUTHORIZED");
 
-  const isSlotPast = useCallback((slotTime: string, dateISO: string): boolean => {
-    if (!mounted) return false;
-    const todayISO = fmtDateISO(new Date());
-    if (dateISO !== todayISO) return false;
-    const [hh, mm] = slotTime.split(":").map(Number);
-    const now = new Date();
-    return hh * 60 + mm <= now.getHours() * 60 + now.getMinutes();
-  }, [mounted]);
-
-  const loadApps = useCallback(async () => {
+  const loadApps = useCallback(async (dId: string | null) => {
     setLoadingApps(true); setErrApps(null);
-    try { setAppointments(await clinicApi.appointments.today()); }
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const list = dId
+        ? await clinicApi.appointments.list({ date: today, doctorId: dId })
+        : await clinicApi.appointments.today();
+      setAppointments(list);
+    }
     catch (e) {
       if (!isForbidden(e)) setErrApps(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     }
@@ -207,19 +220,29 @@ export default function ReceptionPage() {
     }
   }, [t]);
 
-  useEffect(() => { loadApps(); loadLeads(); }, [loadApps, loadLeads]);
+  useEffect(() => {
+    if (doctorIdFilter === undefined) return; // ждём резолва
+    loadApps(doctorIdFilter);
+    loadLeads();
+  }, [loadApps, loadLeads, doctorIdFilter]);
 
   useEffect(() => {
-    clinicApi.rooms.list().then(setRooms).catch(() => setRooms([]));
-    if (clinicRole === "CEO") {
-      clinicApi.stats.doctors().then(setDoctors).catch(() => setDoctors([]));
-    }
-  }, [clinicRole]);
+    if (doctorIdFilter === undefined) return;
+    // Доктор видит только свои комнаты, остальные — все
+    const roomsPromise = doctorIdFilter
+      ? clinicApi.rooms.forDoctor(doctorIdFilter).then((slots) =>
+          slots.map((s) => ({ id: s.roomId, name: s.roomName, floor: s.floor ?? null }))
+        )
+      : clinicApi.rooms.list();
+    roomsPromise.then(setRooms).catch(() => setRooms([]));
+    // Restore doctor loading for all roles (FIX: lost during merge)
+    clinicApi.stats.doctors().then(setDoctors).catch(() => setDoctors([]));
+  }, [doctorIdFilter]);
 
-  const loadCalendar = useCallback(async () => {
+  const loadCalendar = useCallback(async (dId: string | null) => {
     setLoadingCalendar(true);
     try {
-      const list = await clinicApi.appointments.list({ date: fmtDateISO(calendarDate) });
+      const list = await clinicApi.appointments.list({ date: fmtDateISO(calendarDate), ...(dId ? { doctorId: dId } : {}) });
       setCalendarAppts(list);
     } catch {
       setCalendarAppts([]);
@@ -229,53 +252,13 @@ export default function ReceptionPage() {
   }, [calendarDate]);
 
   useEffect(() => {
-    if (viewMode === "calendar") loadCalendar();
-  }, [viewMode, loadCalendar]);
-
-  const loadWaitlist = useCallback(async () => {
-    try { setWaitlist(await clinicApi.waitlist.list()); }
-    catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => { loadWaitlist(); }, [loadWaitlist]);
+    if (viewMode === "calendar") loadCalendar(doctorIdFilter ?? null);
+  }, [viewMode, loadCalendar, doctorIdFilter]);
 
   useEffect(() => {
-    const id = setInterval(loadApps, 30000);
+    const id = setInterval(() => loadApps(doctorIdFilter ?? null), 30000);
     return () => clearInterval(id);
-  }, [loadApps]);
-
-  async function handleAddWaitlist() {
-    if (!waitlistModal || !waitlistName.trim() || !waitlistPhone.trim()) return;
-    setAddingWaitlist(true);
-    try {
-      await clinicApi.waitlist.add({
-        slotDate: waitlistModal.slotDate,
-        slotTime: waitlistModal.slotTime,
-        patientName: waitlistName.trim(),
-        patientPhone: waitlistPhone.trim(),
-        ...(waitlistModal.doctorId ? { doctorId: waitlistModal.doctorId } : {}),
-      });
-      toast.success("Добавлен в лист ожидания");
-      setWaitlistModal(null); setWaitlistName(""); setWaitlistPhone("");
-      await loadWaitlist();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setAddingWaitlist(false);
-    }
-  }
-
-  async function handleRemoveWaitlist(id: string) {
-    setRemovingWaitlistId(id);
-    try {
-      await clinicApi.waitlist.remove(id);
-      setWaitlist((prev) => prev.filter((w) => w.id !== id));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setRemovingWaitlistId(null);
-    }
-  }
+  }, [loadApps, doctorIdFilter]);
 
   async function handleSetFinalPrice() {
     if (!finalPriceModal) return;
@@ -289,7 +272,7 @@ export default function ReceptionPage() {
       await clinicApi.appointments.setFinalPrice(finalPriceModal.apptId, val);
       toast.success("Итоговая цена сохранена");
       setFinalPriceModal(null); setFinalPriceInput("");
-      await loadApps();
+      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -301,7 +284,7 @@ export default function ReceptionPage() {
     setCheckingIn(id);
     try {
       await clinicApi.appointments.checkin(id);
-      await loadApps();
+      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
@@ -309,42 +292,11 @@ export default function ReceptionPage() {
     }
   }
 
-  async function handleInitiatePayment(id: string) {
-    setInitiatingPayment(id);
-    try {
-      const { paymentUrl } = await clinicApi.payments.initiateClinic(id);
-      window.open(paymentUrl, "_blank");
-      setPendingPaymentIds((prev) => new Set(prev).add(id));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка оплаты");
-    } finally {
-      setInitiatingPayment(null);
-    }
-  }
-
-  async function handleCheckPayment(id: string) {
-    setCheckingPayment(id);
-    try {
-      const { status } = await clinicApi.payments.getClinicStatus(id);
-      if (status === "paid") {
-        toast.success("Оплата подтверждена!");
-        setPendingPaymentIds((prev) => { const s = new Set(prev); s.delete(id); return s; });
-        await loadApps();
-      } else {
-        toast.error("Оплата ещё не поступила. Попробуйте позже.");
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка проверки оплаты");
-    } finally {
-      setCheckingPayment(null);
-    }
-  }
-
   async function handleUpdateStatus(id: string, status: AppointmentStatus) {
     setUpdatingStatus(id);
     try {
       await clinicApi.appointments.updateStatus(id, status);
-      await loadApps();
+      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
@@ -360,11 +312,11 @@ export default function ReceptionPage() {
 
   const timeSlots = useMemo(() => {
     const arr: string[] = [];
-    for (let h = 8; h < 20; h++) {
+    for (let h = CALENDAR_START_HOUR; h < CALENDAR_END_HOUR; h++) {
       arr.push(`${String(h).padStart(2, "0")}:00`);
       arr.push(`${String(h).padStart(2, "0")}:30`);
     }
-    arr.push("20:00");
+    arr.push(`${String(CALENDAR_END_HOUR).padStart(2, "0")}:00`);
     return arr;
   }, []);
 
@@ -384,9 +336,10 @@ export default function ReceptionPage() {
   const slotIndexFor = (time: string): number => {
     const [hh, mm] = time.split(":").map(Number);
     const total = hh * 60 + mm;
-    const base = 8 * 60;
+    const base  = CALENDAR_START_HOUR * 60;
+    const end   = CALENDAR_END_HOUR   * 60;
     if (total < base) return 0;
-    if (total > 20 * 60) return timeSlots.length - 1;
+    if (total > end)  return timeSlots.length - 1;
     return Math.floor((total - base) / 30);
   };
 
@@ -396,6 +349,7 @@ export default function ReceptionPage() {
     setCalendarDate(d);
   };
 
+  // CLINIC-R2: room → doctor name from today's appointments
   const roomDoctorMap = useMemo(() => {
     const map: Record<string, string> = {};
     calendarAppts.forEach((a) => {
@@ -407,13 +361,48 @@ export default function ReceptionPage() {
     return map;
   }, [calendarAppts, doctors]);
 
+  // Manage appointment: notes / reschedule / reassign doctor
+  function openManage(app: Appointment, tab: "notes" | "reschedule" | "doctor") {
+    setManageModal(app);
+    setManageTab(tab);
+    setManageNotes(app.notes ?? "");
+    setManageDate(app.date);
+    setManageTime(app.time);
+    setManageDoctorId(app.doctorId ?? "");
+    setOpenMoreMenu(null);
+  }
+
+  async function handleManageSave() {
+    if (!manageModal) return;
+    setManageSaving(true);
+    try {
+      if (manageTab === "notes") {
+        await clinicApi.appointments.updateNotes(manageModal.id, manageNotes);
+        toast.success(t("clinic.common.saved"));
+      } else if (manageTab === "reschedule") {
+        await clinicApi.appointments.reschedule(manageModal.id, manageDate, manageTime);
+        toast.success(t("clinic.common.saved"));
+      } else if (manageTab === "doctor") {
+        await clinicApi.appointments.reassignDoctor(manageModal.id, manageDoctorId);
+        toast.success(t("clinic.common.saved"));
+      }
+      setManageModal(null);
+      await loadApps(doctorIdFilter ?? null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : t("clinic.common.error");
+      if (msg === "SLOT_TAKEN") {
+        toast.error(t("clinic.reception.slotTaken"));
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setManageSaving(false);
+    }
+  }
+
+  // CLINIC-R3: quick book handler
   async function handleQuickBook() {
     if (!quickBook || !quickName.trim() || !quickPhone.trim()) return;
-    if (isSlotPast(quickBook.time, quickBook.date)) {
-      toast.error("Нельзя записать на прошедшее время");
-      setQuickBook(null);
-      return;
-    }
     setQuickBookLoading(true);
     try {
       await clinicApi.appointments.create({
@@ -426,7 +415,7 @@ export default function ReceptionPage() {
       });
       toast.success("Запись добавлена");
       setQuickBook(null); setQuickName(""); setQuickPhone("");
-      await loadCalendar();
+      await loadCalendar(doctorIdFilter ?? null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка");
     } finally {
@@ -439,6 +428,107 @@ export default function ReceptionPage() {
   return (
     <div className="min-h-full space-y-5">
       <ToastContainer toasts={toasts} onClose={closeToast} />
+
+      {/* Manage appointment modal: notes / reschedule / reassign doctor */}
+      {manageModal && (
+        <Modal onClose={() => setManageModal(null)}>
+          <h3 className="mb-4 text-base font-extrabold text-slate-950">
+            {manageModal.patientName ?? manageModal.patientPhone} — {manageModal.time}
+          </h3>
+          {/* Tabs */}
+          <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+            {([
+              { key: "notes", label: t("clinic.reception.tabNotes") },
+              { key: "reschedule", label: t("clinic.reception.tabReschedule") },
+              { key: "doctor", label: t("clinic.reception.tabDoctor") },
+            ] as const).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setManageTab(tab.key)}
+                className={[
+                  "flex-1 rounded-lg py-2 text-xs font-bold transition",
+                  manageTab === tab.key ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                ].join(" ")}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Notes tab */}
+          {manageTab === "notes" && (
+            <div>
+              <p className="mb-2 text-xs text-slate-500">{t("clinic.reception.notesHint")}</p>
+              <textarea
+                value={manageNotes}
+                onChange={(e) => setManageNotes(e.target.value)}
+                placeholder={t("clinic.reception.notesPlaceholder")}
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-100"
+              />
+            </div>
+          )}
+
+          {/* Reschedule tab */}
+          {manageTab === "reschedule" && (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("clinic.reception.newDate")}</label>
+                <input
+                  type="date"
+                  value={manageDate}
+                  onChange={(e) => setManageDate(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none focus:border-teal-400"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("clinic.reception.newTime")}</label>
+                <input
+                  type="time"
+                  value={manageTime}
+                  onChange={(e) => setManageTime(e.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none focus:border-teal-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Doctor reassign tab */}
+          {manageTab === "doctor" && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600">{t("clinic.reception.newDoctor")}</label>
+              <select
+                value={manageDoctorId}
+                onChange={(e) => setManageDoctorId(e.target.value)}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none focus:border-teal-400"
+              >
+                <option value="">{t("clinic.reception.selectDoctor")}</option>
+                {doctors.map((d) => (
+                  <option key={d.doctorId} value={d.doctorId}>
+                    {d.doctorName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={handleManageSave}
+              disabled={manageSaving}
+              className="flex-1 rounded-xl bg-teal-600 py-2.5 text-sm font-bold text-white transition hover:bg-teal-700 disabled:opacity-60"
+            >
+              {manageSaving ? t("clinic.common.saving") : t("clinic.common.save")}
+            </button>
+            <button
+              onClick={() => setManageModal(null)}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+            >
+              {t("clinic.common.cancel")}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {/* Final price modal */}
       {finalPriceModal && (
@@ -475,12 +565,12 @@ export default function ReceptionPage() {
         </Modal>
       )}
 
-      {/* Calendar picker close overlay */}
+      {/* Calendar picker close overlay (CLINIC-R5) */}
       {showCalPicker && (
         <div onClick={() => setShowCalPicker(false)} className="fixed inset-0 z-[299]" />
       )}
 
-      {/* Quick booking modal */}
+      {/* Quick booking modal (CLINIC-R3) */}
       {quickBook && (
         <Modal onClose={() => setQuickBook(null)}>
           <h3 className="mb-1 text-base font-extrabold text-slate-950">Новая запись</h3>
@@ -506,34 +596,6 @@ export default function ReceptionPage() {
               {quickLoading ? "Сохраняем..." : "Добавить"}
             </button>
             <button onClick={() => setQuickBook(null)} className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-500">
-              Отмена
-            </button>
-          </div>
-        </Modal>
-      )}
-
-      {/* Waitlist modal */}
-      {waitlistModal && (
-        <Modal onClose={() => setWaitlistModal(null)}>
-          <h3 className="mb-1 text-base font-extrabold text-slate-950">В лист ожидания</h3>
-          <p className="mb-4 text-sm text-slate-500">{waitlistModal.slotTime} · {waitlistModal.colLabel}</p>
-          <div className="mb-4 flex flex-col gap-2.5">
-            <input autoFocus value={waitlistName} onChange={(e) => setWaitlistName(e.target.value)} placeholder="Имя пациента" className={inputCls} />
-            <input
-              value={waitlistPhone} onChange={(e) => setWaitlistPhone(e.target.value)}
-              placeholder="+998 xx xxx xx xx" type="tel" className={inputCls}
-              onKeyDown={(e) => e.key === "Enter" && handleAddWaitlist()}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleAddWaitlist}
-              disabled={addingWaitlist || !waitlistName.trim() || !waitlistPhone.trim()}
-              className="flex-1 rounded-xl bg-amber-400 py-3 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              {addingWaitlist ? "Добавляем..." : "Добавить"}
-            </button>
-            <button onClick={() => setWaitlistModal(null)} className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-500">
               Отмена
             </button>
           </div>
@@ -601,7 +663,7 @@ export default function ReceptionPage() {
       {/* ─── Calendar view ─────────────────────────────────────────────────────── */}
       {viewMode === "calendar" && (
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-          {/* Date navigator */}
+          {/* Date navigator (CLINIC-R5) */}
           <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
               <button onClick={() => shiftDate(-1)} className="flex rounded-lg border border-slate-200 bg-white p-1.5">
@@ -624,7 +686,7 @@ export default function ReceptionPage() {
                 <ChevronRight size={16} className="text-slate-500" />
               </button>
 
-              {/* Date picker */}
+              {/* Date picker (CLINIC-R5) */}
               <div className="relative">
                 <button
                   onClick={() => { setShowCalPicker((v) => !v); setPickerViewDate(new Date(calendarDate)); }}
@@ -687,7 +749,7 @@ export default function ReceptionPage() {
               </div>
             </div>
 
-            <button onClick={loadCalendar} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
+            <button onClick={() => loadCalendar(doctorIdFilter ?? null)} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700">
               <RefreshCw size={13} /> {t("clinic.reception.update")}
             </button>
           </div>
@@ -711,6 +773,7 @@ export default function ReceptionPage() {
                 {calendarColumns.map((c) => (
                   <div key={c.id} className="border-b border-l border-slate-200 bg-slate-50 px-2.5 py-2">
                     <div className="truncate text-xs font-bold text-slate-950">{c.label}</div>
+                    {/* CLINIC-R2: doctor name under room */}
                     {rooms.length > 0 && roomDoctorMap[c.id] && (
                       <div className="mt-0.5 truncate text-[10px] font-semibold text-teal-600">{roomDoctorMap[c.id]}</div>
                     )}
@@ -747,49 +810,25 @@ export default function ReceptionPage() {
                                 title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${STATUS_LABELS[a.status as AppointmentStatus]}`}
                               >
                                 <div className="font-extrabold">{a.time}</div>
+                                {/* CLINIC-R4: show name AND phone */}
                                 {a.patientName && <div className="truncate">{a.patientName}</div>}
                                 <div className="truncate opacity-80">{a.patientPhone}</div>
                               </button>
                             );
                           })}
 
-                          {/* Waitlist button */}
-                          {cellAppts.length > 0 && !isSlotPast(slot, fmtDateISO(calendarDate)) && (
+                          {/* CLINIC-R3: empty slot — click to quick-book */}
+                          {cellAppts.length === 0 && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setWaitlistModal({ slotDate: fmtDateISO(calendarDate), slotTime: slot, doctorId: doctorIdForCol, colLabel: c.label });
-                                setWaitlistName(""); setWaitlistPhone("");
+                              onClick={() => {
+                                setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
+                                setQuickName(""); setQuickPhone("");
                               }}
-                              className="mt-0.5 flex w-full items-center justify-center gap-0.5 rounded-md border border-dashed border-amber-400 bg-amber-50 py-0.5 text-[9px] font-bold text-amber-700 hover:bg-amber-100"
+                              className="group flex min-h-[26px] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 text-[10px] text-slate-300 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-500"
                             >
-                              <Users size={9} /> Лист ожидания
+                              +
                             </button>
                           )}
-
-                          {/* Empty slot */}
-                          {cellAppts.length === 0 && (() => {
-                            const past = isSlotPast(slot, fmtDateISO(calendarDate));
-                            if (past) {
-                              return (
-                                <div
-                                  className="flex-1 rounded-md opacity-50"
-                                  style={{ minHeight: 26, background: "repeating-linear-gradient(135deg,#f8fafc 0px,#f8fafc 4px,#f1f5f9 4px,#f1f5f9 8px)" }}
-                                />
-                              );
-                            }
-                            return (
-                              <button
-                                onClick={() => {
-                                  setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
-                                  setQuickName(""); setQuickPhone("");
-                                }}
-                                className="group flex min-h-[26px] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 text-[10px] text-slate-300 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-500"
-                              >
-                                +
-                              </button>
-                            );
-                          })()}
                         </div>
                       );
                     })}
@@ -857,12 +896,12 @@ export default function ReceptionPage() {
           <div>
             <div className="mb-3.5 flex items-center justify-between">
               <h2 className="text-[15px] font-bold text-slate-950">{t("clinic.reception.todayAppointments")}</h2>
-              <button onClick={loadApps} className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
+              <button onClick={() => loadApps(doctorIdFilter ?? null)} className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700">
                 <RefreshCw size={13} /> {t("clinic.reception.refresh")}
               </button>
             </div>
 
-            {errApps && <div className="mb-3.5"><ErrorBanner message={errApps} onRetry={loadApps} /></div>}
+            {errApps && <div className="mb-3.5"><ErrorBanner message={errApps} onRetry={() => loadApps(doctorIdFilter ?? null)} /></div>}
 
             {loadingApps ? (
               <div className="space-y-2.5">
@@ -910,9 +949,12 @@ export default function ReceptionPage() {
                               {app.patientPhone}
                             </div>
                           )}
-                          <div className="text-[11px] text-slate-400">
-                            {PAYMENT_LABELS[app.paymentType ?? ""] ?? app.paymentType ?? "—"}
-                          </div>
+                          {app.notes && (
+                            <div className="mt-1 flex items-start gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                              <span className="shrink-0">💬</span>
+                              <span className="truncate">{app.notes}</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Status + actions */}
@@ -962,7 +1004,7 @@ export default function ReceptionPage() {
                               )}
 
                               {/* More menu (⋯) */}
-                              {clinicRole !== "DOCTOR" && (
+                              {clinicUser?.role !== "DOCTOR" && (
                                 <div className="relative">
                                   <button
                                     onClick={() => setOpenMoreMenu(openMoreMenu === app.id ? null : app.id)}
@@ -971,8 +1013,9 @@ export default function ReceptionPage() {
                                     <span className="text-base font-bold leading-none">⋯</span>
                                   </button>
                                   {openMoreMenu === app.id && (
-                                    <div className="absolute right-0 top-9 z-50 min-w-[160px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-                                      {st !== "CHECKED_IN" && st !== "IN_PROGRESS" && (
+                                    <div className="absolute right-0 top-9 z-50 min-w-[180px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                                      {/* Start reception */}
+                                      {st === "SCHEDULED" && (
                                         <button
                                           onClick={() => { handleCheckin(app.id); setOpenMoreMenu(null); }}
                                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
@@ -990,46 +1033,49 @@ export default function ReceptionPage() {
                                           {t("clinic.reception.startReception")}
                                         </button>
                                       )}
+                                      {/* Add comment */}
                                       <button
-                                        onClick={() => { handleUpdateStatus(app.id, "CANCELED"); setOpenMoreMenu(null); }}
-                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                        onClick={() => openManage(app, "notes")}
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                                       >
-                                        <X size={14} />
-                                        {t("clinic.reception.cancel")}
+                                        <span className="text-amber-500">💬</span>
+                                        {t("clinic.reception.addNote")}
                                       </button>
+                                      {/* Reschedule */}
+                                      {!["DONE", "CANCELED", "NO_SHOW"].includes(st) && (
+                                        <button
+                                          onClick={() => openManage(app, "reschedule")}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <span className="text-sky-500">📅</span>
+                                          {t("clinic.reception.reschedule")}
+                                        </button>
+                                      )}
+                                      {/* Reassign doctor */}
+                                      {clinicUser?.role !== "DOCTOR" && !["DONE", "CANCELED", "NO_SHOW"].includes(st) && (
+                                        <button
+                                          onClick={() => openManage(app, "doctor")}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                          <span className="text-violet-500">👨‍⚕️</span>
+                                          {t("clinic.reception.changeDoctor")}
+                                        </button>
+                                      )}
+                                      {/* Cancel */}
+                                      {!["DONE", "CANCELED", "NO_SHOW"].includes(st) && (
+                                        <button
+                                          onClick={() => { handleUpdateStatus(app.id, "CANCELED"); setOpenMoreMenu(null); }}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                        >
+                                          <X size={14} />
+                                          {t("clinic.reception.cancel")}
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>
                               )}
                             </div>
-                          )}
-
-                          {app.paymentType === "ONLINE" && app.paymentStatus === "paid" && (
-                            <span className="whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                              ✓ Оплачено
-                            </span>
-                          )}
-
-                          {app.paymentType === "ONLINE" && app.paymentStatus !== "paid" &&
-                           !["CANCELED", "NO_SHOW"].includes(st) &&
-                           clinicRole !== "DOCTOR" && clinicRole !== null && (
-                            <button
-                              onClick={() => handleInitiatePayment(app.id)}
-                              disabled={initiatingPayment === app.id}
-                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-                            >
-                              💳 {initiatingPayment === app.id ? "..." : "Оплатить онлайн"}
-                            </button>
-                          )}
-
-                          {pendingPaymentIds.has(app.id) && app.paymentStatus !== "paid" && (
-                            <button
-                              onClick={() => handleCheckPayment(app.id)}
-                              disabled={checkingPayment === app.id}
-                              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 disabled:bg-slate-200 disabled:text-slate-400"
-                            >
-                              {checkingPayment === app.id ? "⏳ Проверяем…" : "✓ Проверить оплату"}
-                            </button>
                           )}
 
                           {app.finalPrice != null && (
@@ -1067,97 +1113,53 @@ export default function ReceptionPage() {
             )}
           </div>
 
-          {/* Right: sidebar */}
-          <div className="flex flex-col gap-6">
-            {/* Waitlist */}
-            {waitlist.length > 0 && (
-              <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <h2 className="text-[15px] font-bold text-slate-950">Лист ожидания</h2>
-                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-bold text-white">{waitlist.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {waitlist.map((w) => (
-                    <div
-                      key={w.id}
-                      className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm"
-                      style={{ borderLeft: `3px solid ${w.status === "NOTIFIED" ? "#f59e0b" : "#e2e8f0"}` }}
-                    >
-                      <div className="flex items-start justify-between gap-1.5">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-bold text-slate-950">{w.patientName}</div>
-                          <a href={`tel:${w.patientPhone}`} className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-teal-600 no-underline">
-                            <Phone size={11} /> {w.patientPhone}
-                          </a>
-                          <div className="mt-0.5 text-[11px] text-slate-400">
-                            {w.slotDate.split("-").reverse().join(".")} · {w.slotTime}
-                            {w.status === "NOTIFIED" && (
-                              <span className="ml-1.5 font-bold text-amber-500">Уведомлён</span>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveWaitlist(w.id)}
-                          disabled={removingWaitlistId === w.id}
-                          className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:text-red-500 disabled:opacity-50"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* AI leads */}
-            <div>
-              <div className="mb-3.5 flex items-center gap-2">
-                <h2 className="text-[15px] font-bold text-slate-950">{t("clinic.reception.newAiLeads")}</h2>
-                {leads.length > 0 && (
-                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold text-white">{leads.length}</span>
-                )}
-              </div>
-
-              {errLeads && <div className="mb-3.5"><ErrorBanner message={errLeads} onRetry={loadLeads} /></div>}
-
-              {loadingLeads ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[72px]" />)}
-                </div>
-              ) : leads.length === 0 ? (
-                <div className="flex flex-col items-center gap-2.5 rounded-2xl border border-slate-100 bg-white px-5 py-10 text-center shadow-sm">
-                  <Bot size={32} className="text-slate-200" />
-                  <p className="text-sm text-slate-400">{t("clinic.reception.noLeads")}</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {leads.map((lead) => (
-                    <div key={lead.id} className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-slate-200 hover:shadow-md">
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="text-sm font-bold text-slate-950">{lead.name ?? t("clinic.reception.withoutName")}</span>
-                        <span className="text-[11px] text-slate-400">{timeAgo(lead.createdAt)}</span>
-                      </div>
-                      <a
-                        href={`tel:${lead.phone}`}
-                        className={`flex items-center gap-1.5 text-sm font-semibold text-teal-600 no-underline ${lead.notes ? "mb-1" : "mb-2"}`}
-                      >
-                        <Phone size={12} /> {lead.phone}
-                      </a>
-                      {lead.notes && (
-                        <p className="mb-2 truncate text-[11px] text-slate-400">{lead.notes}</p>
-                      )}
-                      <button
-                        onClick={() => setShowBooking(true)}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-purple-500 py-1.5 text-xs font-bold text-purple-600 transition hover:bg-purple-500 hover:text-white"
-                      >
-                        <CalendarPlus size={13} /> {t("clinic.reception.bookFromLead")}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+          {/* Right: AI leads sidebar */}
+          <div>
+            <div className="mb-3.5 flex items-center gap-2">
+              <h2 className="text-[15px] font-bold text-slate-950">{t("clinic.reception.newAiLeads")}</h2>
+              {leads.length > 0 && (
+                <span className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold text-white">{leads.length}</span>
               )}
             </div>
+
+            {errLeads && <div className="mb-3.5"><ErrorBanner message={errLeads} onRetry={loadLeads} /></div>}
+
+            {loadingLeads ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[72px]" />)}
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="flex flex-col items-center gap-2.5 rounded-2xl border border-slate-100 bg-white px-5 py-10 text-center shadow-sm">
+                <Bot size={32} className="text-slate-200" />
+                <p className="text-sm text-slate-400">{t("clinic.reception.noLeads")}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {leads.map((lead) => (
+                  <div key={lead.id} className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-slate-200 hover:shadow-md">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-bold text-slate-950">{lead.name ?? t("clinic.reception.withoutName")}</span>
+                      <span className="text-[11px] text-slate-400">{timeAgo(lead.createdAt)}</span>
+                    </div>
+                    <a
+                      href={`tel:${lead.phone}`}
+                      className={`flex items-center gap-1.5 text-sm font-semibold text-teal-600 no-underline ${lead.notes ? "mb-1" : "mb-2"}`}
+                    >
+                      <Phone size={12} /> {lead.phone}
+                    </a>
+                    {lead.notes && (
+                      <p className="mb-2 truncate text-[11px] text-slate-400">{lead.notes}</p>
+                    )}
+                    <button
+                      onClick={() => setShowBooking(true)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-purple-500 py-1.5 text-xs font-bold text-purple-600 transition hover:bg-purple-500 hover:text-white"
+                    >
+                      <CalendarPlus size={13} /> {t("clinic.reception.bookFromLead")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1166,7 +1168,7 @@ export default function ReceptionPage() {
         <BookingModal
           open={showBooking}
           onClose={() => setShowBooking(false)}
-          onSuccess={() => { setShowBooking(false); loadApps(); }}
+          onSuccess={() => { setShowBooking(false); loadApps(doctorIdFilter ?? null); }}
         />
       )}
     </div>

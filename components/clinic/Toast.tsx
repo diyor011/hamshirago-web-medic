@@ -63,10 +63,21 @@ export function useToast(duration = 3500) {
   }, []);
 
   const add = useCallback((type: ToastType, message: string) => {
-    const id = `${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev.slice(-4), { id, type, message }]);
-    const t = setTimeout(() => close(id), duration);
-    timers.current.set(id, t);
+    setToasts((prev) => {
+      // Deduplicate: reset timer if same type+message already shown
+      const existing = prev.find((t) => t.type === type && t.message === message);
+      if (existing) {
+        const prevTimer = timers.current.get(existing.id);
+        if (prevTimer) { clearTimeout(prevTimer); timers.current.delete(existing.id); }
+        const t = setTimeout(() => close(existing.id), duration);
+        timers.current.set(existing.id, t);
+        return prev;
+      }
+      const id = `${Date.now()}-${Math.random()}`;
+      const t = setTimeout(() => close(id), duration);
+      timers.current.set(id, t);
+      return [...prev.slice(-4), { id, type, message }];
+    });
   }, [close, duration]);
 
   useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);

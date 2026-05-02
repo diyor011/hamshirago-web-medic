@@ -5,6 +5,7 @@ import { Plus, Pencil, Check, X, Trash2, RefreshCw, Stethoscope, LayoutList, Use
 import { clinicApi, ClinicService, ClinicStaff } from "@/lib/clinicApi";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
+import { useToast, ToastContainer } from "@/components/clinic/Toast";
 
 type ServiceCategory = "ALL" | "CONSULTATION" | "LAB" | "DIAGNOSTIC" | "PROCEDURE";
 type ViewMode = "all" | "by-doctor";
@@ -196,6 +197,7 @@ export default function ServicesPage() {
   const [editForm, setEditForm]   = useState<ServiceForm>(EMPTY_FORM);
   const [updating, setUpdating]   = useState(false);
   const [deactivating, setDeactivating] = useState<string | null>(null);
+  const { toasts, toast, closeToast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -260,14 +262,14 @@ export default function ServicesPage() {
         durationMinutes: Number(editForm.durationMinutes),
       });
       setEditingId(null); await load();
-    } catch { /* ignore */ }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка обновления"); }
     finally { setUpdating(false); }
   }
 
   async function handleDeactivate(id: string) {
     setDeactivating(id);
-    try { await clinicApi.services.deactivate(id); await load(); }
-    catch { /* ignore */ }
+    try { await clinicApi.services.deactivate(id); toast.success("Услуга деактивирована"); await load(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка деактивации"); }
     finally { setDeactivating(null); }
   }
 
@@ -318,6 +320,8 @@ export default function ServicesPage() {
 
   return (
     <div className="min-h-full space-y-5">
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
       {/* Header */}
       <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">

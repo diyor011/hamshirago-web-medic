@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, RefreshCw, UserX, Users } from "lucide-react";
+import { Plus, RefreshCw, UserX, Users, Pencil, Check, X } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRole } from "@/lib/clinicApi";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
@@ -20,6 +20,8 @@ const AVATAR_COLORS = [
   "bg-orange-50 text-orange-600",
   "bg-pink-50 text-pink-600",
 ];
+
+const inputCls = "w-full h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all";
 
 function Skeleton() {
   return <div className="h-[100px] animate-pulse rounded-2xl bg-slate-100" />;
@@ -70,6 +72,11 @@ export default function StaffPage() {
 
   const [deactivating, setDeactivating] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", specialization: "", photoUrl: "" });
+  const [updating, setUpdating] = useState(false);
+
   const { toasts, toast, closeToast } = useToast();
 
   const loadStaff = useCallback(async () => {
@@ -104,165 +111,218 @@ export default function StaffPage() {
     }
   }
 
-  async function doDeactivate(id: string) {
-    setConfirmId(null);
-    setDeactivating(id);
+  function startEdit(member: ClinicStaff) {
+    setEditingId(member.id);
+    setEditForm({
+      name: member.name,
+      specialization: member.specialization ?? "",
+      photoUrl: member.photoUrl ?? "",
+    });
+  }
+
+  async function handleUpdate() {
+    if (!editingId) return;
+    if (!editForm.name.trim()) { toast.error(t("clinic.staff.errorName")); return; }
+    setUpdating(true);
+    try {
+      await clinicApi.staff.update(editingId, {
+        name: editForm.name.trim(),
+        ...(editForm.specialization ? { specialization: editForm.specialization } : {}),
+        ...(editForm.photoUrl ? { photoUrl: editForm.photoUrl } : {}),
+      });
+      setEditingId(null);
+      toast.success(t("clinic.common.saved"));
+      await loadStaff();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("clinic.staff.errorCreate"));
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleDeactivate(id: string) {
+    setDeactivating(id); setConfirmId(null);
     try {
       await clinicApi.staff.deactivate(id);
       toast.success(t("clinic.staff.deactivated"));
       await loadStaff();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("clinic.common.error"));
+      toast.error(e instanceof Error ? e.message : t("clinic.staff.errorDeactivate"));
     } finally {
       setDeactivating(null);
     }
   }
 
-  const inputCls = "w-full rounded-xl border-[1.5px] border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-teal-500";
-
   return (
-    <div className="min-h-full">
+    <div className="flex flex-col gap-6">
       <ToastContainer toasts={toasts} onClose={closeToast} />
+
       {confirmId && (
         <ConfirmDialog
-          message={t("clinic.staff.deactivateConfirm")}
-          confirmLabel={t("clinic.staff.deactivate")}
-          onConfirm={() => doDeactivate(confirmId)}
+          message={t("clinic.staff.confirmDeactivate")}
+          onConfirm={() => handleDeactivate(confirmId)}
           onCancel={() => setConfirmId(null)}
         />
       )}
 
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -left-16 top-0 h-48 w-48 rounded-full bg-teal-500/20 blur-3xl" />
-          <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-violet-500/10 blur-2xl" />
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users size={20} className="text-teal-600" />
+          <h1 className="text-xl font-extrabold text-slate-800">{t("clinic.staff.title")}</h1>
         </div>
-        <div className="relative flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.staff.title")}</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-400">{t("clinic.staff.subtitle")}</p>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5 hover:bg-teal-50"
-          >
-            <Plus size={16} /> {t("clinic.staff.addStaff")}
+        <div className="flex items-center gap-2">
+          <button onClick={loadStaff}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50">
+            <RefreshCw size={13} /> {t("clinic.common.refresh")}
+          </button>
+          <button onClick={() => setShowCreate((v) => !v)}
+            className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-teal-700">
+            <Plus size={14} /> {t("clinic.staff.addStaff")}
           </button>
         </div>
-      </section>
+      </div>
 
-      {error && <div className="mb-5"><ErrorBanner message={error} onRetry={loadStaff} /></div>}
-
+      {/* Create form */}
       {showCreate && (
-        <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-base font-bold text-slate-950">{t("clinic.staff.newStaff")}</h3>
-          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col gap-4">
+          <p className="text-sm font-bold text-slate-700">{t("clinic.staff.newStaff")}</p>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.staff.name")}</label>
-              <input className={inputCls} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t("clinic.staff.namePlaceholder")} />
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("clinic.staff.name")} *</label>
+              <input className={inputCls} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.staff.phone")}</label>
-              <input className={inputCls} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder={t("clinic.staff.phonePlaceholder")} />
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("clinic.staff.phone")} *</label>
+              <input
+                className={inputCls}
+                value={form.phone}
+                type="tel"
+                placeholder="+998"
+                onFocus={() => { if (!form.phone) setForm((f) => ({ ...f, phone: "+998" })); }}
+                onBlur={() => { if (form.phone === "+998") setForm((f) => ({ ...f, phone: "" })); }}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (!raw.startsWith("+998")) { setForm((f) => ({ ...f, phone: "+998" })); return; }
+                  const digits = raw.slice(4).replace(/\D/g, "").slice(0, 9);
+                  setForm((f) => ({ ...f, phone: "+998" + digits }));
+                }}
+              />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.staff.password")}</label>
-              <input type="password" className={inputCls} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder={t("clinic.staff.passwordPlaceholder")} />
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("clinic.staff.password")} *</label>
+              <input className={inputCls} type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.staff.roleLabel")}</label>
-              <select className={`${inputCls} bg-white`} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as ClinicRole }))}>
-                <option value="DOCTOR">{t("clinic.staff.role.doctor")}</option>
-                <option value="RECEPTION">{t("clinic.staff.role.reception")}</option>
-                <option value="CEO">{t("clinic.staff.role.ceo")}</option>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("clinic.staff.role")}</label>
+              <select className={inputCls} value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as ClinicRole }))}>
+                {(Object.keys(ROLE_LABELS) as ClinicRole[]).map((r) => (
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                ))}
               </select>
             </div>
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-xs font-semibold text-slate-500">{t("clinic.staff.photoUrl")}</label>
-              <input className={inputCls} value={form.photoUrl} onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder={t("clinic.staff.photoUrlPlaceholder")} />
-            </div>
           </div>
-
-          {createError && <p className="mb-3 text-sm text-red-500">{createError}</p>}
-
+          {createError && <p className="text-xs text-red-500">{createError}</p>}
           <div className="flex gap-2">
-            <button
-              onClick={handleCreate}
-              disabled={creating}
-              className="rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-6 py-2.5 text-sm font-bold text-white disabled:opacity-70"
-            >
-              {creating ? t("clinic.staff.saving") : t("clinic.common.create")}
+            <button onClick={handleCreate} disabled={creating}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 py-2 text-sm font-bold text-white transition hover:bg-teal-700 disabled:opacity-70">
+              <Check size={14} /> {creating ? "..." : t("clinic.staff.create")}
             </button>
-            <button
-              onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); setCreateError(""); }}
-              className="rounded-xl bg-slate-100 px-6 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-200"
-            >
-              {t("clinic.common.cancel")}
+            <button onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); setCreateError(""); }}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 text-sm font-semibold text-slate-500 transition hover:bg-slate-200">
+              <X size={14} /> {t("clinic.common.cancel")}
             </button>
           </div>
         </div>
       )}
 
+      {/* Error */}
+      {error && <ErrorBanner message={error} onRetry={loadStaff} />}
+
+      {/* List */}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} />)}
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} />)}
         </div>
       ) : staff.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white p-16 text-center shadow-sm">
-          <Users size={40} className="mb-3 text-slate-200" />
-          <p className="text-sm text-slate-400">{t("clinic.staff.noStaff")}</p>
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white py-12 text-center">
+          <Users size={32} className="text-slate-300" />
+          <p className="text-sm text-slate-400">{t("clinic.staff.empty")}</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {staff.map((member, idx) => {
-            const avatarCls = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-            return (
-              <div
-                key={member.id}
-                className={`relative rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition ${!member.isActive ? "opacity-55" : ""}`}
-              >
-                {!member.isActive && (
-                  <span className="absolute right-3 top-3 rounded-lg bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-500">
-                    {t("clinic.staff.inactive")}
-                  </span>
-                )}
-                <div className="flex items-start gap-3.5">
-                  {member.photoUrl ? (
-                    <img src={member.photoUrl} alt={member.name} className="h-12 w-12 shrink-0 rounded-full object-cover" />
-                  ) : (
-                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${avatarCls}`}>
-                      {member.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[15px] font-bold text-slate-950">{member.name}</span>
-                      <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${ROLE_BADGE[member.role]}`}>
-                        {ROLE_LABELS[member.role]}
+        <div className="flex flex-col gap-3">
+          {staff.map((member, idx) => (
+            <div key={member.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                {/* Avatar */}
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${AVATAR_COLORS[idx % AVATAR_COLORS.length]}`}>
+                  {member.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-slate-800">{member.name}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${ROLE_BADGE[member.role]}`}>
+                      {ROLE_LABELS[member.role]}
+                    </span>
+                    {!member.isActive && (
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-500">
+                        {t("clinic.staff.inactive")}
                       </span>
-                    </div>
-                    <p className="mt-1 text-sm text-slate-500">{member.phone}</p>
-                    {member.specialization && (
-                      <p className="text-xs font-semibold text-teal-600">{member.specialization}</p>
                     )}
                   </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{member.phone}</p>
+                  {member.specialization && (
+                    <p className="text-xs text-slate-500 mt-0.5">{member.specialization}</p>
+                  )}
                 </div>
-                {member.isActive && (
-                  <div className="mt-3.5 flex justify-end">
-                    <button
-                      onClick={() => setConfirmId(member.id)}
-                      disabled={deactivating === member.id}
-                      className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-60"
-                    >
-                      <UserX size={13} />
-                      {deactivating === member.id ? "..." : t("clinic.staff.deactivate")}
+              </div>
+
+              {/* Inline edit form */}
+              {editingId === member.id && (
+                <div className="mt-4 flex flex-col gap-3.5">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">Имя *</label>
+                    <input className={inputCls} value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">Специализация</label>
+                    <input className={inputCls} value={editForm.specialization} onChange={(e) => setEditForm((f) => ({ ...f, specialization: e.target.value }))} placeholder="Терапевт, хирург..." />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">Фото URL</label>
+                    <input className={inputCls} value={editForm.photoUrl} onChange={(e) => setEditForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://..." />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleUpdate} disabled={updating} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 py-2 text-xs font-bold text-white transition hover:bg-teal-700 disabled:opacity-70">
+                      <Check size={14} /> {updating ? "..." : "Сохранить"}
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-200">
+                      <X size={14} /> Отмена
                     </button>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </div>
+              )}
+
+              {member.isActive && editingId !== member.id && (
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    onClick={() => startEdit(member)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <Pencil size={13} /> Изменить
+                  </button>
+                  <button
+                    onClick={() => setConfirmId(member.id)}
+                    disabled={deactivating === member.id}
+                    className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-60"
+                  >
+                    <UserX size={13} />
+                    {deactivating === member.id ? "..." : t("clinic.staff.deactivate")}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

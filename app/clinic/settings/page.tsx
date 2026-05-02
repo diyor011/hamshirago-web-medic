@@ -180,8 +180,14 @@ export default function SettingsPage() {
     setHours((prev) => ({ ...prev, [dayIdx]: { ...prev[dayIdx], ...patch } }));
   }
 
-  function saveHours() {
+  async function saveHours() {
     localStorage.setItem(LS_HOURS_KEY, JSON.stringify(hours));
+    try {
+      await clinicApi.company.update({ settings: { workingHours: hours } });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка синхронизации расписания");
+      return;
+    }
     setHoursSaved(true);
     setTimeout(() => setHoursSaved(false), 2500);
   }
@@ -383,7 +389,7 @@ export default function SettingsPage() {
         </div>
 
         <p className="mt-2.5 text-[11px] text-slate-400">
-          Расписание сохраняется локально и будет синхронизировано с сервером в следующем обновлении.
+          Расписание сохраняется на сервере и доступно с любого устройства.
         </p>
       </div>
 

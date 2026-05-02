@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { X, Search, User, Phone, Calendar, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import {
   clinicApi, ClinicStaff, ClinicRoom, ClinicService,
-  PaymentType, DoctorRoomSlot, Appointment,
+  DoctorRoomSlot, Appointment,
   PatientSearchResult,
 } from "@/lib/clinicApi";
 import { useTranslation } from "react-i18next";
@@ -16,12 +16,6 @@ interface Props {
   onSuccess: () => void;
   prefillPhone?: string;
 }
-
-const PAYMENT_KEYS: { value: PaymentType; label: string; emoji: string }[] = [
-  { value: "CASH",     label: "Наличные",  emoji: "💵" },
-  { value: "TERMINAL", label: "Терминал",  emoji: "💳" },
-  { value: "ONLINE",   label: "Online",    emoji: "🌐" },
-];
 
 const INPUT_CLS = "w-full h-10 px-3.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none transition-all";
 const SELECT_CLS = "w-full h-10 px-3.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none transition-all cursor-pointer";
@@ -153,7 +147,6 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   const [serviceId, setServiceId]     = useState("");
   const [date, setDate]               = useState(getTodayISO);
   const [time, setTime]               = useState(getNowTime);
-  const [paymentType, setPaymentType] = useState<PaymentType>("CASH");
 
   // ── Async data
   const [doctors, setDoctors]               = useState<ClinicStaff[]>([]);
@@ -185,7 +178,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
     setSearchResults([]); setShowDropdown(false); setSelectedPatient(null);
     setPhone(prefillPhone ?? ""); setPatientName("");
     setDoctorId(""); setRoomId(""); setServiceId(""); setServices([]);
-    setPaymentType("CASH"); setError("");
+    setError("");
     setDate(getTodayISO()); setTime(getNowTime());
   }, [open, prefillPhone]);
 
@@ -270,6 +263,21 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
       setError(t("clinic.booking.errorTimeRange", { start: slot.startTime, end: slot.endTime })); return;
     }
     setSubmitting(true); setError("");
+
+    // Client-side double booking check
+    try {
+      const existing = await clinicApi.appointments.list({ date, doctorId });
+      const conflict = existing.find(
+        (a) => a.time === time && !["CANCELED", "NO_SHOW"].includes(a.status)
+      );
+      if (conflict) {
+        setError(`На ${time} у этого врача уже есть запись`);
+        setSubmitting(false);
+        return;
+      }
+    } catch {
+      // Ignore — server will enforce uniqueness
+    }
     try {
       const appt: Appointment = await clinicApi.appointments.create({
         patientPhone: phone.trim(),
@@ -277,12 +285,9 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
         doctorId:  doctorId  || undefined,
         roomId:    roomId    || undefined,
         serviceId: serviceId || undefined,
-        date, time, paymentType,
+        date, time,
       });
-      if (paymentType === "ONLINE") {
-        try { const { paymentUrl } = await clinicApi.payments.initiateClinic(appt.id); window.location.href = paymentUrl; }
-        catch { onSuccess(); }
-      } else { onSuccess(); }
+      onSuccess();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("clinic.booking.errorCreate"));
     } finally { setSubmitting(false); }
@@ -381,8 +386,20 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
                 onChange={(e) => setPatientName(e.target.value)} placeholder="Имя пациента" />
             </Field>
             <Field label="Телефон" required>
-              <input className={INPUT_CLS} value={phone}
-                onChange={(e) => setPhone(e.target.value)} placeholder="+998901234567" type="tel" />
+              <input
+                className={INPUT_CLS}
+                value={phone}
+                type="tel"
+                placeholder="+998"
+                onFocus={() => { if (!phone) setPhone("+998"); }}
+                onBlur={() => { if (phone === "+998") setPhone(""); }}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (!raw.startsWith("+998")) { setPhone("+998"); return; }
+                  const digits = raw.slice(4).replace(/\D/g, "").slice(0, 9);
+                  setPhone("+998" + digits);
+                }}
+              />
             </Field>
           </div>
 
@@ -486,25 +503,6 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
               <p className="text-xs text-green-700 font-medium">Пациент получит SMS-напоминание за 1 час до приёма</p>
             </div>
           )}
-
-          {/* Оплата */}
-          <Field label={t("clinic.booking.paymentType")} required>
-            <div className="flex gap-2">
-              {PAYMENT_KEYS.map(({ value, label, emoji }) => {
-                const active = paymentType === value;
-                return (
-                  <button key={value} onClick={() => setPaymentType(value)}
-                    className={`flex-1 h-10 rounded-xl font-bold text-sm border-[1.5px] cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
-                      active
-                        ? "bg-teal-50 border-teal-500 text-teal-700"
-                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                    }`}>
-                    <span>{emoji}</span>{label}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
 
           {/* Error */}
           {error && (

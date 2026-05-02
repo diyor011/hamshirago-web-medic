@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Activity,
   CalendarClock,
@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Users,
   X,
+  AlertCircle,
 } from "lucide-react";
 import {
   clinicApi,
@@ -24,9 +25,12 @@ import {
   DoctorStats,
   Appointment,
   Lead,
+  ClinicRoom,
+  ClinicStaff,
 } from "@/lib/clinicApi";
 import BookingModal from "@/components/clinic/BookingModal";
 import { useTranslation } from "react-i18next";
+import { useLanguage } from "@/context/LanguageContext";
 import "@/i18n";
 
 type Period = "today" | "week" | "month" | "year";
@@ -347,9 +351,9 @@ function OnboardingBanner({
 
 export default function DashboardPage() {
   const { t, i18n } = useTranslation();
+  const { language } = useLanguage();
 
-  const locale =
-    i18n.language === "uz" ? "uz-UZ" : i18n.language === "en" ? "en-US" : "ru-RU";
+  const locale = language === "uz" ? "uz-UZ" : "ru-RU";
 
   const PERIOD_LABELS: Record<Period, string> = {
     today: t("clinic.finance.periodToday"),
@@ -402,6 +406,7 @@ export default function DashboardPage() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   const fetchOverview = useCallback(
@@ -443,7 +448,10 @@ export default function DashboardPage() {
     }
   }, [t]);
 
+  const fetchingQueue = useRef(false);
   const fetchQueue = useCallback(async () => {
+    if (fetchingQueue.current) return;
+    fetchingQueue.current = true;
     setLoadingQueue(true);
     setErrQueue(null);
     try {
@@ -452,6 +460,7 @@ export default function DashboardPage() {
       setErrQueue(error instanceof Error ? error.message : t("clinic.common.error"));
     } finally {
       setLoadingQueue(false);
+      fetchingQueue.current = false;
     }
   }, [t]);
 
@@ -532,17 +541,15 @@ export default function DashboardPage() {
   }, []);
 
   const todayDate = mounted
-    ? i18n.language === "uz"
-      ? (() => {
-          const now = new Date();
+    ? (() => {
+        const now = new Date();
+        if (language === "uz") {
           return `${UZ_WEEKDAYS[now.getDay()]}, ${now.getDate()}-${UZ_MONTHS[now.getMonth()].toLowerCase()} ${now.getFullYear()}`;
-        })()
-      : new Intl.DateTimeFormat(locale, {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }).format(new Date())
+        }
+        const RU_MONTHS = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+        const RU_DAYS = ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
+        return `${RU_DAYS[now.getDay()]}, ${now.getDate()} ${RU_MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+      })()
     : "";
 
   const waiting = todayApps.filter((appointment) => appointment.status === "SCHEDULED").length;
@@ -604,7 +611,7 @@ export default function DashboardPage() {
     const [, year, month] = match;
     const monthIndex = Number(month) - 1;
     if (monthIndex < 0 || monthIndex > 11) return value;
-    if (i18n.language === "uz") {
+    if (language === "uz") {
       return `${UZ_MONTHS[monthIndex]} ${year}`;
     }
     const date = new Date(Number(year), monthIndex, 1);
@@ -634,6 +641,7 @@ export default function DashboardPage() {
   async function exportAppointments() {
     setExporting(true);
     setExportOpen(false);
+    setExportError(null);
     try {
       const endDate = new Date().toISOString().slice(0, 10);
       const startDateObj = new Date();
@@ -665,8 +673,8 @@ export default function DashboardPage() {
       ];
 
       downloadCSV(`appointments-${endDate}.csv`, rows);
-    } catch {
-      // Ignore export errors in UI for now.
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Ошибка экспорта");
     } finally {
       setExporting(false);
     }
@@ -675,6 +683,7 @@ export default function DashboardPage() {
   async function exportLeads() {
     setExporting(true);
     setExportOpen(false);
+    setExportError(null);
     try {
       const response = await clinicApi.leads.list({ limit: 500 });
       const rows: string[][] = [
@@ -690,8 +699,8 @@ export default function DashboardPage() {
       ];
 
       downloadCSV(`leads-${new Date().toISOString().slice(0, 10)}.csv`, rows);
-    } catch {
-      // Ignore export errors in UI for now.
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Ошибка экспорта");
     } finally {
       setExporting(false);
     }
@@ -750,6 +759,11 @@ export default function DashboardPage() {
 
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <div className="relative">
+                {exportError && (
+                  <div className="absolute right-0 top-[-30px] flex items-center gap-1.5 whitespace-nowrap text-xs font-bold text-rose-400">
+                    <AlertCircle size={13} /> {exportError}
+                  </div>
+                )}
                 <button
                   onClick={() => setExportOpen((value) => !value)}
                   disabled={exporting}
@@ -897,7 +911,7 @@ export default function DashboardPage() {
               icon={<CheckCircle size={22} />}
               label={t("clinic.dashboard.kpi.appointments")}
               value={formatNumber(overview.appointments ?? 0)}
-              hint={`${todayApps.length} ${t("clinic.dashboard.appointmentsCount")}`}
+              hint={`${t("clinic.dashboard.todayLabel")}: ${todayApps.length}`}
               toneIndex={1}
             />
             <MetricCard

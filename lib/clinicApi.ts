@@ -59,12 +59,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401 && !path.startsWith("/clinic-auth/")) {
     clearClinicSession();
-    window.location.replace("/auth");
+    if (typeof window !== "undefined") window.location.replace("/clinic/auth");
     throw new Error("UNAUTHORIZED");
   }
-
   if (res.status === 403) {
     throw new Error("Недостаточно прав для выполнения этого действия");
+  }
+  if (res.status === 429) {
+    throw new Error("Слишком много запросов. Подождите немного и попробуйте снова.");
   }
 
   if (!res.ok) {
@@ -93,6 +95,7 @@ export interface ClinicAuthResponse {
     name: string;
     role: ClinicRole;
     companyId: string;
+    doctorId?: string | null;
   };
 }
 
@@ -114,6 +117,7 @@ export interface ClinicCompany {
   inn?: string | null;
   bankAccount?: string | null;
   bankName?: string | null;
+  settings?: Record<string, unknown>;
 }
 
 export interface ClinicStaff {
@@ -158,7 +162,7 @@ export interface ClinicService {
   price: number;
   priceMin?: number | null;
   priceMax?: number | null;
-  durationMinutes: number | null;
+  durationMinutes: number;
   isActive: boolean;
   doctorId?: string | null;
 }
@@ -190,6 +194,7 @@ export interface Appointment {
   priceMax?: number | null;
   finalPrice?: number | null;
   serviceTitle?: string | null;
+  notes?: string | null;
 }
 
 export interface CreateAppointmentDto {
@@ -684,6 +689,21 @@ export const clinicApi = {
         method: "PATCH",
         body: JSON.stringify({ finalPrice }),
       }).then(normalizeAppointment),
+    updateNotes: (id: string, notes: string) =>
+      request<Appointment>(`/clinic/appointments/${id}/notes`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes }),
+      }).then(normalizeAppointment),
+    reschedule: (id: string, date: string, time: string, force = false) =>
+      request<Appointment>(`/clinic/appointments/${id}/reschedule`, {
+        method: "PATCH",
+        body: JSON.stringify({ date, time, force }),
+      }).then(normalizeAppointment),
+    reassignDoctor: (id: string, doctorId: string, force = false) =>
+      request<Appointment>(`/clinic/appointments/${id}/doctor`, {
+        method: "PATCH",
+        body: JSON.stringify({ doctorId, force }),
+      }).then(normalizeAppointment),
   },
 
   leads: {
@@ -796,6 +816,10 @@ export const clinicApi = {
       request<PatientSearchResult[]>(
         `/clinic/patients/search?q=${encodeURIComponent(q)}`,
       ),
+    getHistory: (id: string) =>
+      request<{ visits: Appointment[] }>(
+        `/clinic/patients/${encodeURIComponent(id)}/history`,
+      ).then((res) => ({ visits: (res.visits ?? []).map(normalizeAppointment) })),
   },
 
 };

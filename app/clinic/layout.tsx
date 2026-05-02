@@ -18,6 +18,7 @@ import {
   X,
   CreditCard,
   ChevronRight,
+  BookUser,
 } from "lucide-react";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/rooms", labelKey: "clinic.nav.rooms", icon: DoorOpen, roles: ["CEO"] },
   { href: "/clinic/services", labelKey: "clinic.nav.services", icon: Stethoscope, roles: ["CEO"] },
   { href: "/clinic/staff", labelKey: "clinic.nav.staff", icon: UserCog, roles: ["CEO"] },
+  { href: "/clinic/patients", labelKey: "clinic.nav.patients", icon: BookUser, roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/home-orders", labelKey: "clinic.nav.homeOrders", icon: Users, roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/finance", labelKey: "clinic.nav.finance", icon: TrendingUp, roles: ["CEO"] },
   { href: "/clinic/settings", labelKey: "clinic.nav.settings", icon: Settings, roles: ["CEO"] },
@@ -197,13 +199,13 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
     const token = getClinicToken();
     if (!token) {
-      router.replace("/auth");
+      router.replace("/clinic/auth");
       return;
     }
 
     const nextRole = getClinicRole();
     if (!nextRole) {
-      router.replace("/auth");
+      router.replace("/clinic/auth");
       return;
     }
 
@@ -219,7 +221,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       "/clinic/subscription",
     ];
 
-    const doctorBlocked = [...ceoOnly, "/clinic/home-orders"];
+    const doctorBlocked = [...ceoOnly, "/clinic/home-orders", "/clinic/patients"];
 
     if (
       nextRole === "DOCTOR" &&
@@ -262,12 +264,9 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
   function handleLogout() {
     clearClinicSession();
-    router.replace("/auth");
+    router.replace("/clinic/auth");
   }
 
-  // До монтирования на клиенте рендерим ничего — сервер не знает о localStorage/role,
-  // и любое серверное состояние вызовет hydration mismatch (браузерные расширения
-  // вроде Tailwind class sorter переупорядочивают className до React-гидрации).
   if (!mounted && !isAuthPage) return null;
 
   if (!role && !isAuthPage) {
