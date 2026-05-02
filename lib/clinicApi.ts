@@ -59,7 +59,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401 && !path.startsWith("/clinic-auth/")) {
     clearClinicSession();
-    if (typeof window !== "undefined") window.location.replace("/clinic/auth");
+    if (typeof window !== "undefined") window.location.replace("/auth?role=clinic");
     throw new Error("UNAUTHORIZED");
   }
   if (res.status === 403) {
@@ -687,6 +687,12 @@ export const clinicApi = {
       request<Appointment>(`/clinic/appointments/${id}/final-price`, {
         method: "PATCH",
         body: JSON.stringify({ finalPrice }),
+      }).then(normalizeAppointment),
+    // CLINIC-UX-BE-6: атомарная замена — отменяет :id и создаёт новую запись
+    replace: (id: string, dto: CreateAppointmentDto) =>
+      request<Appointment>(`/clinic/appointments/${id}/replace`, {
+        method: "POST",
+        body: JSON.stringify(dto),
       }).then(normalizeAppointment),
   },
 

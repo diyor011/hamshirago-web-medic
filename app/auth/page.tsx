@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Phone, Lock, User, Eye, EyeOff, AlertCircle, Stethoscope, Star } from "lucide-react";
 import { medicApi, doctorApi } from "@/lib/api";
 import { clinicApi, getClinicRole } from "@/lib/clinicApi";
@@ -30,9 +30,11 @@ function formatPhone(raw: string) {
 
 export default function AuthPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
-  const [role, setRole] = useState<Role>("medic");
+  const initialRole = (searchParams.get("role") as Role | null) ?? "medic";
+  const [role, setRole] = useState<Role>(initialRole);
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");

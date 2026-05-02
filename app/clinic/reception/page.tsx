@@ -139,12 +139,8 @@ export default function ReceptionPage() {
   const { toasts, toast, closeToast } = useToast();
   const [mounted, setMounted] = useState(false);
 
-  // Quick booking (CLINIC-R3)
-  const [quickBook, setQuickBook] = useState<{ time: string; date: string; roomId: string | null; doctorId: string | null; colLabel: string } | null>(null);
-  const [quickName, setQuickName] = useState("");
-  const [quickPhone, setQuickPhone] = useState("");
-  const [quickTime, setQuickTime] = useState("");
-  const [quickLoading, setQuickBookLoading] = useState(false);
+  // Prefill for BookingModal when clicking "+" in calendar (CLINIC-R3)
+  const [bookingPrefill, setBookingPrefill] = useState<{ date: string; time: string; doctorId: string | null; roomId: string | null } | null>(null);
 
   // Calendar date picker (CLINIC-R5)
   const [showCalPicker, setShowCalPicker] = useState(false);
@@ -352,29 +348,6 @@ export default function ReceptionPage() {
     return map;
   }, [calendarAppts, doctors]);
 
-  // CLINIC-R3: quick book handler
-  async function handleQuickBook() {
-    if (!quickBook || !quickName.trim() || !quickPhone.trim()) return;
-    setQuickBookLoading(true);
-    try {
-      await clinicApi.appointments.create({
-        patientName: quickName.trim(),
-        patientPhone: quickPhone.trim(),
-        doctorId: quickBook.doctorId ?? undefined,
-        roomId: quickBook.roomId ?? undefined,
-        date: quickBook.date,
-        time: quickTime || quickBook.time,
-      });
-      toast.success("Запись добавлена");
-      setQuickBook(null); setQuickName(""); setQuickPhone(""); setQuickTime("");
-      await loadCalendar(doctorIdFilter ?? null);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
-    } finally {
-      setQuickBookLoading(false);
-    }
-  }
-
   // ─── Render ──────────────────────────────────────────────────────────────────────
 
   return (
@@ -419,45 +392,6 @@ export default function ReceptionPage() {
       {/* Calendar picker close overlay (CLINIC-R5) */}
       {showCalPicker && (
         <div onClick={() => setShowCalPicker(false)} className="fixed inset-0 z-[299]" />
-      )}
-
-      {/* Quick booking modal (CLINIC-R3) */}
-      {quickBook && (
-        <Modal onClose={() => setQuickBook(null)}>
-          <h3 className="mb-1 text-base font-extrabold text-slate-950">Новая запись</h3>
-          <p className="mb-4 text-sm text-slate-500">
-            {quickBook.time} · {quickBook.colLabel}
-            {quickBook.doctorId && doctors.find(d => d.doctorId === quickBook.doctorId) &&
-              ` · ${doctors.find(d => d.doctorId === quickBook.doctorId)!.doctorName}`}
-          </p>
-          <div className="mb-4 flex flex-col gap-2.5">
-            <input autoFocus value={quickName} onChange={(e) => setQuickName(e.target.value)} placeholder="Имя клиента" className={inputCls} />
-            <input
-              value={quickPhone} onChange={(e) => setQuickPhone(e.target.value)}
-              placeholder="+998 xx xxx xx xx" type="tel" className={inputCls}
-              onFocus={(e) => { if (!e.target.value) setQuickPhone("+998"); }}
-              onBlur={(e) => { if (e.target.value === "+998") setQuickPhone(""); }}
-              onKeyDown={(e) => e.key === "Enter" && handleQuickBook()}
-            />
-            <input
-              type="time" value={quickTime}
-              onChange={(e) => setQuickTime(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleQuickBook}
-              disabled={quickLoading || !quickName.trim() || !quickPhone.trim()}
-              className="flex-1 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 py-3 text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              {quickLoading ? "Сохраняем..." : "Добавить"}
-            </button>
-            <button onClick={() => setQuickBook(null)} className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-500">
-              Отмена
-            </button>
-          </div>
-        </Modal>
       )}
 
       {/* Page header */}
@@ -675,12 +609,17 @@ export default function ReceptionPage() {
                             );
                           })}
 
-                          {/* CLINIC-R3: empty slot — click to quick-book */}
+                          {/* CLINIC-R3: empty slot — click to open full BookingModal pre-filled */}
                           {cellAppts.length === 0 && (
                             <button
                               onClick={() => {
-                                setQuickBook({ time: slot, date: fmtDateISO(calendarDate), roomId: rooms.length > 0 ? c.id : null, doctorId: doctorIdForCol, colLabel: c.label });
-                                setQuickName(""); setQuickPhone(""); setQuickTime(slot);
+                                setBookingPrefill({
+                                  date: fmtDateISO(calendarDate),
+                                  time: slot,
+                                  doctorId: doctorIdForCol,
+                                  roomId: rooms.length > 0 ? c.id : null,
+                                });
+                                setShowBooking(true);
                               }}
                               className="group flex min-h-[26px] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 text-[10px] text-slate-300 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-500"
                             >
@@ -990,8 +929,16 @@ export default function ReceptionPage() {
       {showBooking && (
         <BookingModal
           open={showBooking}
-          onClose={() => setShowBooking(false)}
-          onSuccess={() => { setShowBooking(false); loadApps(doctorIdFilter ?? null); }}
+          onClose={() => { setShowBooking(false); setBookingPrefill(null); }}
+          onSuccess={() => {
+            setShowBooking(false); setBookingPrefill(null);
+            loadApps(doctorIdFilter ?? null);
+            if (viewMode === "calendar") loadCalendar(doctorIdFilter ?? null);
+          }}
+          prefillDate={bookingPrefill?.date}
+          prefillTime={bookingPrefill?.time}
+          prefillDoctorId={bookingPrefill?.doctorId ?? undefined}
+          prefillRoomId={bookingPrefill?.roomId ?? undefined}
         />
       )}
     </div>

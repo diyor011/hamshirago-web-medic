@@ -68,7 +68,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       if (msg === "UNAUTHORIZED") return;
       // No cached data — redirect to auth
       if (!localStorage.getItem(STORAGE_KEY)) {
-        window.location.replace("/clinic/auth");
+        window.location.replace("/auth?role=clinic");
         return;
       }
       setClinicError(msg);

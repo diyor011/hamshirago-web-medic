@@ -15,6 +15,10 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   prefillPhone?: string;
+  prefillDate?: string;
+  prefillTime?: string;
+  prefillDoctorId?: string;
+  prefillRoomId?: string;
 }
 
 const INPUT_CLS = "w-full h-10 px-3.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none transition-all";
@@ -65,7 +69,7 @@ function PatientDropdown({
       ) : (
         <div className="max-h-56 overflow-y-auto">
           {results.map((p) => (
-            <button key={p.id} onMouseDown={() => onSelect(p)}
+            <button key={p.id ?? p.phone} onMouseDown={() => onSelect(p)}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-teal-50 border-b border-slate-100 last:border-b-0 transition-colors cursor-pointer text-left group">
               <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-sm font-extrabold shrink-0 group-hover:bg-teal-600 group-hover:text-white transition-colors">
                 {getInitials(p.name) || <User size={14} />}
@@ -112,7 +116,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function BookingModal({ open, onClose, onSuccess, prefillPhone }: Props) {
+export default function BookingModal({ open, onClose, onSuccess, prefillPhone, prefillDate, prefillTime, prefillDoctorId, prefillRoomId }: Props) {
   const { t } = useTranslation();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -159,8 +163,9 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   const [loadingRooms, setLoadingRooms]     = useState(false);
 
   // ── UI state
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState("");
+  const [submitting, setSubmitting]       = useState(false);
+  const [error, setError]                 = useState("");
+  const [conflictAppt, setConflictAppt]   = useState<Appointment | null>(null);
 
   const minTime     = useMemo(() => (date !== getTodayISO() ? undefined : getNowTime()), [date]);
   const isTimePast  = useMemo(() => !!(minTime && time && toMin(time) < toMin(minTime)), [time, minTime]);
@@ -178,10 +183,13 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
     setSearchQuery(prefillPhone ?? "");
     setSearchResults([]); setShowDropdown(false); setSelectedPatient(null);
     setPhone(prefillPhone ?? ""); setPatientName("");
-    setDoctorId(""); setRoomId(""); setServiceId(""); setServices([]);
-    setError("");
-    setDate(getTodayISO()); setTime(getNowTime());
-  }, [open, prefillPhone]);
+    setDoctorId(prefillDoctorId ?? "");
+    setRoomId(prefillRoomId ?? "");
+    setServiceId(""); setServices([]);
+    setError(""); setConflictAppt(null);
+    setDate(prefillDate ?? getTodayISO());
+    setTime(prefillTime ?? getNowTime());
+  }, [open, prefillPhone, prefillDate, prefillTime, prefillDoctorId, prefillRoomId]);
 
   // ── Debounced patient search
   useEffect(() => {
@@ -234,7 +242,7 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
       .then((slots) => {
         if (cancelled) return;
         setRoomSlots(slots);
-        setRoomId(slots.length === 1 ? slots[0].roomId : "");
+        setRoomId((prev) => prev || (slots.length === 1 ? slots[0].roomId : ""));
       })
       .catch(() => { if (!cancelled) setRoomSlots([]); })
       .finally(() => { if (!cancelled) setLoadingRooms(false); });
@@ -251,6 +259,47 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
   }, []);
   useEffect(() => { if (open) loadDoctors(); }, [open, loadDoctors]);
 
+  // ── Core create (shared by submit / replace / force)
+  async function doCreate() {
+    await clinicApi.appointments.create({
+      patientPhone: phone.trim(),
+      patientName:  patientName.trim() || phone.trim(),
+      doctorId:  doctorId  || undefined,
+      roomId:    roomId    || undefined,
+      serviceId: serviceId || undefined,
+      date, time,
+    });
+    onSuccess();
+  }
+
+  // ── Conflict resolution: atomic replace via CLINIC-UX-BE-6
+  async function handleReplace() {
+    if (!conflictAppt) return;
+    setSubmitting(true); setError("");
+    try {
+      await clinicApi.appointments.replace(conflictAppt.id, {
+        patientPhone: phone.trim(),
+        patientName:  patientName.trim() || phone.trim(),
+        doctorId:  doctorId  || undefined,
+        roomId:    roomId    || undefined,
+        serviceId: serviceId || undefined,
+        date, time,
+      });
+      onSuccess();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("clinic.booking.errorCreate"));
+    } finally { setSubmitting(false); setConflictAppt(null); }
+  }
+
+  // ── Conflict resolution: ignore conflict, book anyway (double-booking)
+  async function handleForce() {
+    setConflictAppt(null);
+    setSubmitting(true); setError("");
+    try { await doCreate(); }
+    catch (e) { setError(e instanceof Error ? e.message : t("clinic.booking.errorCreate")); }
+    finally { setSubmitting(false); }
+  }
+
   // ── Submit
   async function handleSubmit() {
     if (!phone.trim())  { setError("Введите номер телефона пациента"); return; }
@@ -265,33 +314,27 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
     }
     setSubmitting(true); setError("");
 
-    // Client-side double booking check
+    // Client-side conflict check → show dialog instead of blocking
     try {
       const existing = await clinicApi.appointments.list({ date, doctorId });
+      const newMin = toMin(time);
       const conflict = existing.find(
-        (a) => a.time === time && !["CANCELED", "NO_SHOW"].includes(a.status)
+        (a) =>
+          !["CANCELED", "NO_SHOW"].includes(a.status) &&
+          Math.abs(toMin(a.time) - newMin) < 30
       );
       if (conflict) {
-        setError(`На ${time} у этого врача уже есть запись`);
+        setConflictAppt(conflict);
         setSubmitting(false);
         return;
       }
     } catch {
       // Ignore — server will enforce uniqueness
     }
-    try {
-      const appt: Appointment = await clinicApi.appointments.create({
-        patientPhone: phone.trim(),
-        patientName:  patientName.trim() || phone.trim(),
-        doctorId:  doctorId  || undefined,
-        roomId:    roomId    || undefined,
-        serviceId: serviceId || undefined,
-        date, time,
-      });
-      onSuccess();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("clinic.booking.errorCreate"));
-    } finally { setSubmitting(false); }
+
+    try { await doCreate(); }
+    catch (e) { setError(e instanceof Error ? e.message : t("clinic.booking.errorCreate")); }
+    finally { setSubmitting(false); }
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -301,7 +344,45 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone }:
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       className="m-auto p-4 border-0 bg-transparent w-full max-w-lg backdrop:bg-slate-900/60 backdrop:backdrop-blur-sm"
     >
-      <div className="bg-white rounded-2xl flex flex-col shadow-2xl max-h-[88vh]">
+      <div className="relative bg-white rounded-2xl flex flex-col shadow-2xl max-h-[88vh]">
+
+        {/* ── Conflict dialog overlay ── */}
+        {conflictAppt && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/95 backdrop-blur-sm p-6">
+            <div className="text-center max-w-xs w-full">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+                <AlertCircle size={28} className="text-amber-500" />
+              </div>
+              <h4 className="mb-1 text-base font-extrabold text-slate-950">Близкая запись</h4>
+              <p className="mb-1 text-sm text-slate-500">
+                В <b>{conflictAppt.time}</b> уже записан (менее 30 мин до <b>{time}</b>):
+              </p>
+              <p className="mb-5 text-sm font-bold text-slate-800">{conflictAppt.patientName ?? conflictAppt.patientPhone}</p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleReplace}
+                  disabled={submitting}
+                  className="w-full rounded-xl bg-rose-500 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:opacity-60"
+                >
+                  {submitting ? "..." : "Заменить существующего"}
+                </button>
+                <button
+                  onClick={handleForce}
+                  disabled={submitting}
+                  className="w-full rounded-xl bg-amber-400 py-3 text-sm font-bold text-white transition hover:bg-amber-500 disabled:opacity-60"
+                >
+                  {submitting ? "..." : "Добавить всё равно (двойная)"}
+                </button>
+                <button
+                  onClick={() => setConflictAppt(null)}
+                  className="w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+                >
+                  Назад
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-teal-600 to-teal-700 rounded-t-2xl shrink-0">

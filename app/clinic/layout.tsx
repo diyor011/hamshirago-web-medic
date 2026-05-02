@@ -199,13 +199,13 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
     const token = getClinicToken();
     if (!token) {
-      router.replace("/clinic/auth");
+      router.replace("/auth?role=clinic");
       return;
     }
 
     const nextRole = getClinicRole();
     if (!nextRole) {
-      router.replace("/clinic/auth");
+      router.replace("/auth?role=clinic");
       return;
     }
 
@@ -264,7 +264,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
 
   function handleLogout() {
     clearClinicSession();
-    router.replace("/clinic/auth");
+    router.replace("/auth?role=clinic");
   }
 
   if (!mounted && !isAuthPage) return null;

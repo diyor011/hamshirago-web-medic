@@ -117,7 +117,7 @@ export default function ClinicRegisterPage() {
         if (data?.token) {
           router.push("/clinic/dashboard");
         } else {
-          router.push("/clinic/auth");
+          router.push("/auth?role=clinic");
         }
       }, 2500);
     } catch (err: unknown) {
@@ -411,7 +411,7 @@ export default function ClinicRegisterPage() {
           {/* Login link */}
           <p style={{ textAlign: "center", marginTop: 28, fontSize: 13, color: "#64748b" }}>
             Уже есть аккаунт?{" "}
-            <Link href="/clinic/auth" style={{ color: "#0d9488", fontWeight: 600, textDecoration: "none" }}>
+            <Link href="/auth?role=clinic" style={{ color: "#0d9488", fontWeight: 600, textDecoration: "none" }}>
               Войти
             </Link>
           </p>
