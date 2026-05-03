@@ -5,15 +5,10 @@ import { RefreshCw, MessageSquare, Phone, CalendarPlus } from "lucide-react";
 import { clinicApi, Lead, LeadStatus, LeadStats } from "@/lib/clinicApi";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import BookingModal from "@/components/clinic/BookingModal";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 type UiLeadStatus = "NEW" | "IN_PROGRESS" | "DONE" | "CANCELED";
-
-const STATUS_LABELS: Record<UiLeadStatus, string> = {
-  NEW:         "Новый",
-  IN_PROGRESS: "В работе",
-  DONE:        "Завершён",
-  CANCELED:    "Отменён",
-};
 
 const STATUS_BADGE: Record<UiLeadStatus, string> = {
   NEW:         "bg-blue-50 text-blue-600",
@@ -29,13 +24,6 @@ const STATUS_NEXT: Record<UiLeadStatus, UiLeadStatus | null> = {
   CANCELED: null,
 };
 
-const STATUS_NEXT_LABELS: Record<UiLeadStatus, string> = {
-  NEW:         "Взять в работу",
-  IN_PROGRESS: "Завершить",
-  DONE:        "",
-  CANCELED:    "",
-};
-
 const KPI_COLORS = [
   { bg: "bg-slate-50",   text: "text-slate-600" },
   { bg: "bg-blue-50",    text: "text-blue-600" },
@@ -49,22 +37,21 @@ function Skeleton() {
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3">
       <span className="text-sm text-red-500">{message}</span>
       <button onClick={onRetry} className="flex items-center gap-1.5 text-sm font-semibold text-red-500">
-        <RefreshCw size={13} /> Повторить
+        <RefreshCw size={13} /> {t("clinic.leads.retry")}
       </button>
     </div>
   );
 }
 
 const ALL_STATUSES: Array<UiLeadStatus | "ALL"> = ["ALL", "NEW", "IN_PROGRESS", "DONE", "CANCELED"];
-const FILTER_LABELS: Record<UiLeadStatus | "ALL", string> = {
-  ALL: "Все", ...STATUS_LABELS,
-};
 
 export default function LeadsPage() {
+  const { t, i18n } = useTranslation();
   const [stats, setStats] = useState<LeadStats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
@@ -83,7 +70,7 @@ export default function LeadsPage() {
   const loadStats = useCallback(async () => {
     setLoadingStats(true); setErrStats(null);
     try { setStats(await clinicApi.leads.stats()); }
-    catch (e) { setErrStats(e instanceof Error ? e.message : "Ошибка"); }
+    catch (e) { setErrStats(e instanceof Error ? e.message : t("clinic.common.error")); }
     finally { setLoadingStats(false); }
   }, []);
 
@@ -98,7 +85,7 @@ export default function LeadsPage() {
       setLeads(res.data);
       setTotal(res.total);
     } catch (e) {
-      setErrLeads(e instanceof Error ? e.message : "Ошибка");
+      setErrLeads(e instanceof Error ? e.message : t("clinic.common.error"));
     } finally {
       setLoadingLeads(false);
     }
@@ -116,9 +103,10 @@ export default function LeadsPage() {
     setUpdating(lead.id);
     try {
       await clinicApi.leads.updateStatus(lead.id, newStatus);
+      toast.success(t("clinic.leads.statusUpdated"));
       await Promise.all([loadStats(), loadLeads(filter, page)]);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Ошибка");
+      toast.error(e instanceof Error ? e.message : t("clinic.common.error"));
     } finally {
       setUpdating(null);
     }
@@ -128,11 +116,11 @@ export default function LeadsPage() {
 
   const kpiItems = stats
     ? [
-        { label: "Всего",     value: stats.total },
-        { label: "Новых",     value: stats.new },
-        { label: "В работе",  value: stats.inProgress },
-        { label: "Завершено", value: stats.done },
-        { label: "Отменено",  value: stats.canceled },
+        { label: t("clinic.leads.kpi.total"),    value: stats.total },
+        { label: t("clinic.leads.kpi.new"),      value: stats.new },
+        { label: t("clinic.leads.kpi.inWork"),   value: stats.inProgress },
+        { label: t("clinic.leads.kpi.finished"), value: stats.done },
+        { label: t("clinic.leads.kpi.canceled"), value: stats.canceled },
       ]
     : [];
 
@@ -147,8 +135,12 @@ export default function LeadsPage() {
           <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-violet-500/10 blur-2xl" />
         </div>
         <div className="relative">
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Лиды — Salomat AI</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Пациенты, обратившиеся через голосового ассистента</p>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+            <MessageSquare size={12} />
+            Clinic OS
+          </div>
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.leads.titleFull")}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-400">{t("clinic.leads.subtitleFull")}</p>
         </div>
       </section>
 
@@ -184,7 +176,7 @@ export default function LeadsPage() {
                 : "border-slate-200 bg-white text-slate-500 hover:border-slate-300",
             ].join(" ")}
           >
-            {FILTER_LABELS[s]}
+            {s === "ALL" ? t("clinic.leads.filterAll") : t(`clinic.leads.status.${s}`)}
           </button>
         ))}
       </div>
@@ -199,7 +191,7 @@ export default function LeadsPage() {
       ) : leads.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white p-16 text-center shadow-sm">
           <MessageSquare size={40} className="mb-3 text-slate-200" />
-          <p className="text-sm text-slate-400">Нет лидов</p>
+          <p className="text-sm text-slate-400">{t("clinic.leads.noLeadsEmpty")}</p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -211,17 +203,17 @@ export default function LeadsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                      <span className="text-[15px] font-bold text-slate-950">{lead.name ?? "Без имени"}</span>
+                      <span className="text-[15px] font-bold text-slate-950">{lead.name ?? t("clinic.leads.noName")}</span>
                       <span className="text-sm text-slate-500">{lead.phone}</span>
                       <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${STATUS_BADGE[st]}`}>
-                        {STATUS_LABELS[st]}
+                        {t(`clinic.leads.status.${st}`)}
                       </span>
                     </div>
                     {lead.notes && (
                       <p className="mb-1.5 text-sm leading-relaxed text-slate-500">{lead.notes}</p>
                     )}
                     <p className="text-[11px] text-slate-400">
-                      {new Date(lead.createdAt).toLocaleString("ru-RU")}
+                      {new Date(lead.createdAt).toLocaleString(i18n.language === "uz" ? "uz-Latn-UZ" : "ru-RU")}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col gap-1.5">
@@ -229,7 +221,7 @@ export default function LeadsPage() {
                       href={`tel:${lead.phone}`}
                       className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 no-underline"
                     >
-                      <Phone size={12} /> Позвонить
+                      <Phone size={12} /> {t("clinic.leads.call")}
                     </a>
 
                     {(st === "NEW" || st === "IN_PROGRESS") && (
@@ -237,7 +229,7 @@ export default function LeadsPage() {
                         onClick={() => setBookingLead(lead)}
                         className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600"
                       >
-                        <CalendarPlus size={12} /> Записать
+                        <CalendarPlus size={12} /> {t("clinic.leads.book")}
                       </button>
                     )}
 
@@ -247,7 +239,7 @@ export default function LeadsPage() {
                         disabled={updating === lead.id}
                         className="whitespace-nowrap rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
                       >
-                        {updating === lead.id ? "..." : STATUS_NEXT_LABELS[st]}
+                        {updating === lead.id ? "..." : t(`clinic.leads.actionNext.${st}`, { defaultValue: "" })}
                       </button>
                     )}
                     {st !== "CANCELED" && st !== "DONE" && (
@@ -256,7 +248,7 @@ export default function LeadsPage() {
                         disabled={updating === lead.id}
                         className="whitespace-nowrap rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-500 disabled:opacity-60"
                       >
-                        Отменить
+                        {t("clinic.leads.cancelAction")}
                       </button>
                     )}
                   </div>
@@ -275,7 +267,7 @@ export default function LeadsPage() {
             disabled={page === 1}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 disabled:text-slate-300"
           >
-            Назад
+            {t("clinic.leads.prev")}
           </button>
           <span className="px-4 py-2 text-sm font-semibold text-slate-500">
             {page} / {totalPages}
@@ -285,7 +277,7 @@ export default function LeadsPage() {
             disabled={page === totalPages}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 disabled:text-slate-300"
           >
-            Вперёд
+            {t("clinic.leads.next")}
           </button>
         </div>
       )}

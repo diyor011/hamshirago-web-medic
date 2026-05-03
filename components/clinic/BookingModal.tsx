@@ -50,20 +50,21 @@ function PatientDropdown({
   onSelect: (p: PatientSearchResult) => void;
   onNewPatient: () => void;
 }) {
+  const { t } = useTranslation();
   if (!query || query.length < 2) return null;
 
   return (
     <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
       {loading ? (
         <div className="flex items-center gap-2 px-4 py-3.5 text-sm text-slate-400">
-          <Loader2 size={14} className="animate-spin text-teal-500" /> Поиск…
+          <Loader2 size={14} className="animate-spin text-teal-500" /> {t("clinic.booking.searching")}
         </div>
       ) : results.length === 0 ? (
         <div className="px-4 py-3.5">
-          <p className="text-sm text-slate-400 mb-2">Пациент не найден по «{query}»</p>
+          <p className="text-sm text-slate-400 mb-2">{t("clinic.booking.patientNotFoundQuery", { query })}</p>
           <button onMouseDown={onNewPatient}
             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold hover:bg-amber-100 transition-colors cursor-pointer">
-            <User size={14} /> Заполнить вручную
+            <User size={14} /> {t("clinic.booking.fillManually")}
           </button>
         </div>
       ) : (
@@ -79,7 +80,7 @@ function PatientDropdown({
                   <span className="text-sm font-bold text-slate-900 truncate">{p.name}</span>
                   {p.allergies && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-200 shrink-0">
-                      <AlertCircle size={9} /> Аллергия
+                      <AlertCircle size={9} /> {t("clinic.patients.allergy")}
                     </span>
                   )}
                 </div>
@@ -88,12 +89,11 @@ function PatientDropdown({
                   {p.lastVisit && <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar size={10} /> {fmtLastVisit(p.lastVisit)}</span>}
                 </div>
               </div>
-              <span className="text-xs text-teal-500 font-semibold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">Выбрать →</span>
             </button>
           ))}
           <button onMouseDown={onNewPatient}
             className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-600 text-xs font-semibold transition-colors cursor-pointer border-t border-slate-100">
-            <User size={12} /> Добавить нового пациента вручную
+            <User size={12} /> {t("clinic.booking.addNewManually")}
           </button>
         </div>
       )}

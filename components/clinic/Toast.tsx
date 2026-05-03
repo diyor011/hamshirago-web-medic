@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { CheckCircle, XCircle, AlertCircle, Info, X } from "lucide-react";
 
 export type ToastType = "success" | "error" | "warn" | "info";
@@ -11,11 +12,11 @@ export interface ToastItem {
   message: string;
 }
 
-const STYLES: Record<ToastType, { bg: string; border: string; color: string; Icon: React.FC<{ size: number }> }> = {
-  success: { bg: "#f0fdf4", border: "#bbf7d0", color: "#16a34a", Icon: CheckCircle },
-  error:   { bg: "#fef2f2", border: "#fecaca", color: "#ef4444", Icon: XCircle    },
-  warn:    { bg: "#fffbeb", border: "#fde68a", color: "#d97706", Icon: AlertCircle },
-  info:    { bg: "#eff6ff", border: "#bfdbfe", color: "#2563eb", Icon: Info        },
+const STYLES: Record<ToastType, { containerCls: string; iconCls: string; Icon: React.FC<{ size: number }> }> = {
+  success: { containerCls: "bg-green-50 border-green-200",  iconCls: "text-green-600",  Icon: CheckCircle },
+  error:   { containerCls: "bg-red-50 border-red-200",      iconCls: "text-red-500",    Icon: XCircle    },
+  warn:    { containerCls: "bg-amber-50 border-amber-200",  iconCls: "text-amber-600",  Icon: AlertCircle },
+  info:    { containerCls: "bg-blue-50 border-blue-200",    iconCls: "text-blue-600",   Icon: Info        },
 };
 
 // ─── ToastContainer ────────────────────────────────────────────────────────
@@ -23,29 +24,26 @@ const STYLES: Record<ToastType, { bg: string; border: string; color: string; Ico
 export function ToastContainer({ toasts, onClose }: { toasts: ToastItem[]; onClose: (id: string) => void }) {
   if (toasts.length === 0) return null;
   return (
-    <div style={{
-      position: "fixed", bottom: 24, right: 24, zIndex: 9999,
-      display: "flex", flexDirection: "column", gap: 10, maxWidth: 360,
-    }}>
+    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2.5 max-w-[360px]">
       {toasts.map((t) => {
         const s = STYLES[t.type];
         const Icon = s.Icon;
         return (
-          <div key={t.id} style={{
-            display: "flex", alignItems: "flex-start", gap: 10,
-            background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12,
-            padding: "12px 14px", boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-            animation: "toastIn 200ms cubic-bezier(0.22,1,0.36,1)",
-          }}>
-            <span style={{ color: s.color, flexShrink: 0, marginTop: 1, display: "flex" }}><Icon size={16} /></span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", flex: 1, lineHeight: 1.45 }}>{t.message}</span>
-            <button onClick={() => onClose(t.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0, display: "flex", flexShrink: 0 }}>
+          <div
+            key={t.id}
+            className={`flex items-start gap-2.5 border rounded-xl px-3.5 py-3 shadow-[0_4px_16px_rgba(0,0,0,0.08)] [animation:toastIn_200ms_cubic-bezier(0.22,1,0.36,1)] ${s.containerCls}`}
+          >
+            <span className={`shrink-0 mt-px flex ${s.iconCls}`}><Icon size={16} /></span>
+            <span className="text-[13px] font-semibold text-slate-900 flex-1 leading-[1.45]">{t.message}</span>
+            <button
+              onClick={() => onClose(t.id)}
+              className="bg-transparent border-none cursor-pointer text-slate-400 p-0 flex shrink-0"
+            >
               <X size={14} />
             </button>
           </div>
         );
       })}
-      <style>{`@keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }`}</style>
     </div>
   );
 }
@@ -103,26 +101,23 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ message, onConfirm, onCancel, confirmLabel = "Подтвердить", danger = true }: ConfirmDialogProps) {
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <>
-      <div onClick={onCancel} style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.3)" }} />
-      <div style={{
-        position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
-        zIndex: 9999, background: "#fff", borderRadius: 16, padding: "24px",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.14)", width: "100%", maxWidth: 360,
-        animation: "toastIn 180ms cubic-bezier(0.22,1,0.36,1)",
-      }}>
-        <p style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Подтверждение</p>
-        <p style={{ fontSize: 14, color: "#64748b", marginBottom: 20, lineHeight: 1.5 }}>{message}</p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onCancel} style={{ padding: "9px 18px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 600, color: "#64748b", cursor: "pointer" }}>
+      <div onClick={onCancel} className="fixed inset-0 z-[9998] bg-black/30" />
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] bg-white rounded-2xl p-6 shadow-[0_8px_40px_rgba(0,0,0,0.14)] w-full max-w-[360px] [animation:toastIn_180ms_cubic-bezier(0.22,1,0.36,1)]">
+        <p className="text-[15px] font-bold text-slate-900 mb-2">Подтверждение</p>
+        <p className="text-sm text-slate-500 mb-5 leading-relaxed">{message}</p>
+        <div className="flex gap-2.5 justify-end">
+          <button onClick={onCancel} className="px-[18px] py-[9px] rounded-[10px] border border-slate-200 bg-white text-[13px] font-semibold text-slate-500 cursor-pointer">
             Отмена
           </button>
-          <button onClick={onConfirm} style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: danger ? "#ef4444" : "#0d9488", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          <button onClick={onConfirm} className={`px-[18px] py-[9px] rounded-[10px] text-[13px] font-bold text-white cursor-pointer border-none ${danger ? "bg-red-500" : "bg-teal-600"}`}>
             {confirmLabel}
           </button>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

@@ -11,6 +11,8 @@ import {
   clinicApi, StatsOverview, MonthlyStats, DoctorStats, ClinicSubscription,
 } from "@/lib/clinicApi";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
+import PageHero from "@/components/clinic/PageHero";
+import { useTranslation } from "react-i18next";
 import "@/i18n";
 
 type Period = "today" | "week" | "month" | "year";
@@ -662,6 +664,7 @@ function SubscriptionCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FinancePage() {
+  const { t } = useTranslation();
   const [period,       setPeriod]       = useState<Period>("month");
   const [overview,     setOverview]     = useState<StatsOverview | null>(null);
   const [monthly,      setMonthly]      = useState<MonthlyStats[]>([]);
@@ -733,11 +736,13 @@ export default function FinancePage() {
     <div className="min-h-full space-y-6">
       <ToastContainer toasts={toasts} onClose={closeToast} />
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-950">Финансы</h1>
-        <p className="mt-1 text-sm text-slate-500">Аналитика доходов и эффективности клиники</p>
-      </div>
+      {/* Hero */}
+      <PageHero
+        title={t("clinic.finance.title")}
+        subtitle={t("clinic.finance.subtitle")}
+        badge={<><TrendingUp size={12} /> Clinic OS</>}
+        accent="teal"
+      />
 
       {/* Hero */}
       <RevenueHero

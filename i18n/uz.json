@@ -246,6 +246,8 @@
       "subscription": "Tarif",
       "patients": "Bemorlar bazasi",
       "homeOrders": "Uyga buyurtmalar",
+      "ratings": "Reyting",
+      "aiInsights": "AI Tahlillar",
       "logout": "Chiqish"
     },
     "common": {
@@ -300,7 +302,10 @@
       "errorLoad": "Yuklashda xatolik",
       "delete": "O'chirish",
       "deleteConfirm": "Kabinetni o'chirishni tasdiqlaysizmi?",
-      "errorDelete": "Kabinetni o'chirishda xatolik"
+      "errorDelete": "Kabinetni o'chirishda xatolik",
+      "days": {
+        "1": "Du", "2": "Se", "3": "Ch", "4": "Pa", "5": "Ju", "6": "Sha", "7": "Ya"
+      }
     },
     "staff": {
       "title": "Xodimlar",
@@ -317,16 +322,30 @@
       "roleLabel": "Lavozim *",
       "photoUrl": "Rasm URL",
       "photoUrlPlaceholder": "https://res.cloudinary.com/...",
+      "create": "Yaratish",
+      "empty": "Xodimlar yo'q. Birinchisini qo'shing.",
       "deactivate": "Faolsizlantirish",
       "deactivateConfirm": "Xodimni faolsizlantirmoqchimisiz? U portalga kirish imkonini yo'qotadi.",
+      "confirmDeactivate": "Xodimni faolsizlantirmoqchimisiz? U portalga kirish imkonini yo'qotadi.",
       "deactivated": "Xodim faolsizlantirildi",
+      "errorDeactivate": "Faolsizlantirish xatosi",
       "inactive": "Faol emas",
       "saving": "Saqlanmoqda...",
       "errorName": "Ismni kiriting",
       "errorPhone": "Telefonni kiriting",
       "errorPassword": "Parolni kiriting",
+      "errorPasswordWeak": "Parol kamida 8 ta belgidan iborat bo'lishi va raqam o'z ichiga olishi kerak",
+      "errorPhotoUrl": "Rasm URL https://res.cloudinary.com/ bilan boshlanishi kerak",
       "errorCreate": "Yaratishda xatolik",
       "errorLoad": "Yuklashda xatolik",
+      "editName": "Ism *",
+      "specialization": "Mutaxassislik",
+      "specializationPlaceholder": "Terapevt, jarroh...",
+      "editPhotoUrl": "Rasm URL",
+      "saveBtn": "Saqlash",
+      "change": "O'zgartirish",
+      "activate": "Faollashtirish",
+      "activated": "Xodim faollashtirildi",
       "role": {
         "ceo": "Direktor (CEO)",
         "reception": "Qabul bo'limi",
@@ -366,7 +385,17 @@
       "errorFillAll": "Barcha maydonlarni to'ldiring",
       "errorPriceRange": "Min. narx maks. narxdan kichik bo'lishi kerak",
       "errorCreate": "Xatolik",
-      "errorLoad": "Yuklashda xatolik"
+      "errorLoad": "Yuklashda xatolik",
+      "doctor": "Shifokor",
+      "forClinic": "Klinika uchun umumiy",
+      "range": "Diapazon",
+      "deactivated": "Xizmat faolsizlantirildi",
+      "activated": "Xizmat faollashtirildi",
+      "activate": "Faollashtirish",
+      "confirmDeactivate": "Xizmatni faolsizlantirmoqchimisiz? U yangi yozilishlar uchun mavjud bo'lmaydi.",
+      "deactivateBtn": "Faolsizlantirish",
+      "errorDeactivate": "Faolsizlantirish xatosi",
+      "errorUpdate": "Yangilash xatosi"
     },
     "settings": {
       "title": "Klinika sozlamalari",
@@ -468,7 +497,23 @@
         "ONLINE": "Online"
       },
       "errorLoad": "Xatolik",
-      "retry": "Qayta urinish"
+      "retry": "Qayta urinish",
+      "statusLabels": {
+        "SCHEDULED":   "Yozuv",
+        "CHECKED_IN":  "Keldi",
+        "IN_PROGRESS": "Qabulda",
+        "DONE":        "Yakunlandi",
+        "CANCELED":    "Bekor qilindi",
+        "NO_SHOW":     "Kelmadi"
+      },
+      "timeAgo": {
+        "justNow": "hozirgina",
+        "minAgo":  "{{n}} daq oldin",
+        "hAgo":    "{{n}} soat oldin",
+        "dAgo":    "{{n}} kun oldin"
+      },
+      "months": ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"],
+      "weekdaysShort": ["Du","Se","Ch","Pa","Ju","Sha","Ya"]
     },
     "finance": {
       "title": "Moliya",
@@ -540,13 +585,59 @@
     },
     "leads": {
       "title": "Lidlar",
+      "titleFull": "Lidlar — Salomat AI",
       "subtitle": "Salomat AI chatbotdan lidlar",
+      "subtitleFull": "Ovozli assistent orqali murojaat qilgan bemorlar",
       "noLeads": "Hali lidlar yo'q",
+      "noLeadsEmpty": "Lidlar yo'q",
+      "filterAll": "Barchasi",
+      "retry": "Qayta urinish",
+      "call": "Qo'ng'iroq",
+      "book": "Yozish",
+      "cancelAction": "Bekor qilish",
+      "prev": "Oldingi",
+      "next": "Keyingi",
+      "noName": "Nomsiz",
+      "kpi": {
+        "total": "Jami",
+        "new": "Yangi",
+        "inWork": "Ishda",
+        "finished": "Yakunlandi",
+        "canceled": "Bekor qilindi"
+      },
+      "actionNext": {
+        "NEW": "Ishga olish",
+        "IN_PROGRESS": "Yakunlash"
+      },
       "status": {
         "NEW": "Yangi",
         "IN_PROGRESS": "Ishda",
         "DONE": "Yakunlandi",
         "CANCELED": "Bekor qilindi"
+      },
+      "statusUpdated": "Holat yangilandi"
+    },
+    "patients": {
+      "title": "Bemorlar bazasi",
+      "subtitle": "Ism yoki telefon raqami bo'yicha qidirish",
+      "searchPlaceholder": "Ism yoki telefonni kiriting (kamida 2 belgi)…",
+      "startTyping": "Ism yoki telefon raqamini kiriting",
+      "notFound": "«{{query}}» bo'yicha bemor topilmadi",
+      "noName": "Nomsiz",
+      "allergy": "Allergiya",
+      "lastVisit": "Oxirgi tashrif",
+      "visitHistory": "Tashrif tarixi",
+      "loading": "Yuklanmoqda…",
+      "noVisits": "Tashriflar topilmadi",
+      "errorLoad": "Yuklashda xatolik",
+      "statusLabels": {
+        "SCHEDULED":   "Yozuv",
+        "CHECKED_IN":  "Keldi",
+        "IN_PROGRESS": "Qabulda",
+        "DONE":        "Yakunlandi",
+        "CANCELLED":   "Bekor qilindi",
+        "CANCELED":    "Bekor qilindi",
+        "NO_SHOW":     "Kelmadi"
       }
     },
     "booking": {
@@ -579,7 +670,11 @@
       "errorTime": "Vaqtni ko'rsating",
       "errorRoom": "Xonani tanlang",
       "errorTimeRange": "Vaqt shifokor jadvalidan tashqarida ({{start}}–{{end}})",
-      "errorCreate": "Yozuv yaratishda xatolik"
+      "errorCreate": "Yozuv yaratishda xatolik",
+      "searching": "Qidirilmoqda…",
+      "patientNotFoundQuery": "«{{query}}» bo'yicha bemor topilmadi",
+      "fillManually": "Qo'lda to'ldirish",
+      "addNewManually": "Yangi bemorni qo'lda qo'shish"
     },
     "billing": {
       "subtitle": "HamshiraGo to'lovlarini o'tkazish uchun ma'lumotlar",

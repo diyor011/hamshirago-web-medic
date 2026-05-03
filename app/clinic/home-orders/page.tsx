@@ -225,9 +225,12 @@ export default function HomeOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const { toasts, toast, closeToast } = useToast();
 
+  const [notReady, setNotReady] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNotReady(false);
     try {
       const [ordersData, staffData] = await Promise.all([
         clinicApi.homeOrders.list(),
@@ -237,7 +240,12 @@ export default function HomeOrdersPage() {
       setOrders(active);
       setStaff(staffData);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка загрузки");
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("404") || msg.includes("Not Found") || msg.includes("Cannot GET")) {
+        setNotReady(true);
+      } else {
+        setError(msg || "Ошибка загрузки");
+      }
     } finally {
       setLoading(false);
     }
@@ -258,6 +266,22 @@ export default function HomeOrdersPage() {
     }
   }
 
+  if (notReady) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-5 py-32 text-center px-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100">
+          <Home size={28} className="text-amber-500" />
+        </div>
+        <div>
+          <p className="text-[16px] font-bold text-slate-800">Раздел в разработке</p>
+          <p className="mt-1.5 text-[13px] text-slate-500 max-w-sm">
+            Функция «Заказы на дом» будет доступна после подключения бэкенд-эндпоинта.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -269,6 +293,10 @@ export default function HomeOrdersPage() {
         </div>
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+              <Home size={12} />
+              Clinic OS
+            </div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Заказы на дом</h1>
             <p className="mt-2 text-sm leading-6 text-slate-400">
               Активные заказы клиники · {orders.length} шт.

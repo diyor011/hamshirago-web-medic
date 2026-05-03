@@ -911,7 +911,9 @@ export default function DashboardPage() {
               icon={<CheckCircle size={22} />}
               label={t("clinic.dashboard.kpi.appointments")}
               value={formatNumber(overview.appointments ?? 0)}
-              hint={`${t("clinic.dashboard.todayLabel")}: ${todayApps.length}`}
+              hint={period === "today"
+                ? `${t("clinic.dashboard.todayLabel")}: ${todayApps.length}`
+                : PERIOD_LABELS[period]}
               toneIndex={1}
             />
             <MetricCard

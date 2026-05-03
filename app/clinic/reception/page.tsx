@@ -18,15 +18,6 @@ const CALENDAR_END_HOUR   = 20;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<AppointmentStatus, string> = {
-  SCHEDULED:  "Запись",
-  CHECKED_IN: "Прибыл",
-  IN_PROGRESS:"На приёме",
-  DONE:       "Готово",
-  CANCELED:   "Отменён",
-  NO_SHOW:    "Не явился",
-};
-
 const STATUS_BADGE: Record<AppointmentStatus, string> = {
   SCHEDULED:   "bg-blue-50 text-blue-600",
   CHECKED_IN:  "bg-yellow-50 text-yellow-600",
@@ -46,9 +37,6 @@ const STATUS_ACCENT: Record<AppointmentStatus, string> = {
   NO_SHOW:     "#cbd5e1",
 };
 
-const PAYMENT_LABELS: Record<string, string> = {
-  CASH: "Наличные", TERMINAL: "Терминал", ONLINE: "Online",
-};
 
 // Calendar cell colors
 const CAL_STATUS_COLORS: Record<AppointmentStatus, { bg: string; bd: string; fg: string }> = {
@@ -62,13 +50,13 @@ const CAL_STATUS_COLORS: Record<AppointmentStatus, { bg: string; bd: string; fg:
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────────
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (diff < 1) return "только что";
-  if (diff < 60) return `${diff} мин назад`;
+  if (diff < 1) return t("clinic.reception.timeAgo.justNow");
+  if (diff < 60) return t("clinic.reception.timeAgo.minAgo", { n: diff });
   const h = Math.floor(diff / 60);
-  if (h < 24) return `${h} ч назад`;
-  return `${Math.floor(h / 24)} д назад`;
+  if (h < 24) return t("clinic.reception.timeAgo.hAgo", { n: h });
+  return t("clinic.reception.timeAgo.dAgo", { n: Math.floor(h / 24) });
 }
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────────
@@ -553,6 +541,10 @@ export default function ReceptionPage() {
         </div>
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+              <CalendarPlus size={12} />
+              Clinic OS
+            </div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.reception.title")}</h1>
             <p className="mt-2 text-sm capitalize text-slate-400">{todayLabel}</p>
           </div>
@@ -647,7 +639,7 @@ export default function ReceptionPage() {
                   const firstDay = new Date(y, m, 1).getDay();
                   const offset = firstDay === 0 ? 6 : firstDay - 1;
                   const daysInMonth = new Date(y, m + 1, 0).getDate();
-                  const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+                  const monthNames = t("clinic.reception.months", { returnObjects: true }) as string[];
                   const cells = Array.from({ length: offset + daysInMonth }, (_, i) => i < offset ? null : i - offset + 1);
                   return (
                     <div className="absolute left-0 top-[calc(100%+6px)] z-[300] w-[280px] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
@@ -659,7 +651,7 @@ export default function ReceptionPage() {
                         <button onClick={() => setPickerViewDate(new Date(y + 1, m, 1))} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-50">››</button>
                       </div>
                       <div className="mb-1 grid grid-cols-7 gap-0.5">
-                        {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => (
+                        {(t("clinic.reception.weekdaysShort", { returnObjects: true }) as string[]).map((d) => (
                           <div key={d} className="py-0.5 text-center text-[10px] font-bold text-slate-400">{d}</div>
                         ))}
                       </div>
@@ -749,7 +741,7 @@ export default function ReceptionPage() {
                                 onClick={() => setSelectedAppt(a)}
                                 className="rounded-md p-1 text-left text-[11px] font-semibold leading-tight"
                                 style={{ background: col.bg, border: `1px solid ${col.bd}`, color: col.fg }}
-                                title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${STATUS_LABELS[a.status as AppointmentStatus]}`}
+                                title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${t(`clinic.reception.statusLabels.${a.status as AppointmentStatus}`)}`}
                               >
                                 <div className="font-extrabold">{a.time}</div>
                                 {/* CLINIC-R4: show name AND phone */}
@@ -793,7 +785,7 @@ export default function ReceptionPage() {
                   className="h-2.5 w-2.5 rounded-sm"
                   style={{ background: CAL_STATUS_COLORS[s].bg, border: `1px solid ${CAL_STATUS_COLORS[s].bd}` }}
                 />
-                {STATUS_LABELS[s]}
+                {t(`clinic.reception.statusLabels.${s}`)}
               </span>
             ))}
           </div>
@@ -816,11 +808,11 @@ export default function ReceptionPage() {
               <div><b>{t("clinic.reception.date")}:</b> {selectedAppt.date.split("-").reverse().join(".")}</div>
               <div><b>{t("clinic.reception.room")}:</b> {rooms.find((r) => r.id === selectedAppt.roomId)?.name ?? selectedAppt.roomId}</div>
               <div><b>{t("clinic.reception.doctor")}:</b> {doctors.find((d) => d.doctorId === selectedAppt.doctorId)?.doctorName ?? selectedAppt.doctorId}</div>
-              <div><b>{t("clinic.reception.payment")}:</b> {PAYMENT_LABELS[selectedAppt.paymentType ?? ""] ?? selectedAppt.paymentType ?? "—"}</div>
+              <div><b>{t("clinic.reception.payment")}:</b> {t(`clinic.reception.paymentLabels.${selectedAppt.paymentType ?? ""}`, { defaultValue: selectedAppt.paymentType ?? "—" })}</div>
               <div className="flex items-center gap-2">
                 <b>{t("clinic.reception.status")}:</b>
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE[selectedAppt.status as AppointmentStatus]}`}>
-                  {STATUS_LABELS[selectedAppt.status as AppointmentStatus]}
+                  {t(`clinic.reception.statusLabels.${selectedAppt.status}`)}
                 </span>
               </div>
             </div>
@@ -907,7 +899,7 @@ export default function ReceptionPage() {
                         {/* Status + actions */}
                         <div className="flex shrink-0 flex-col items-end gap-2">
                           <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE[st]}`}>
-                            {STATUS_LABELS[st]}
+                            {t(`clinic.reception.statusLabels.${st}`)}
                           </span>
 
                           {/* 3 main action buttons based on status */}
@@ -1086,7 +1078,7 @@ export default function ReceptionPage() {
                   <div key={lead.id} className="rounded-2xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-slate-200 hover:shadow-md">
                     <div className="mb-1 flex items-center justify-between">
                       <span className="text-sm font-bold text-slate-950">{lead.name ?? t("clinic.reception.withoutName")}</span>
-                      <span className="text-[11px] text-slate-400">{timeAgo(lead.createdAt)}</span>
+                      <span className="text-[11px] text-slate-400">{timeAgo(lead.createdAt, t)}</span>
                     </div>
                     <a
                       href={`tel:${lead.phone}`}

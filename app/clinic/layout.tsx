@@ -19,6 +19,8 @@ import {
   CreditCard,
   ChevronRight,
   BookUser,
+  Award,
+  Sparkles,
 } from "lucide-react";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
@@ -46,7 +48,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/home-orders", labelKey: "clinic.nav.homeOrders", icon: Users, roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/finance", labelKey: "clinic.nav.finance", icon: TrendingUp, roles: ["CEO"] },
   { href: "/clinic/settings", labelKey: "clinic.nav.settings", icon: Settings, roles: ["CEO"] },
-  { href: "/clinic/subscription", labelKey: "clinic.nav.subscription", icon: CreditCard, roles: ["CEO"] },
+  { href: "/clinic/subscription",  labelKey: "clinic.nav.subscription",  icon: CreditCard, roles: ["CEO"] },
+  { href: "/clinic/ratings",       labelKey: "clinic.nav.ratings",       icon: Award,      roles: ["CEO"] },
+  { href: "/clinic/ai-insights",   labelKey: "clinic.nav.aiInsights",    icon: Sparkles,   roles: ["CEO"] },
 ];
 
 function SidebarContent({
@@ -219,6 +223,8 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       "/clinic/finance",
       "/clinic/settings",
       "/clinic/subscription",
+      "/clinic/ratings",
+      "/clinic/ai-insights",
     ];
 
     const doctorBlocked = [...ceoOnly, "/clinic/home-orders", "/clinic/patients"];

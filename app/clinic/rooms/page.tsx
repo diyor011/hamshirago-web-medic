@@ -8,14 +8,9 @@ import {
   ClinicStaff,
   RoomDoctorSchedule,
 } from "@/lib/clinicApi";
+import { ConfirmDialog } from "@/components/clinic/Toast";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
-
-const DAY_LABELS: Record<number, string> = {
-  1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс",
-};
-
-const UI_DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((v) => ({ value: v, label: DAY_LABELS[v] }));
 
 function Skeleton() {
   return <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />;
@@ -47,6 +42,11 @@ interface RoomWithSchedule extends ClinicRoom {
 export default function RoomsPage() {
   const { t } = useTranslation();
 
+  const UI_DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7].map((v) => ({
+    value: v,
+    label: t(`clinic.rooms.days.${v}`),
+  }));
+
   const [rooms, setRooms] = useState<RoomWithSchedule[]>([]);
   const [staff, setStaff] = useState<ClinicStaff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +59,7 @@ export default function RoomsPage() {
   const [createError, setCreateError] = useState("");
 
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [assignRoomId, setAssignRoomId] = useState<string | null>(null);
   const [assignForm, setAssignForm] = useState<AssignDoctorForm>({
@@ -114,8 +115,8 @@ export default function RoomsPage() {
     }
   }
 
-  async function handleDelete(roomId: string) {
-    if (!confirm(t("clinic.rooms.deleteConfirm"))) return;
+  async function doDelete(roomId: string) {
+    setConfirmDeleteId(null);
     setDeletingRoomId(roomId);
     try {
       await clinicApi.rooms.delete(roomId);
@@ -167,6 +168,10 @@ export default function RoomsPage() {
         </div>
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+              <Building2 size={12} />
+              Clinic OS
+            </div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.rooms.title")}</h1>
             <p className="mt-2 text-sm leading-6 text-slate-400">{t("clinic.rooms.subtitle")}</p>
           </div>
@@ -276,7 +281,7 @@ export default function RoomsPage() {
                                 <div className="flex gap-0.5">
                                   {(s.days ?? []).map((d) => (
                                     <span key={d} className="rounded-md bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-600">
-                                      {DAY_LABELS[d] ?? String(d)}
+                                      {t(`clinic.rooms.days.${d}`)}
                                     </span>
                                   ))}
                                 </div>
@@ -297,7 +302,7 @@ export default function RoomsPage() {
                             <UserPlus size={13} /> {t("clinic.rooms.assignDoctor")}
                           </button>
                           <button
-                            onClick={() => handleDelete(room.id)}
+                            onClick={() => setConfirmDeleteId(room.id)}
                             disabled={deletingRoomId === room.id}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-100 disabled:opacity-50"
                           >
@@ -312,6 +317,17 @@ export default function RoomsPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Confirm delete dialog */}
+      {confirmDeleteId && (
+        <ConfirmDialog
+          message={t("clinic.rooms.deleteConfirm")}
+          confirmLabel={t("clinic.rooms.delete")}
+          danger
+          onConfirm={() => doDelete(confirmDeleteId)}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
       )}
 
       {/* Assign doctor modal */}

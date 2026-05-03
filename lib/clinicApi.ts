@@ -354,6 +354,80 @@ export interface WaitlistEntry {
   createdAt: string;
 }
 
+// ── Comparison / Rating ────────────────────────────────────────────────────
+
+export interface ComparisonData {
+  ready: boolean;
+  message?: string;
+  compositeScore?: number;
+  rank?: number;
+  percentile?: number;
+  cohortSize?: number;
+  trend30d?: number;
+  peerMedian?: number;
+  weakSpots?: Array<{ metric: string; value: number; peerMedian: number }>;
+  metrics?: {
+    fillRate?: number;
+    noShowRate?: number;
+    repeatRate?: number;
+    avgRating?: number;
+    responseTime?: number;
+    revenueGrowth?: number;
+  };
+}
+
+// ── AI Insights ────────────────────────────────────────────────────────────
+
+export interface AiReadyResponse<T> {
+  ready: boolean;
+  message?: string;
+  data?: T;
+}
+
+export interface NoShowRiskItem {
+  appointmentId: string;
+  patientName: string;
+  patientPhone: string;
+  scheduledAt: string;
+  risk: number;
+  level: "low" | "med" | "high";
+  reasons: string[];
+}
+
+export interface DemandForecastItem {
+  week: string;
+  category: string;
+  median: number;
+  recentAvg: number;
+  confidence: "high" | "med" | "low";
+}
+
+export interface ChurnPatient {
+  patientId: string;
+  patientName: string;
+  patientPhone: string;
+  lastVisit: string;
+  avgReturnDays: number;
+  daysSinceLastVisit: number;
+  smsText: string;
+}
+
+export interface LtvPatient {
+  patientId: string;
+  patientName: string;
+  patientPhone: string;
+  predictedLtv: number;
+  segment: "vip" | "high" | "medium";
+  totalVisits: number;
+  totalSpent: number;
+}
+
+export interface ServiceMixRecommendation {
+  severity: "opportunity" | "warning" | "info";
+  title: string;
+  body: string;
+}
+
 function normalizeAppointmentStatus(status: string | undefined | null): AppointmentStatus {
   if (status === "CANCELLED" || status === "CANCELED") return "CANCELED";
   if (status === "NO_SHOW") return "NO_SHOW";
@@ -647,6 +721,7 @@ export const clinicApi = {
         body: JSON.stringify(dto),
       }),
     deactivate: (id: string) => request<void>(`/clinic/services/${id}`, { method: "DELETE" }),
+    activate: (id: string) => request<ClinicService>(`/clinic/services/${id}/activate`, { method: "PATCH" }),
   },
 
   appointments: {
@@ -798,6 +873,31 @@ export const clinicApi = {
         method: "POST",
         body: JSON.stringify({ plan }),
       }),
+  },
+
+  comparison: {
+    get: () =>
+      request<ComparisonData>("/clinic/stats/comparison"),
+  },
+
+  ai: {
+    noShowRisk: () =>
+      request<AiReadyResponse<NoShowRiskItem[]>>("/clinic/ai/no-show-risk"),
+    demandForecast: () =>
+      request<AiReadyResponse<DemandForecastItem[]>>("/clinic/ai/demand-forecast"),
+    churn: () =>
+      request<AiReadyResponse<ChurnPatient[]>>("/clinic/ai/churn"),
+    sendChurnSms: (patientPhone: string) =>
+      request<{ sent: boolean }>("/clinic/ai/churn/send", {
+        method: "POST",
+        body: JSON.stringify({ patientPhone }),
+      }),
+    ltv: () =>
+      request<AiReadyResponse<LtvPatient[]>>("/clinic/ai/ltv"),
+    serviceMix: () =>
+      request<AiReadyResponse<ServiceMixRecommendation[]>>("/clinic/ai/service-mix"),
+    refresh: () =>
+      request<{ ok: boolean }>("/clinic/ai/refresh", { method: "POST" }),
   },
 
   waitlist: {

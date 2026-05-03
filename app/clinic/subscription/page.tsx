@@ -48,7 +48,12 @@ export default function SubscriptionPage() {
     try {
       setSub(await clinicApi.subscription.get());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка загрузки");
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("404") || msg.includes("Not Found")) {
+        setSub(null); // no subscription yet — not an error
+      } else {
+        setError(msg || "Ошибка загрузки");
+      }
     } finally {
       setLoading(false);
     }
@@ -78,16 +83,34 @@ export default function SubscriptionPage() {
     );
   }
 
-  if (error || !sub) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <AlertCircle size={36} className="text-red-400" />
-        <p className="text-slate-500 text-sm">{error ?? "Не удалось загрузить план"}</p>
+        <p className="text-slate-500 text-sm">{error}</p>
         <button
           onClick={loadSub}
           className="flex items-center gap-2 text-sm font-semibold text-teal-600 hover:text-teal-700 cursor-pointer bg-transparent border-none"
         >
           <RefreshCw size={14} /> Повторить
+        </button>
+      </div>
+    );
+  }
+
+  if (!loading && !sub) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <Crown size={40} className="text-violet-400" />
+        <div>
+          <p className="text-[15px] font-bold text-slate-900">Нет активного плана</p>
+          <p className="mt-1 text-sm text-slate-400">Подключите план, чтобы получить доступ к функциям HamshiraGo</p>
+        </div>
+        <button
+          onClick={() => setConfirmModal(true)}
+          className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-violet-700"
+        >
+          <Crown size={15} /> Подключить MAX — $35/мес
         </button>
       </div>
     );
@@ -151,6 +174,10 @@ export default function SubscriptionPage() {
         </div>
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+              <Crown size={12} />
+              Clinic OS
+            </div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Тарифный план</h1>
             <p className="mt-2 text-sm leading-6 text-slate-400">Управление подпиской и функциями клиники</p>
           </div>

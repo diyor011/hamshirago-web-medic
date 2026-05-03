@@ -8,6 +8,8 @@ import {
 import { clinicApi, ClinicCompany, ClinicService } from "@/lib/clinicApi";
 import { useClinic } from "@/context/ClinicContext";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 interface DaySchedule { open: boolean; from: string; to: string; }
 interface WorkingHours { [day: number]: DaySchedule; }
@@ -80,6 +82,7 @@ const inputCls = "w-full rounded-xl border-[1.5px] border-slate-200 px-3 py-2.5 
 const cardCls  = "rounded-2xl border border-slate-100 bg-white p-6 shadow-sm";
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const { setClinic } = useClinic();
 
   const [company, setCompany]             = useState<ClinicCompany | null>(null);
@@ -147,6 +150,10 @@ export default function SettingsPage() {
   useEffect(() => { loadCompany(); loadServices(); }, [loadCompany, loadServices]);
 
   async function handleSaveCompany() {
+    if (companyForm.logoUrl && !companyForm.logoUrl.startsWith("https://res.cloudinary.com/")) {
+      toast.error("URL логотипа должен начинаться с https://res.cloudinary.com/");
+      return;
+    }
     setSaving(true); setSaveSuccess(false);
     try {
       const updated = await clinicApi.company.update({
@@ -264,8 +271,8 @@ export default function SettingsPage() {
       <ToastContainer toasts={toasts} onClose={closeToast} />
       {confirmSvcId && (
         <ConfirmDialog
-          message="Деактивировать услугу? Она станет недоступна для записи."
-          confirmLabel="Деактивировать"
+          message={t("clinic.services.confirmDeactivate")}
+          confirmLabel={t("clinic.services.deactivateBtn")}
           onConfirm={() => doDeactivateService(confirmSvcId)}
           onCancel={() => setConfirmSvcId(null)}
         />
@@ -278,8 +285,12 @@ export default function SettingsPage() {
           <div className="absolute bottom-0 right-1/4 h-32 w-32 rounded-full bg-violet-500/10 blur-2xl" />
         </div>
         <div className="relative">
-          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Настройки клиники</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Основные данные, расписание и список услуг</p>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+            <Settings size={12} />
+            Clinic OS
+          </div>
+          <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.settings.title")}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-400">{t("clinic.settings.subtitle")}</p>
         </div>
       </section>
 

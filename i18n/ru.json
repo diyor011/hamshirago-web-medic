@@ -246,6 +246,8 @@
       "subscription": "Тариф",
       "patients": "База пациентов",
       "homeOrders": "Заказы на дом",
+      "ratings": "Рейтинг",
+      "aiInsights": "AI Инсайты",
       "logout": "Выйти"
     },
     "common": {
@@ -300,7 +302,10 @@
       "errorLoad": "Ошибка загрузки",
       "delete": "Удалить",
       "deleteConfirm": "Удалить кабинет? Это действие нельзя отменить.",
-      "errorDelete": "Ошибка удаления кабинета"
+      "errorDelete": "Ошибка удаления кабинета",
+      "days": {
+        "1": "Пн", "2": "Вт", "3": "Ср", "4": "Чт", "5": "Пт", "6": "Сб", "7": "Вс"
+      }
     },
     "staff": {
       "title": "Сотрудники",
@@ -317,16 +322,30 @@
       "roleLabel": "Роль *",
       "photoUrl": "Фото URL",
       "photoUrlPlaceholder": "https://res.cloudinary.com/...",
+      "create": "Создать",
+      "empty": "Нет сотрудников. Добавьте первого.",
       "deactivate": "Деактивировать",
       "deactivateConfirm": "Деактивировать сотрудника? Он потеряет доступ к порталу.",
+      "confirmDeactivate": "Деактивировать сотрудника? Он потеряет доступ к порталу.",
       "deactivated": "Сотрудник деактивирован",
+      "errorDeactivate": "Ошибка деактивации",
       "inactive": "Неактивен",
       "saving": "Сохранение...",
       "errorName": "Введите имя",
       "errorPhone": "Введите телефон",
       "errorPassword": "Введите пароль",
+      "errorPasswordWeak": "Пароль должен быть не менее 8 символов и содержать цифру",
+      "errorPhotoUrl": "URL фото должен начинаться с https://res.cloudinary.com/",
       "errorCreate": "Ошибка создания",
       "errorLoad": "Ошибка загрузки",
+      "editName": "Имя *",
+      "specialization": "Специализация",
+      "specializationPlaceholder": "Терапевт, хирург...",
+      "editPhotoUrl": "Фото URL",
+      "saveBtn": "Сохранить",
+      "change": "Изменить",
+      "activate": "Активировать",
+      "activated": "Сотрудник активирован",
       "role": {
         "ceo": "Директор (CEO)",
         "reception": "Регистратура",
@@ -366,7 +385,17 @@
       "errorFillAll": "Заполните все поля",
       "errorPriceRange": "Мин. цена должна быть меньше макс.",
       "errorCreate": "Ошибка",
-      "errorLoad": "Ошибка загрузки"
+      "errorLoad": "Ошибка загрузки",
+      "doctor": "Врач",
+      "forClinic": "Общая для клиники",
+      "range": "Диапазон",
+      "deactivated": "Услуга деактивирована",
+      "activated": "Услуга активирована",
+      "activate": "Активировать",
+      "confirmDeactivate": "Деактивировать услугу? Она станет недоступна для новых записей.",
+      "deactivateBtn": "Деактивировать",
+      "errorDeactivate": "Ошибка деактивации",
+      "errorUpdate": "Ошибка обновления"
     },
     "settings": {
       "title": "Настройки клиники",
@@ -468,7 +497,23 @@
         "ONLINE": "Online"
       },
       "errorLoad": "Ошибка",
-      "retry": "Повторить"
+      "retry": "Повторить",
+      "statusLabels": {
+        "SCHEDULED":   "Запись",
+        "CHECKED_IN":  "Прибыл",
+        "IN_PROGRESS": "На приёме",
+        "DONE":        "Готово",
+        "CANCELED":    "Отменён",
+        "NO_SHOW":     "Не явился"
+      },
+      "timeAgo": {
+        "justNow": "только что",
+        "minAgo":  "{{n}} мин назад",
+        "hAgo":    "{{n}} ч назад",
+        "dAgo":    "{{n}} д назад"
+      },
+      "months": ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
+      "weekdaysShort": ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"]
     },
     "finance": {
       "title": "Финансы",
@@ -540,13 +585,59 @@
     },
     "leads": {
       "title": "Лиды",
+      "titleFull": "Лиды — Salomat AI",
       "subtitle": "Лиды от чат-бота Salomat AI",
+      "subtitleFull": "Пациенты, обратившиеся через голосового ассистента",
       "noLeads": "Лидов пока нет",
+      "noLeadsEmpty": "Нет лидов",
+      "filterAll": "Все",
+      "retry": "Повторить",
+      "call": "Позвонить",
+      "book": "Записать",
+      "cancelAction": "Отменить",
+      "prev": "Назад",
+      "next": "Вперёд",
+      "noName": "Без имени",
+      "kpi": {
+        "total": "Всего",
+        "new": "Новых",
+        "inWork": "В работе",
+        "finished": "Завершено",
+        "canceled": "Отменено"
+      },
+      "actionNext": {
+        "NEW": "Взять в работу",
+        "IN_PROGRESS": "Завершить"
+      },
       "status": {
         "NEW": "Новый",
         "IN_PROGRESS": "В работе",
         "DONE": "Завершён",
         "CANCELED": "Отменён"
+      },
+      "statusUpdated": "Статус обновлён"
+    },
+    "patients": {
+      "title": "База пациентов",
+      "subtitle": "Поиск по имени или номеру телефона",
+      "searchPlaceholder": "Введите имя или телефон (минимум 2 символа)…",
+      "startTyping": "Начните вводить имя или номер телефона",
+      "notFound": "Пациент не найден по «{{query}}»",
+      "noName": "Без имени",
+      "allergy": "Аллергия",
+      "lastVisit": "Последний визит",
+      "visitHistory": "История визитов",
+      "loading": "Загрузка…",
+      "noVisits": "Визитов не найдено",
+      "errorLoad": "Ошибка загрузки",
+      "statusLabels": {
+        "SCHEDULED":   "Запись",
+        "CHECKED_IN":  "Прибыл",
+        "IN_PROGRESS": "На приёме",
+        "DONE":        "Готово",
+        "CANCELLED":   "Отменён",
+        "CANCELED":    "Отменён",
+        "NO_SHOW":     "Не явился"
       }
     },
     "booking": {
@@ -579,7 +670,11 @@
       "errorTime": "Укажите время",
       "errorRoom": "Выберите кабинет",
       "errorTimeRange": "Время вне графика врача ({{start}}–{{end}})",
-      "errorCreate": "Ошибка создания записи"
+      "errorCreate": "Ошибка создания записи",
+      "searching": "Поиск…",
+      "patientNotFoundQuery": "Пациент не найден по «{{query}}»",
+      "fillManually": "Заполнить вручную",
+      "addNewManually": "Добавить нового пациента вручную"
     },
     "billing": {
       "subtitle": "Данные необходимы для перечисления выплат от HamshiraGo",

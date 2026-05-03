@@ -6,28 +6,21 @@ import {
   ChevronRight, Loader2, BookUser, AlertCircle,
 } from "lucide-react";
 import { clinicApi, PatientSearchResult, Appointment } from "@/lib/clinicApi";
+import PageHero from "@/components/clinic/PageHero";
+import { useTranslation } from "react-i18next";
+import "@/i18n";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function fmtDate(iso: string | null | undefined) {
+function fmtDate(iso: string | null | undefined, locale = "ru-RU") {
   if (!iso) return "—";
-  try { return new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }); }
+  try { return new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" }); }
   catch { return "—"; }
 }
 
 function fmtTime(t: string | null | undefined) {
   return t ?? "—";
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED:   "Запись",
-  CHECKED_IN:  "Прибыл",
-  IN_PROGRESS: "На приёме",
-  DONE:        "Готово",
-  CANCELLED:   "Отменён",
-  CANCELED:    "Отменён",
-  NO_SHOW:     "Не явился",
-};
 
 const STATUS_CLS: Record<string, string> = {
   SCHEDULED:   "bg-blue-50 text-blue-600",
@@ -42,10 +35,12 @@ const STATUS_CLS: Record<string, string> = {
 // ─── Visit card ───────────────────────────────────────────────────────────────
 
 function VisitCard({ appt }: { appt: Appointment }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "uz" ? "uz-Latn-UZ" : "ru-RU";
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 flex items-center gap-4">
       <div className="shrink-0 flex flex-col items-center gap-0.5 min-w-[52px]">
-        <span className="text-sm font-bold text-slate-700">{fmtDate(appt.date)}</span>
+        <span className="text-sm font-bold text-slate-700">{fmtDate(appt.date, locale)}</span>
         <span className="text-xs text-slate-400 flex items-center gap-0.5">
           <Clock size={10} />{fmtTime(appt.time)}
         </span>
@@ -59,7 +54,7 @@ function VisitCard({ appt }: { appt: Appointment }) {
         )}
       </div>
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_CLS[appt.status] ?? "bg-slate-100 text-slate-500"}`}>
-        {STATUS_LABEL[appt.status] ?? appt.status}
+        {t(`clinic.patients.statusLabels.${appt.status}`, { defaultValue: appt.status })}
       </span>
     </div>
   );
@@ -74,6 +69,8 @@ function PatientPanel({
   patient: PatientSearchResult;
   onClose: () => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "uz" ? "uz-Latn-UZ" : "ru-RU";
   const [visits, setVisits] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -82,9 +79,9 @@ function PatientPanel({
     setLoading(true); setError("");
     clinicApi.patients.getHistory(patient.id)
       .then((res) => setVisits(res.visits))
-      .catch((e) => setError(e instanceof Error ? e.message : "Ошибка загрузки"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("clinic.patients.errorLoad")))
       .finally(() => setLoading(false));
-  }, [patient.id]);
+  }, [patient.id, t]);
 
   const initials = patient.name
     .split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
@@ -97,18 +94,18 @@ function PatientPanel({
           {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-base font-bold text-slate-800 truncate">{patient.name || "Без имени"}</p>
+          <p className="text-base font-bold text-slate-800 truncate">{patient.name || t("clinic.patients.noName")}</p>
           <p className="text-sm text-slate-400 flex items-center gap-1 mt-0.5">
             <Phone size={11} />{patient.phone}
           </p>
           {patient.allergies && (
             <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-red-600 border border-red-200">
-              <AlertCircle size={9} /> Аллергия: {patient.allergies}
+              <AlertCircle size={9} /> {t("clinic.patients.allergy")}: {patient.allergies}
             </span>
           )}
           {patient.lastVisit && (
             <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-              <Calendar size={10} /> Последний визит: {fmtDate(patient.lastVisit)}
+              <Calendar size={10} /> {t("clinic.patients.lastVisit")}: {fmtDate(patient.lastVisit, locale)}
             </p>
           )}
         </div>
@@ -123,16 +120,16 @@ function PatientPanel({
       {/* Visits */}
       <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3">
         <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">
-          История визитов ({visits.length})
+          {t("clinic.patients.visitHistory")} ({visits.length})
         </p>
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
-            <Loader2 size={14} className="animate-spin text-teal-500" /> Загрузка…
+            <Loader2 size={14} className="animate-spin text-teal-500" /> {t("clinic.patients.loading")}
           </div>
         ) : error ? (
           <p className="text-sm text-red-500">{error}</p>
         ) : visits.length === 0 ? (
-          <p className="text-sm text-slate-400 py-4 text-center">Визитов не найдено</p>
+          <p className="text-sm text-slate-400 py-4 text-center">{t("clinic.patients.noVisits")}</p>
         ) : (
           visits.map((v) => <VisitCard key={v.id} appt={v} />)
         )}
@@ -144,6 +141,8 @@ function PatientPanel({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function PatientsPage() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === "uz" ? "uz-Latn-UZ" : "ru-RU";
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PatientSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -180,14 +179,12 @@ export default function PatientsPage() {
   return (
     <div className="flex flex-col gap-6 h-full">
 
-      {/* Page header */}
-      <div className="flex items-center gap-3">
-        <BookUser size={22} className="text-teal-600 shrink-0" />
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-800 leading-tight">База пациентов</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Поиск по имени или номеру телефона</p>
-        </div>
-      </div>
+      {/* Hero */}
+      <PageHero
+        title={t("clinic.patients.title")}
+        subtitle={t("clinic.patients.subtitle")}
+        badge={<><BookUser size={12} /> Clinic OS</>}
+      />
 
       {/* Search bar */}
       <div className="relative">
@@ -198,7 +195,7 @@ export default function PatientsPage() {
           <input
             ref={inputRef}
             className="flex-1 bg-transparent border-none outline-none text-sm text-slate-800 placeholder:text-slate-400"
-            placeholder="Введите имя или телефон (минимум 2 символа)…"
+            placeholder={t("clinic.patients.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -220,14 +217,14 @@ export default function PatientsPage() {
           {!searched && !searching && query.length < 2 && (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <User size={40} className="text-slate-200" />
-              <p className="text-sm text-slate-400">Начните вводить имя или номер телефона</p>
+              <p className="text-sm text-slate-400">{t("clinic.patients.startTyping")}</p>
             </div>
           )}
 
           {searched && results.length === 0 && !searching && (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <Search size={40} className="text-slate-200" />
-              <p className="text-sm text-slate-400">Пациент не найден по «{query}»</p>
+              <p className="text-sm text-slate-400">{t("clinic.patients.notFound", { query })}</p>
             </div>
           )}
 
@@ -251,10 +248,10 @@ export default function PatientsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-800 truncate">{p.name || "Без имени"}</span>
+                    <span className="text-sm font-bold text-slate-800 truncate">{p.name || t("clinic.patients.noName")}</span>
                     {p.allergies && (
                       <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-red-50 text-red-500 border border-red-200 shrink-0">
-                        <AlertCircle size={8} /> Аллергия
+                        <AlertCircle size={8} /> {t("clinic.patients.allergy")}
                       </span>
                     )}
                   </div>
@@ -263,7 +260,7 @@ export default function PatientsPage() {
                   </p>
                   {p.lastVisit && (
                     <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                      <Calendar size={9} /> {fmtDate(p.lastVisit)}
+                      <Calendar size={9} /> {fmtDate(p.lastVisit, dateLocale)}
                     </p>
                   )}
                 </div>

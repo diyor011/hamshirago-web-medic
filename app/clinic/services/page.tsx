@@ -5,7 +5,7 @@ import { Plus, Pencil, Check, X, Trash2, RefreshCw, Stethoscope, LayoutList, Use
 import { clinicApi, ClinicService, ClinicStaff } from "@/lib/clinicApi";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
-import { useToast, ToastContainer } from "@/components/clinic/Toast";
+import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 
 type ServiceCategory = "ALL" | "CONSULTATION" | "LAB" | "DIAGNOSTIC" | "PROCEDURE";
 type ViewMode = "all" | "by-doctor";
@@ -56,18 +56,20 @@ interface ServiceTableProps {
   editForm: ServiceForm;
   updating: boolean;
   deactivating: string | null;
+  activating: string | null;
   catMeta: (cat: string) => { value: ServiceCategory; label: string; color: string; bg: string };
   onEdit: (svc: ClinicService) => void;
   onUpdate: (id: string) => void;
   onCancelEdit: () => void;
   onDeactivate: (id: string) => void;
+  onActivate: (id: string) => void;
   onEditFormChange: (f: ServiceForm) => void;
   t: (key: string) => string;
 }
 
 function ServiceTable({
-  services, editingId, editForm, updating, deactivating, catMeta,
-  onEdit, onUpdate, onCancelEdit, onDeactivate, onEditFormChange, t,
+  services, editingId, editForm, updating, deactivating, activating, catMeta,
+  onEdit, onUpdate, onCancelEdit, onDeactivate, onActivate, onEditFormChange, t,
 }: ServiceTableProps) {
   if (services.length === 0) {
     return (
@@ -135,10 +137,11 @@ function ServiceTable({
                   <div className="flex justify-end gap-1">
                     {isEditing ? (
                       <>
-                        <button onClick={() => onUpdate(svc.id)} disabled={updating} className="rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-600">
+                        {/* FUNC-1: увеличен hit-area кнопки сохранения */}
+                        <button onClick={() => onUpdate(svc.id)} disabled={updating} className="min-h-[32px] min-w-[32px] rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-emerald-600 transition hover:bg-emerald-100 disabled:opacity-50">
                           <Check size={13} />
                         </button>
-                        <button onClick={onCancelEdit} className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-500">
+                        <button onClick={onCancelEdit} className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-500 transition hover:bg-slate-100">
                           <X size={13} />
                         </button>
                       </>
@@ -147,13 +150,23 @@ function ServiceTable({
                         <button onClick={() => onEdit(svc)} className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-slate-500 transition hover:bg-slate-100">
                           <Pencil size={13} />
                         </button>
-                        {svc.isActive && (
+                        {/* FUNC-2: кнопка активации для неактивных; FUNC-3: confirm перед деактивацией */}
+                        {svc.isActive ? (
                           <button
                             onClick={() => onDeactivate(svc.id)}
                             disabled={deactivating === svc.id}
                             className="rounded-lg border border-red-200 bg-red-50 p-1.5 text-red-500 transition hover:bg-red-100 disabled:opacity-50"
                           >
                             <Trash2 size={13} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => onActivate(svc.id)}
+                            disabled={activating === svc.id}
+                            title={t("clinic.services.activate")}
+                            className="rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-600 transition hover:bg-emerald-100 disabled:opacity-50"
+                          >
+                            <RefreshCw size={13} />
                           </button>
                         )}
                       </>
@@ -196,7 +209,9 @@ export default function ServicesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm]   = useState<ServiceForm>(EMPTY_FORM);
   const [updating, setUpdating]   = useState(false);
-  const [deactivating, setDeactivating] = useState<string | null>(null);
+  const [deactivating, setDeactivating]   = useState<string | null>(null);
+  const [activating, setActivating]       = useState<string | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(null);
   const { toasts, toast, closeToast } = useToast();
 
   const load = useCallback(async () => {
@@ -268,9 +283,16 @@ export default function ServicesPage() {
 
   async function handleDeactivate(id: string) {
     setDeactivating(id);
-    try { await clinicApi.services.deactivate(id); toast.success("Услуга деактивирована"); await load(); }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка деактивации"); }
+    try { await clinicApi.services.deactivate(id); toast.success(t("clinic.services.deactivated")); await load(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : t("clinic.services.errorDeactivate")); }
     finally { setDeactivating(null); }
+  }
+
+  async function handleActivate(id: string) {
+    setActivating(id);
+    try { await clinicApi.services.activate(id); toast.success(t("clinic.services.activated")); await load(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка активации"); }
+    finally { setActivating(null); }
   }
 
   function startEdit(svc: ClinicService) {
@@ -291,9 +313,11 @@ export default function ServicesPage() {
   };
 
   const tableProps = {
-    editingId, editForm, updating, deactivating, catMeta,
+    editingId, editForm, updating, deactivating, activating, catMeta,
     onEdit: startEdit, onUpdate: handleUpdate, onCancelEdit: () => setEditingId(null),
-    onDeactivate: handleDeactivate, onEditFormChange: setEditForm, t,
+    onDeactivate: (id: string) => setConfirmDeactivate(id),
+    onActivate: handleActivate,
+    onEditFormChange: setEditForm, t,
   };
 
   const groups: { doctorId: string | null; name: string; items: ClinicService[] }[] = [];
@@ -321,7 +345,14 @@ export default function ServicesPage() {
   return (
     <div className="min-h-full space-y-5">
       <ToastContainer toasts={toasts} onClose={closeToast} />
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
+      {confirmDeactivate && (
+        <ConfirmDialog
+          message={t("clinic.services.confirmDeactivate")}
+          confirmLabel={t("clinic.services.deactivateBtn")}
+          onConfirm={() => { handleDeactivate(confirmDeactivate); setConfirmDeactivate(null); }}
+          onCancel={() => setConfirmDeactivate(null)}
+        />
+      )}
       {/* Header */}
       <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -331,6 +362,10 @@ export default function ServicesPage() {
         </div>
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-100">
+              <Stethoscope size={12} />
+              Clinic OS
+            </div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">{t("clinic.services.title")}</h1>
             <p className="mt-2 text-sm leading-6 text-slate-400">{t("clinic.services.subtitle")}</p>
           </div>
@@ -380,9 +415,9 @@ export default function ServicesPage() {
           </div>
 
           <div className="mb-3">
-            <label className="mb-1 block text-[11px] font-semibold text-slate-500">Врач</label>
+            <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("clinic.services.doctor")}</label>
             <select className={`${inputCls} cursor-pointer`} value={form.doctorId ?? ""} onChange={(e) => setForm((f) => ({ ...f, doctorId: e.target.value || null }))}>
-              <option value="">Общая для клиники</option>
+              <option value="">{t("clinic.services.forClinic")}</option>
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
@@ -394,7 +429,7 @@ export default function ServicesPage() {
               <label className="text-[11px] font-semibold text-slate-500">{t("clinic.services.price")} (UZS)</label>
               <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-500">
                 <input type="checkbox" checked={form.isRangePrice} onChange={(e) => setForm((f) => ({ ...f, isRangePrice: e.target.checked }))} className="cursor-pointer" />
-                Диапазон
+                {t("clinic.services.range")}
               </label>
             </div>
             {form.isRangePrice ? (
