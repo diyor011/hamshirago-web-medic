@@ -130,7 +130,6 @@ export default function ReceptionPage() {
   const [doctors, setDoctors] = useState<DoctorStats[]>([]);
   const [calendarAppts, setCalendarAppts] = useState<Appointment[]>([]);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
-  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
   const [finalPriceModal, setFinalPriceModal] = useState<{ apptId: string; priceMin: number; priceMax: number } | null>(null);
   const [finalPriceInput, setFinalPriceInput] = useState("");
   const [finalPriceLoading, setFinalPriceLoading] = useState(false);
@@ -138,7 +137,10 @@ export default function ReceptionPage() {
   const [mounted, setMounted] = useState(false);
 
   // Prefill for BookingModal when clicking "+" in calendar (CLINIC-R3)
-  const [bookingPrefill, setBookingPrefill] = useState<{ date: string; time: string; doctorId: string | null; roomId: string | null } | null>(null);
+  const [bookingPrefill, setBookingPrefill] = useState<{ date: string; time: string; doctorId: string | null; roomId: string | null; phone?: string; patientName?: string } | null>(null);
+
+  // DENT-1: follow-up suggestion after canal treatment → filling next day
+  const [followUpAppt, setFollowUpAppt] = useState<Appointment | null>(null);
 
   // Calendar date picker (CLINIC-R5)
   const [showCalPicker, setShowCalPicker] = useState(false);
@@ -277,11 +279,22 @@ export default function ReceptionPage() {
     }
   }
 
+  function getTomorrowISO(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
   async function handleUpdateStatus(id: string, status: AppointmentStatus) {
     setUpdatingStatus(id);
     try {
       await clinicApi.appointments.updateStatus(id, status);
       await loadApps(doctorIdFilter ?? null);
+      // DENT-1: suggest follow-up booking after any completed appointment
+      if (status === "DONE") {
+        const appt = appointments.find((a) => a.id === id);
+        if (appt) setFollowUpAppt(appt);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
@@ -527,6 +540,49 @@ export default function ReceptionPage() {
         </Modal>
       )}
 
+      {/* DENT-1: Follow-up booking suggestion after canal treatment */}
+      {followUpAppt && (
+        <Modal onClose={() => setFollowUpAppt(null)}>
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50">
+              <CalendarPlus size={26} className="text-teal-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-slate-950">Записать на следующий приём?</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Пациент <span className="font-bold text-slate-800">{followUpAppt.patientName ?? followUpAppt.patientPhone}</span> завершил приём.
+                Записать на следующий день?
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-2">
+              <button
+                onClick={() => {
+                  setFollowUpAppt(null);
+                  setBookingPrefill({
+                    date: getTomorrowISO(),
+                    time: followUpAppt.time,
+                    doctorId: followUpAppt.doctorId,
+                    roomId: followUpAppt.roomId,
+                    phone: followUpAppt.patientPhone,
+                    patientName: followUpAppt.patientName ?? followUpAppt.patientPhone,
+                  });
+                  setShowBooking(true);
+                }}
+                className="w-full rounded-xl bg-teal-600 py-3 text-sm font-bold text-white transition hover:bg-teal-700"
+              >
+                Записать на завтра
+              </button>
+              <button
+                onClick={() => setFollowUpAppt(null)}
+                className="w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+              >
+                Не сейчас
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Calendar picker close overlay (CLINIC-R5) */}
       {showCalPicker && (
         <div onClick={() => setShowCalPicker(false)} className="fixed inset-0 z-[299]" />
@@ -718,7 +774,7 @@ export default function ReceptionPage() {
                 {/* Body rows */}
                 {timeSlots.map((slot, rowIdx) => (
                   <div key={`row-${slot}`} style={{ display: "contents" }}>
-                    <div className={`px-1.5 py-1.5 text-[11px] font-semibold text-slate-400 ${rowIdx > 0 ? "border-t border-dashed border-slate-100" : ""} bg-slate-50/50`}>
+                    <div className={`px-2 py-1.5 text-[11px] font-semibold text-slate-400 border-t border-slate-200 bg-slate-50`}>
                       {slot}
                     </div>
                     {calendarColumns.map((c) => {
@@ -731,14 +787,14 @@ export default function ReceptionPage() {
                       return (
                         <div
                           key={`${c.id}-${slot}`}
-                          className={`flex min-h-[34px] flex-col gap-0.5 border-l border-slate-100 p-1 ${rowIdx > 0 ? "border-t border-dashed border-slate-100" : ""}`}
+                          className="flex min-h-[36px] flex-col gap-0.5 border-t border-l border-slate-200 p-1 bg-white hover:bg-slate-50/60 transition-colors"
                         >
                           {cellAppts.map((a) => {
                             const col = CAL_STATUS_COLORS[a.status as AppointmentStatus];
                             return (
                               <button
                                 key={a.id}
-                                onClick={() => setSelectedAppt(a)}
+                                onClick={() => openManage(a, "notes")}
                                 className="rounded-md p-1 text-left text-[11px] font-semibold leading-tight"
                                 style={{ background: col.bg, border: `1px solid ${col.bd}`, color: col.fg }}
                                 title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${t(`clinic.reception.statusLabels.${a.status as AppointmentStatus}`)}`}
@@ -751,22 +807,8 @@ export default function ReceptionPage() {
                             );
                           })}
 
-                          {/* CLINIC-R3: empty slot — click to open full BookingModal pre-filled */}
                           {cellAppts.length === 0 && (
-                            <button
-                              onClick={() => {
-                                setBookingPrefill({
-                                  date: fmtDateISO(calendarDate),
-                                  time: slot,
-                                  doctorId: doctorIdForCol,
-                                  roomId: rooms.length > 0 ? c.id : null,
-                                });
-                                setShowBooking(true);
-                              }}
-                              className="group flex min-h-[26px] flex-1 items-center justify-center rounded-md border border-dashed border-slate-200 text-[10px] text-slate-300 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-500"
-                            >
-                              +
-                            </button>
+                            <div className="min-h-[26px]" />
                           )}
                         </div>
                       );
@@ -793,40 +835,6 @@ export default function ReceptionPage() {
       )}
 
       {/* Calendar appointment detail modal */}
-      {viewMode === "calendar" && selectedAppt && (
-        <div
-          onClick={() => setSelectedAppt(null)}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/45 p-5 backdrop-blur-sm"
-        >
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
-            <h3 className="mb-3 text-base font-extrabold text-slate-950">
-              {t("clinic.reception.appointment")} · {selectedAppt.time}
-            </h3>
-            <div className="flex flex-col gap-2 text-sm text-slate-700">
-              <div><b>{t("clinic.reception.patient")}:</b> {selectedAppt.patientName ?? "—"}</div>
-              <div><b>{t("clinic.reception.phone")}:</b> {selectedAppt.patientPhone}</div>
-              <div><b>{t("clinic.reception.date")}:</b> {selectedAppt.date.split("-").reverse().join(".")}</div>
-              <div><b>{t("clinic.reception.room")}:</b> {rooms.find((r) => r.id === selectedAppt.roomId)?.name ?? selectedAppt.roomId}</div>
-              <div><b>{t("clinic.reception.doctor")}:</b> {doctors.find((d) => d.doctorId === selectedAppt.doctorId)?.doctorName ?? selectedAppt.doctorId}</div>
-              <div><b>{t("clinic.reception.payment")}:</b> {t(`clinic.reception.paymentLabels.${selectedAppt.paymentType ?? ""}`, { defaultValue: selectedAppt.paymentType ?? "—" })}</div>
-              <div className="flex items-center gap-2">
-                <b>{t("clinic.reception.status")}:</b>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE[selectedAppt.status as AppointmentStatus]}`}>
-                  {t(`clinic.reception.statusLabels.${selectedAppt.status}`)}
-                </span>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => setSelectedAppt(null)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-500 transition hover:bg-slate-50"
-              >
-                {t("clinic.reception.close")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ─── List view ──────────────────────────────────────────────────────────── */}
       {viewMode === "list" && (
@@ -1112,6 +1120,8 @@ export default function ReceptionPage() {
             loadApps(doctorIdFilter ?? null);
             if (viewMode === "calendar") loadCalendar(doctorIdFilter ?? null);
           }}
+          prefillPhone={bookingPrefill?.phone}
+          prefillPatientName={bookingPrefill?.patientName}
           prefillDate={bookingPrefill?.date}
           prefillTime={bookingPrefill?.time}
           prefillDoctorId={bookingPrefill?.doctorId ?? undefined}
