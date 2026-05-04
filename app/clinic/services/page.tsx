@@ -275,6 +275,7 @@ export default function ServicesPage() {
         name: editForm.name.trim(),
         price: Number(editForm.price),
         durationMinutes: Number(editForm.durationMinutes),
+        category: editForm.category,
       });
       setEditingId(null); await load();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка обновления"); }
