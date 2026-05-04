@@ -122,7 +122,11 @@ export default function RoomsPage() {
       await clinicApi.rooms.delete(roomId);
       await loadRooms();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("clinic.rooms.errorDelete"));
+      const msg = e instanceof Error ? e.message : "";
+      const friendly = msg.startsWith("Cannot DELETE") || msg.includes("404") || msg.includes("405")
+        ? t("clinic.rooms.errorDeleteHasAppointments")
+        : msg || t("clinic.rooms.errorDelete");
+      setError(friendly);
     } finally {
       setDeletingRoomId(null);
     }

@@ -303,6 +303,7 @@
       "delete": "O'chirish",
       "deleteConfirm": "Kabinetni o'chirishni tasdiqlaysizmi?",
       "errorDelete": "Kabinetni o'chirishda xatolik",
+      "errorDeleteHasAppointments": "Kabinetni o'chirib bo'lmadi — unda qabullar mavjud. Avval barcha qabullarni o'chiring yoki ko'chiring.",
       "days": {
         "1": "Du", "2": "Se", "3": "Ch", "4": "Pa", "5": "Ju", "6": "Sha", "7": "Ya"
       }
