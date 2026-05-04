@@ -69,6 +69,10 @@ function SidebarContent({
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguage();
 
+  const currentUser = typeof window !== "undefined"
+    ? (() => { try { return JSON.parse(localStorage.getItem("clinic_user") ?? "{}"); } catch { return {}; } })()
+    : {};
+
   const roleLabel =
     role === "CEO"
       ? t("clinic.staff.role.ceo")
@@ -87,7 +91,11 @@ function SidebarContent({
     <div className="flex h-full w-full flex-col bg-white">
       <div className="shrink-0 px-5 pb-4 pt-6">
         <div className="flex items-center gap-3">
-          {clinic?.logoUrl ? (
+          {role === "DOCTOR" ? (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-sm text-white text-[15px] font-bold">
+              {(currentUser.name ?? "D").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+            </div>
+          ) : clinic?.logoUrl ? (
             <img
               src={clinic.logoUrl}
               alt={clinic.name}
@@ -100,9 +108,9 @@ function SidebarContent({
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-[14px] font-bold leading-tight text-slate-800">
-              {clinic?.name ?? "HamshiraGo"}
+              {role === "DOCTOR" ? (currentUser.name ?? "Shifokor") : (clinic?.name ?? "HamshiraGo")}
             </p>
-            <p className="mt-0.5 text-[11px] text-slate-400">Clinic Portal</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{role === "DOCTOR" ? t("clinic.staff.role.doctor") : "Clinic Portal"}</p>
           </div>
         </div>
 
