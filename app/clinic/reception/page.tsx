@@ -120,6 +120,7 @@ export default function ReceptionPage() {
   const [manageDoctorId, setManageDoctorId] = useState("");
   const [manageSaving, setManageSaving] = useState(false);
 
+  const [paymentTypeModal, setPaymentTypeModal] = useState<string | null>(null);
   const [initiatingPayment, setInitiatingPayment] = useState<string | null>(null);
   const [pendingPaymentIds, setPendingPaymentIds] = useState<Set<string>>(new Set());
   const [checkingPayment, setCheckingPayment] = useState<string | null>(null);
@@ -286,15 +287,27 @@ export default function ReceptionPage() {
   }
 
   async function handleUpdateStatus(id: string, status: AppointmentStatus) {
+    if (status === "DONE") { setPaymentTypeModal(id); return; }
     setUpdatingStatus(id);
     try {
       await clinicApi.appointments.updateStatus(id, status);
       await loadApps(doctorIdFilter ?? null);
-      // DENT-1: suggest follow-up booking after any completed appointment
-      if (status === "DONE") {
-        const appt = appointments.find((a) => a.id === id);
-        if (appt) setFollowUpAppt(appt);
-      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
+    } finally {
+      setUpdatingStatus(null);
+    }
+  }
+
+  async function handleCompleteWithPayment(id: string, paymentType: string) {
+    setPaymentTypeModal(null);
+    setUpdatingStatus(id);
+    try {
+      await clinicApi.appointments.setPaymentType(id, paymentType);
+      await clinicApi.appointments.updateStatus(id, "DONE");
+      await loadApps(doctorIdFilter ?? null);
+      const appt = appointments.find((a) => a.id === id);
+      if (appt) setFollowUpAppt({ ...appt, status: "DONE" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
@@ -586,6 +599,42 @@ export default function ReceptionPage() {
       {/* Calendar picker close overlay (CLINIC-R5) */}
       {showCalPicker && (
         <div onClick={() => setShowCalPicker(false)} className="fixed inset-0 z-[299]" />
+      )}
+
+      {/* Payment type modal */}
+      {paymentTypeModal && (
+        <Modal onClose={() => setPaymentTypeModal(null)}>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50">
+                <CheckSquare size={22} className="text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-extrabold text-slate-950">{t("clinic.reception.completeTitle") || "Qabulni yakunlash"}</h3>
+                <p className="text-[12px] text-slate-400">{t("clinic.reception.selectPayment") || "To'lov turini tanlang"}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { type: "CASH",   icon: "💵", label: t("clinic.reception.paymentLabels.CASH") || "Naqd" },
+                { type: "CARD",   icon: "💳", label: t("clinic.reception.paymentLabels.CARD") || "Karta" },
+                { type: "ONLINE", icon: "📱", label: t("clinic.reception.paymentLabels.ONLINE") || "Online" },
+              ] as { type: string; icon: string; label: string }[]).map(({ type, icon, label }) => (
+                <button
+                  key={type}
+                  onClick={() => handleCompleteWithPayment(paymentTypeModal, type)}
+                  className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-100 bg-white p-3 text-sm font-bold text-slate-700 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  <span className="text-2xl">{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setPaymentTypeModal(null)} className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-50">
+              {t("clinic.common.cancel") || "Bekor qilish"}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* Page header */}

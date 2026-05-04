@@ -786,6 +786,20 @@ export const clinicApi = {
         method: "PATCH",
         body: JSON.stringify({ doctorId, force }),
       }).then(normalizeAppointment),
+    setPaymentType: (id: string, paymentType: string) =>
+      request<Appointment>(`/clinic/appointments/${id}/payment-type`, {
+        method: "PATCH",
+        body: JSON.stringify({ paymentType }),
+      }).then(normalizeAppointment),
+    addDebt: (id: string, dto: { amount: number; comment?: string }) =>
+      request<Appointment>(`/clinic/appointments/${id}/debt`, {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }).then(normalizeAppointment),
+    history: (params?: { page?: number; limit?: number; from?: string; to?: string; q?: string }) => {
+      const qs = params ? "?" + Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&") : "";
+      return request<{ data: Appointment[]; total: number; page: number; limit: number }>(`/clinic/appointments/history${qs}`);
+    },
   },
 
   leads: {
