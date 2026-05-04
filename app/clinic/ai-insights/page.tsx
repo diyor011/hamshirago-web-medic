@@ -41,7 +41,7 @@ const SEG_META: Record<string, { label: string; bg: string; text: string }> = {
   medium: { label: "Medium", bg: "#f0fdfa", text: "#0f766e" },
 };
 
-const SEV_META: Record<string, { bg: string; text: string; border: string; icon: React.FC<{ size: number }> }> = {
+const SEV_META: Record<string, { bg: string; text: string; border: string; icon: React.FC<{ size: number; style?: React.CSSProperties }> }> = {
   opportunity: { bg: "#f0fdf4", text: "#166534", border: "#86efac", icon: TrendingUp },
   warning:     { bg: "#fffbeb", text: "#92400e", border: "#fcd34d", icon: AlertTriangle },
   info:        { bg: "#eff6ff", text: "#1e3a8a", border: "#bfdbfe", icon: Info },
@@ -211,7 +211,7 @@ function DemandTab({ items }: { items: DemandForecastItem[] }) {
 // ── Churn ─────────────────────────────────────────────────────────────────
 
 function ChurnTab({ items }: { items: ChurnPatient[] }) {
-  const { showToast } = useToast();
+  const { toast } = useToast();
   const [sending, setSending] = useState<string | null>(null);
   const [sent, setSent] = useState<Set<string>>(new Set());
 
@@ -221,9 +221,9 @@ function ChurnTab({ items }: { items: ChurnPatient[] }) {
     try {
       await clinicApi.ai.sendChurnSms(patient.patientPhone);
       setSent((s) => new Set(s).add(patient.patientPhone));
-      showToast(`SMS отправлено ${patient.patientName}`, "success");
+      toast.success(`SMS отправлено ${patient.patientName}`);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Ошибка отправки SMS", "error");
+      toast.error(e instanceof Error ? e.message : "Ошибка отправки SMS");
     } finally {
       setSending(null);
     }
@@ -365,7 +365,7 @@ function ServiceMixTab({ items }: { items: ServiceMixRecommendation[] }) {
 // ── Main ──────────────────────────────────────────────────────────────────
 
 export default function AiInsightsPage() {
-  const { showToast } = useToast();
+  const { toasts, toast, closeToast } = useToast();
   const [tab, setTab] = useState<Tab>("no-show");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -428,10 +428,10 @@ export default function AiInsightsPage() {
     setRefreshing(true);
     try {
       await clinicApi.ai.refresh();
-      showToast("Данные обновляются...", "success");
+      toast.success("Данные обновляются...");
       await loadAll();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Ошибка обновления", "error");
+      toast.error(e instanceof Error ? e.message : "Ошибка обновления");
     } finally {
       setRefreshing(false);
     }
@@ -486,7 +486,7 @@ export default function AiInsightsPage() {
 
   return (
     <div className="space-y-5">
-      <ToastContainer />
+      <ToastContainer toasts={toasts} onClose={closeToast} />
 
       {/* Hero */}
       <PageHero

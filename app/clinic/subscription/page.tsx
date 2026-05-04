@@ -116,6 +116,7 @@ export default function SubscriptionPage() {
     );
   }
 
+  if (!sub) return null;
   const colors = PLAN_COLORS[sub.plan] ?? PLAN_COLORS.PRO;
   const expired = isExpired(sub);
   const isMax = sub.plan === "MAX";
