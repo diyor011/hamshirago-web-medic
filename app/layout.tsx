@@ -3,7 +3,6 @@ import "./globals.css";
 import WebPushInit from "@/components/WebPushInit";
 import PushPermissionPrompt from "@/components/PushPermissionPrompt";
 import DoctorPushPermissionPrompt from "@/components/DoctorPushPermissionPrompt";
-import SplashScreen from "@/components/SplashScreen";
 import OfflineBanner from "@/components/OfflineBanner";
 import InstallPrompt from "@/components/InstallPrompt";
 import { LanguageProvider } from "@/context/LanguageContext";
@@ -41,7 +40,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LanguageProvider>
           <OfflineBanner />
           <InstallPrompt />
-          <SplashScreen />
           <WebPushInit />
           <PushPermissionPrompt />
           <DoctorPushPermissionPrompt />
