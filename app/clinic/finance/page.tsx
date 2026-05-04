@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  clinicApi, StatsOverview, MonthlyStats, DoctorStats, ClinicSubscription,
+  clinicApi, StatsOverview, MonthlyStats, DoctorStats, ClinicSubscription, Appointment,
 } from "@/lib/clinicApi";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import PageHero from "@/components/clinic/PageHero";
@@ -665,6 +665,8 @@ function SubscriptionCard({
 
 export default function FinancePage() {
   const { t } = useTranslation();
+  const [recentPayments, setRecentPayments] = useState<Appointment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(true);
   const [period,       setPeriod]       = useState<Period>("month");
   const [overview,     setOverview]     = useState<StatsOverview | null>(null);
   const [monthly,      setMonthly]      = useState<MonthlyStats[]>([]);
@@ -714,6 +716,10 @@ export default function FinancePage() {
     fetchMonthly();
     fetchDoctors();
     fetchSub();
+    clinicApi.appointments.history({ limit: 20 })
+      .then((res) => setRecentPayments(res.data))
+      .catch(() => {})
+      .finally(() => setLoadingPayments(false));
   }, [fetchMonthly, fetchDoctors, fetchSub]);
 
   function exportCSV() {
@@ -776,6 +782,56 @@ export default function FinancePage() {
           error={errDoctors}
           onRetry={fetchDoctors}
         />
+      </div>
+
+      {/* Recent payments */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-[15px] font-bold text-slate-950">So'nggi to'lovlar</h2>
+        {loadingPayments ? (
+          <div className="flex justify-center py-8"><div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-teal-500" /></div>
+        ) : recentPayments.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">Hali tugallangan qabullar yo'q</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <th className="py-2 px-3 text-left">Sana</th>
+                  <th className="py-2 px-3 text-left">Bemor</th>
+                  <th className="py-2 px-3 text-left">Xizmat</th>
+                  <th className="py-2 px-3 text-right">Summa</th>
+                  <th className="py-2 px-3 text-center">To'lov turi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentPayments.map((a) => {
+                  const PT_BADGE: Record<string, { label: string; cls: string }> = {
+                    CASH:   { label: "💵 Naqd",   cls: "bg-amber-50 text-amber-700 border-amber-200" },
+                    CARD:   { label: "💳 Karta",  cls: "bg-blue-50 text-blue-700 border-blue-200" },
+                    ONLINE: { label: "📱 Online", cls: "bg-violet-50 text-violet-700 border-violet-200" },
+                  };
+                  const pt = a.paymentType ?? "CASH";
+                  const badge = PT_BADGE[pt] ?? PT_BADGE.CASH;
+                  return (
+                    <tr key={a.id} className="border-b border-slate-50 hover:bg-slate-50/60">
+                      <td className="py-2.5 px-3 text-slate-500">{a.date} {a.time}</td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-800">{a.patientName ?? a.patientPhone}</td>
+                      <td className="py-2.5 px-3 text-slate-500">{a.serviceTitle ?? "—"}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-emerald-600">
+                        {a.finalPrice != null ? `${a.finalPrice.toLocaleString()} сум` : a.priceMin != null ? `${a.priceMin.toLocaleString()}–${a.priceMax?.toLocaleString()} сум` : "—"}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
