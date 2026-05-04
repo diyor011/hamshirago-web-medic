@@ -92,9 +92,14 @@ function SidebarContent({
       <div className="shrink-0 px-5 pb-4 pt-6">
         <div className="flex items-center gap-3">
           {role === "DOCTOR" ? (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-sm text-white text-[15px] font-bold">
-              {(currentUser.name ?? "D").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
-            </div>
+            currentUser.profilePhotoUrl ? (
+              <img src={currentUser.profilePhotoUrl} alt={currentUser.name ?? "Shifokor"}
+                className="h-11 w-11 shrink-0 rounded-2xl border-2 border-slate-100 object-cover" />
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-sm text-white text-[15px] font-bold">
+                {(currentUser.name ?? "D").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+              </div>
+            )
           ) : clinic?.logoUrl ? (
             <img
               src={clinic.logoUrl}
