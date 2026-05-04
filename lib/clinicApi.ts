@@ -195,6 +195,8 @@ export interface Appointment {
   finalPrice?: number | null;
   serviceTitle?: string | null;
   notes?: string | null;
+  debtAmount?: number | null;
+  debtComment?: string | null;
 }
 
 export interface CreateAppointmentDto {

@@ -21,6 +21,7 @@ import {
   BookUser,
   Award,
   Sparkles,
+  History,
 } from "lucide-react";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
@@ -45,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/services", labelKey: "clinic.nav.services", icon: Stethoscope, roles: ["CEO"] },
   { href: "/clinic/staff", labelKey: "clinic.nav.staff", icon: UserCog, roles: ["CEO"] },
   { href: "/clinic/patients", labelKey: "clinic.nav.patients", icon: BookUser, roles: ["CEO", "RECEPTION"] },
+  { href: "/clinic/history", labelKey: "clinic.nav.history", icon: History, roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/home-orders", labelKey: "clinic.nav.homeOrders", icon: Users, roles: ["CEO", "RECEPTION"] },
   { href: "/clinic/finance", labelKey: "clinic.nav.finance", icon: TrendingUp, roles: ["CEO"] },
   { href: "/clinic/settings", labelKey: "clinic.nav.settings", icon: Settings, roles: ["CEO"] },
