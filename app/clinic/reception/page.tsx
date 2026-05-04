@@ -121,6 +121,9 @@ export default function ReceptionPage() {
   const [manageSaving, setManageSaving] = useState(false);
 
   const [paymentTypeModal, setPaymentTypeModal] = useState<string | null>(null);
+  const [debtModal, setDebtModal] = useState<{ id: string; name: string } | null>(null);
+  const [debtAmount, setDebtAmount] = useState("");
+  const [debtComment, setDebtComment] = useState("");
   const [initiatingPayment, setInitiatingPayment] = useState<string | null>(null);
   const [pendingPaymentIds, setPendingPaymentIds] = useState<Set<string>>(new Set());
   const [checkingPayment, setCheckingPayment] = useState<string | null>(null);
@@ -296,6 +299,18 @@ export default function ReceptionPage() {
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
       setUpdatingStatus(null);
+    }
+  }
+
+  async function handleAddDebt() {
+    if (!debtModal || !debtAmount) return;
+    try {
+      await clinicApi.appointments.addDebt(debtModal.id, { amount: Number(debtAmount), comment: debtComment || undefined });
+      toast.success("Qarz qo'shildi");
+      setDebtModal(null); setDebtAmount(""); setDebtComment("");
+      await loadApps(doctorIdFilter ?? null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Xatolik");
     }
   }
 
@@ -599,6 +614,40 @@ export default function ReceptionPage() {
       {/* Calendar picker close overlay (CLINIC-R5) */}
       {showCalPicker && (
         <div onClick={() => setShowCalPicker(false)} className="fixed inset-0 z-[299]" />
+      )}
+
+      {/* Debt modal */}
+      {debtModal && (
+        <Modal onClose={() => { setDebtModal(null); setDebtAmount(""); setDebtComment(""); }}>
+          <div className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-[15px] font-extrabold text-slate-950">Qarz qo'shish</h3>
+              <p className="text-[12px] text-slate-400">{debtModal.name}</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">Summa (сум) *</label>
+              <input type="number" min={1} value={debtAmount} onChange={(e) => setDebtAmount(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-teal-400"
+                placeholder="100000" />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">Izoh (ixtiyoriy)</label>
+              <input type="text" value={debtComment} onChange={(e) => setDebtComment(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-teal-400"
+                placeholder="To'lov sababini kiriting" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleAddDebt} disabled={!debtAmount}
+                className="flex-1 rounded-xl bg-rose-500 py-2.5 text-sm font-bold text-white transition hover:bg-rose-600 disabled:opacity-40">
+                Qarz qo'shish
+              </button>
+              <button onClick={() => { setDebtModal(null); setDebtAmount(""); setDebtComment(""); }}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-50">
+                Bekor qilish
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Payment type modal */}
@@ -1087,6 +1136,16 @@ export default function ReceptionPage() {
                                         >
                                           <span className="text-violet-500">👨‍⚕️</span>
                                           {t("clinic.reception.changeDoctor")}
+                                        </button>
+                                      )}
+                                      {/* Add debt (DONE only) */}
+                                      {st === "DONE" && (
+                                        <button
+                                          onClick={() => { setDebtModal({ id: app.id, name: app.patientName ?? app.patientPhone }); setOpenMoreMenu(null); }}
+                                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+                                        >
+                                          <span>💸</span>
+                                          Qarz qo'shish
                                         </button>
                                       )}
                                       {/* Cancel */}
