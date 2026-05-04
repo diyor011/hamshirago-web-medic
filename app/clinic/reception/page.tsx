@@ -792,18 +792,28 @@ export default function ReceptionPage() {
                           {cellAppts.map((a) => {
                             const col = CAL_STATUS_COLORS[a.status as AppointmentStatus];
                             return (
-                              <button
-                                key={a.id}
-                                onClick={() => openManage(a, "notes")}
-                                className="rounded-md p-1 text-left text-[11px] font-semibold leading-tight"
-                                style={{ background: col.bg, border: `1px solid ${col.bd}`, color: col.fg }}
-                                title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${t(`clinic.reception.statusLabels.${a.status as AppointmentStatus}`)}`}
-                              >
-                                <div className="font-extrabold">{a.time}</div>
-                                {/* CLINIC-R4: show name AND phone */}
-                                {a.patientName && <div className="truncate">{a.patientName}</div>}
-                                <div className="truncate opacity-80">{a.patientPhone}</div>
-                              </button>
+                              <div key={a.id} className="relative group/card">
+                                <button
+                                  onClick={() => openManage(a, "notes")}
+                                  className="w-full rounded-md p-1 text-left text-[11px] font-semibold leading-tight"
+                                  style={{ background: col.bg, border: `1px solid ${col.bd}`, color: col.fg }}
+                                  title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${t(`clinic.reception.statusLabels.${a.status as AppointmentStatus}`)}`}
+                                >
+                                  <div className="font-extrabold">{a.time}</div>
+                                  {a.patientName && <div className="truncate">{a.patientName}</div>}
+                                  <div className="truncate opacity-80">{a.patientPhone}</div>
+                                </button>
+                                {a.status === "SCHEDULED" && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleCheckin(a.id); }}
+                                    disabled={checkingIn === a.id}
+                                    className="absolute top-0.5 right-0.5 hidden group-hover/card:flex h-[18px] w-[18px] items-center justify-center rounded bg-teal-500 text-white transition hover:bg-teal-600"
+                                    title={t("clinic.reception.checkin")}
+                                  >
+                                    <CheckSquare size={11} />
+                                  </button>
+                                )}
+                              </div>
                             );
                           })}
 

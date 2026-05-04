@@ -220,21 +220,22 @@ export default function BookingModal({ open, onClose, onSuccess, prefillPhone, p
     setSearchResults([]);
   }
 
-  // ── Services by doctor
+  // ── Services by doctor (doctor-specific + clinic-wide combined)
   useEffect(() => {
     if (!doctorId) { setServices([]); setServiceId(""); return; }
     let cancelled = false; setLoadingServices(true);
-    clinicApi.services.list(doctorId)
-      .then(async (list) => {
-        if (cancelled) return;
-        const active = list.filter((s) => s.isActive);
-        if (active.length) { setServices(active); }
-        else {
-          const all = await clinicApi.services.list();
-          if (!cancelled) setServices(all.filter((s) => s.isActive && !s.doctorId));
-        }
-        setServiceId("");
-      })
+    Promise.all([
+      clinicApi.services.list(doctorId),
+      clinicApi.services.list(),
+    ]).then(([doctorSvcs, allSvcs]) => {
+      if (cancelled) return;
+      const general = allSvcs.filter((s) => s.isActive && !s.doctorId);
+      const doctorActive = doctorSvcs.filter((s) => s.isActive);
+      const ids = new Set(doctorActive.map((s) => s.id));
+      const combined = [...doctorActive, ...general.filter((s) => !ids.has(s.id))];
+      setServices(combined);
+      setServiceId("");
+    })
       .catch(() => { if (!cancelled) setServices([]); })
       .finally(() => { if (!cancelled) setLoadingServices(false); });
     return () => { cancelled = true; };
