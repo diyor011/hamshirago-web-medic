@@ -97,6 +97,7 @@ export default function AuthPage() {
         const res = mode === "login"
           ? await medicApi.auth.login(rawPhone, password)
           : await medicApi.auth.register({ name, phone: rawPhone, password, experienceYears: Number(experience) || 0 });
+        localStorage.setItem("medic_token", res.access_token);
         localStorage.setItem("medic", JSON.stringify(res.medic));
         localStorage.setItem("user_role", "medic");
         subscribeWebPush();

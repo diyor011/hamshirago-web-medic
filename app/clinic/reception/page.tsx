@@ -698,7 +698,7 @@ export default function ReceptionPage() {
                   const monthNames = t("clinic.reception.months", { returnObjects: true }) as string[];
                   const cells = Array.from({ length: offset + daysInMonth }, (_, i) => i < offset ? null : i - offset + 1);
                   return (
-                    <div className="absolute left-0 top-[calc(100%+6px)] z-[300] w-[280px] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+                    <div className="absolute left-0 top-[calc(100%+6px)] z-[300] w-[280px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
                       <div className="mb-2 flex items-center justify-between">
                         <button onClick={() => setPickerViewDate(new Date(y - 1, m, 1))} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-50">‹‹</button>
                         <button onClick={() => setPickerViewDate(new Date(y, m - 1, 1))} className="rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-50">‹</button>
@@ -807,9 +807,31 @@ export default function ReceptionPage() {
                             );
                           })}
 
-                          {cellAppts.length === 0 && (
-                            <div className="min-h-[26px]" />
-                          )}
+                          {cellAppts.length === 0 && (() => {
+                            const isToday = fmtDateISO(calendarDate) === fmtDateISO(new Date());
+                            const [sh, sm] = slot.split(":").map(Number);
+                            const slotMin = sh * 60 + sm;
+                            const now = new Date();
+                            const nowMin = now.getHours() * 60 + now.getMinutes();
+                            const isPast = isToday && slotMin <= nowMin;
+                            if (isPast) return <div className="min-h-[26px]" />;
+                            return (
+                              <button
+                                onClick={() => {
+                                  setBookingPrefill({
+                                    date: fmtDateISO(calendarDate),
+                                    time: slot,
+                                    doctorId: doctorIdForCol,
+                                    roomId: rooms.length > 0 ? c.id : null,
+                                  });
+                                  setShowBooking(true);
+                                }}
+                                className="group flex min-h-[26px] w-full items-center justify-center rounded transition hover:bg-teal-50"
+                              >
+                                <Plus size={13} className="text-slate-200 group-hover:text-teal-400 transition-colors" />
+                              </button>
+                            );
+                          })()}
                         </div>
                       );
                     })}
