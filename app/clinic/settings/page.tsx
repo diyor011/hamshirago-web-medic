@@ -58,7 +58,7 @@ function ToggleSwitch({ checked, onChange, id }: { checked: boolean; onChange: (
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full border-none p-0 transition-colors duration-200 ${checked ? "bg-teal-500" : "bg-slate-200"}`}
+      className={`relative h-6 w-11 shrink-0 rounded-full border-none p-0 outline-none focus:outline-none transition-colors duration-200 ${checked ? "bg-teal-500" : "bg-slate-200"}`}
     >
       <span
         className={`absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-all duration-200 ${checked ? "translate-x-[23px]" : "translate-x-[3px]"}`}
