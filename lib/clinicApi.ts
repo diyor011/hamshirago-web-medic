@@ -640,6 +640,13 @@ export const clinicApi = {
         body: JSON.stringify(dto),
       }),
     deactivate: (id: string) => request<void>(`/clinic/staff/${id}`, { method: "DELETE" }),
+    getSchedule: (id: string) =>
+      request<{ workDays: number[]; startTime: string; endTime: string; breakStart?: string; breakEnd?: string } | null>(`/clinic/staff/${id}/schedule`),
+    setSchedule: (id: string, dto: { workDays: number[]; startTime: string; endTime: string; breakStart?: string; breakEnd?: string }) =>
+      request<void>(`/clinic/staff/${id}/schedule`, {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
   },
 
   rooms: {

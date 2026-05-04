@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, RefreshCw, UserX, UserCheck, Users, Pencil, Check, X } from "lucide-react";
+import { Plus, RefreshCw, UserX, UserCheck, Users, Pencil, Check, X, CalendarDays } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRole } from "@/lib/clinicApi";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
 import PageHero, { HeroButton } from "@/components/clinic/PageHero";
@@ -73,6 +73,9 @@ export default function StaffPage() {
 
   const [deactivating, setDeactivating] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [scheduleStaff, setScheduleStaff] = useState<ClinicStaff | null>(null);
+  const [scheduleForm, setScheduleForm] = useState({ workDays: [] as number[], startTime: "09:00", endTime: "18:00", breakStart: "", breakEnd: "" });
+  const [scheduleLoading, setScheduleLoading] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", specialization: "", photoUrl: "" });
@@ -150,6 +153,33 @@ export default function StaffPage() {
     }
   }
 
+  async function openSchedule(member: ClinicStaff) {
+    setScheduleStaff(member);
+    setScheduleLoading(true);
+    try {
+      const s = await clinicApi.staff.getSchedule(member.id);
+      if (s) setScheduleForm({ workDays: s.workDays, startTime: s.startTime, endTime: s.endTime, breakStart: s.breakStart ?? "", breakEnd: s.breakEnd ?? "" });
+      else setScheduleForm({ workDays: [1,2,3,4,5], startTime: "09:00", endTime: "18:00", breakStart: "", breakEnd: "" });
+    } catch { setScheduleForm({ workDays: [1,2,3,4,5], startTime: "09:00", endTime: "18:00", breakStart: "", breakEnd: "" }); }
+    finally { setScheduleLoading(false); }
+  }
+
+  async function handleSaveSchedule() {
+    if (!scheduleStaff) return;
+    setScheduleLoading(true);
+    try {
+      await clinicApi.staff.setSchedule(scheduleStaff.id, {
+        workDays: scheduleForm.workDays,
+        startTime: scheduleForm.startTime,
+        endTime: scheduleForm.endTime,
+        ...(scheduleForm.breakStart && scheduleForm.breakEnd ? { breakStart: scheduleForm.breakStart, breakEnd: scheduleForm.breakEnd } : {}),
+      });
+      toast.success("Jadval saqlandi");
+      setScheduleStaff(null);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Xatolik"); }
+    finally { setScheduleLoading(false); }
+  }
+
   async function handleDeactivate(id: string) {
     setDeactivating(id); setConfirmId(null);
     try {
@@ -173,6 +203,71 @@ export default function StaffPage() {
           onConfirm={() => handleDeactivate(confirmId)}
           onCancel={() => setConfirmId(null)}
         />
+      )}
+
+      {/* Schedule modal */}
+      {scheduleStaff && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/45 p-5 backdrop-blur-sm" onClick={() => setScheduleStaff(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-[15px] font-extrabold text-slate-950">Ish jadvali</h3>
+                <p className="text-[12px] text-slate-400">{scheduleStaff.name}</p>
+              </div>
+              <button onClick={() => setScheduleStaff(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50"><X size={16} /></button>
+            </div>
+            {scheduleLoading ? (
+              <div className="flex justify-center py-6"><div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-teal-500" /></div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {/* Days */}
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold text-slate-500">Ish kunlari</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[["Du",1],["Se",2],["Ch",3],["Pa",4],["Ju",5],["Sha",6],["Ya",0]].map(([label, day]) => (
+                      <button key={day}
+                        onClick={() => setScheduleForm((f) => ({
+                          ...f,
+                          workDays: f.workDays.includes(Number(day))
+                            ? f.workDays.filter((d) => d !== Number(day))
+                            : [...f.workDays, Number(day)],
+                        }))}
+                        className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ${scheduleForm.workDays.includes(Number(day)) ? "bg-teal-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+                {/* Times */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">Boshlanish</label>
+                    <input type="time" value={scheduleForm.startTime} onChange={(e) => setScheduleForm((f) => ({ ...f, startTime: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">Tugash</label>
+                    <input type="time" value={scheduleForm.endTime} onChange={(e) => setScheduleForm((f) => ({ ...f, endTime: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">Tanaffus boshlanish</label>
+                    <input type="time" value={scheduleForm.breakStart} onChange={(e) => setScheduleForm((f) => ({ ...f, breakStart: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500">Tanaffus tugash</label>
+                    <input type="time" value={scheduleForm.breakEnd} onChange={(e) => setScheduleForm((f) => ({ ...f, breakEnd: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400" />
+                  </div>
+                </div>
+                <button onClick={handleSaveSchedule} disabled={scheduleLoading || scheduleForm.workDays.length === 0}
+                  className="w-full rounded-xl bg-teal-500 py-2.5 text-sm font-bold text-white transition hover:bg-teal-600 disabled:opacity-40">
+                  Saqlash
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Hero */}
@@ -332,6 +427,14 @@ export default function StaffPage() {
                       >
                         <Pencil size={13} /> {t("clinic.staff.change")}
                       </button>
+                      {member.role === "DOCTOR" && (
+                        <button
+                          onClick={() => openSchedule(member)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-600 transition hover:bg-teal-100"
+                        >
+                          <CalendarDays size={13} /> Jadval
+                        </button>
+                      )}
                       <button
                         onClick={() => setConfirmId(member.id)}
                         disabled={deactivating === member.id}
