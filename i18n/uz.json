@@ -499,10 +499,15 @@
       "selectDoctor": "Shifokorni tanlang",
       "withoutName": "Nomsiz",
       "bookFromLead": "Yozish",
+      "completeTitle": "Qabulni yakunlash",
+      "selectPayment": "To'lov turini tanlang",
+      "checkin": "Keldi",
       "paymentLabels": {
         "CASH": "Naqd",
+        "CARD": "Karta",
         "TERMINAL": "Terminal",
-        "ONLINE": "Online"
+        "ONLINE": "Online",
+        "INSURANCE": "Sug'urta"
       },
       "errorLoad": "Xatolik",
       "retry": "Qayta urinish",

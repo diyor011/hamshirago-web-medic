@@ -499,10 +499,15 @@
       "selectDoctor": "Выберите врача",
       "withoutName": "Без имени",
       "bookFromLead": "Записать",
+      "completeTitle": "Завершить приём",
+      "selectPayment": "Выберите способ оплаты",
+      "checkin": "Пришёл",
       "paymentLabels": {
         "CASH": "Наличные",
+        "CARD": "Карта",
         "TERMINAL": "Терминал",
-        "ONLINE": "Online"
+        "ONLINE": "Online",
+        "INSURANCE": "Страховка"
       },
       "errorLoad": "Ошибка",
       "retry": "Повторить",
