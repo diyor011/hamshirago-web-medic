@@ -24,7 +24,13 @@
     "wait": "Kuting...",
     "noAccount": "Hisobingiz yo'qmi?",
     "hasAccount": "Hisobingiz bormi?",
-    "medicPanel": "Hamshira paneli"
+    "medicPanel": "Hamshira paneli",
+    "clinicRolePlaceholder": "Rolni tanlang...",
+    "clinicRoleRequired": "Iltimos, rolingizni tanlang (CEO / Resepshn / Shifokor)",
+    "clinicRoleMismatch": "Bu raqam «{{actual}}» sifatida ro'yxatdan o'tgan. Siz «{{selected}}» tanladingiz — mos emas.",
+    "clinicRoleCEO": "Direktor (CEO)",
+    "clinicRoleReception": "Resepshn",
+    "clinicRoleDoctor": "Shifokor"
   },
   "home": {
     "online": "Onlayn",

@@ -70,7 +70,7 @@ export default function AuthPage() {
     try {
       if (role === "clinic") {
         if (!clinicRole) {
-          setError("Iltimos, rolingizni tanlang (CEO / Resepshn / Shifokor)");
+          setError(t("auth.clinicRoleRequired"));
           setLoading(false);
           return;
         }
@@ -84,12 +84,14 @@ export default function AuthPage() {
           localStorage.removeItem("clinic_token");
           localStorage.removeItem("clinic_user");
           const roleNames: Record<string, string> = {
-            CEO: "Direktor (CEO)", RECEPTION: "Resepshn", DOCTOR: "Shifokor",
+            CEO:       t("auth.clinicRoleCEO"),
+            RECEPTION: t("auth.clinicRoleReception"),
+            DOCTOR:    t("auth.clinicRoleDoctor"),
           };
-          setError(
-            `Bu raqam "${roleNames[jwtRole] ?? jwtRole}" sifatida ro'yxatdan o'tgan. ` +
-            `Siz "${roleNames[clinicRole] ?? clinicRole}" tanladingiz — mos emas.`
-          );
+          setError(t("auth.clinicRoleMismatch", {
+            actual:   roleNames[jwtRole]   ?? jwtRole,
+            selected: roleNames[clinicRole] ?? clinicRole,
+          }));
           setLoading(false);
           return;
         }
@@ -264,7 +266,7 @@ export default function AuthPage() {
                     onFocus={() => setFocused("clinicRole")}
                     onBlur={() => setFocused(null)}
                   >
-                    <option value="" disabled>Rolni tanlang...</option>
+                    <option value="" disabled>{t("auth.clinicRolePlaceholder")}</option>
                     <option value="CEO">CEO — Руководитель клиники</option>
                     <option value="RECEPTION">Ресепшн — Регистратура</option>
                     <option value="DOCTOR">Врач — Сотрудник клиники</option>

@@ -24,7 +24,13 @@
     "wait": "Подождите...",
     "noAccount": "Нет аккаунта?",
     "hasAccount": "Уже есть аккаунт?",
-    "medicPanel": "Панель медика"
+    "medicPanel": "Панель медика",
+    "clinicRolePlaceholder": "Выберите роль...",
+    "clinicRoleRequired": "Пожалуйста, выберите роль (CEO / Ресепшн / Врач)",
+    "clinicRoleMismatch": "Этот номер зарегистрирован как «{{actual}}». Вы выбрали «{{selected}}» — не совпадает.",
+    "clinicRoleCEO": "Директор (CEO)",
+    "clinicRoleReception": "Ресепшн",
+    "clinicRoleDoctor": "Врач"
   },
   "home": {
     "online": "Онлайн",
