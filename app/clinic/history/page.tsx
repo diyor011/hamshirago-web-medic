@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Search, ChevronLeft, ChevronRight, History } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, History, WifiOff, RefreshCw } from "lucide-react";
 import { clinicApi, Appointment } from "@/lib/clinicApi";
+import { reportClientError } from "@/lib/api";
 import { useToast, ToastContainer } from "@/components/clinic/Toast";
 import PageHero from "@/components/clinic/PageHero";
 import { useTranslation } from "react-i18next";
@@ -23,6 +24,7 @@ export default function HistoryPage() {
   const [total, setTotal]       = useState(0);
   const [page, setPage]         = useState(1);
   const [loading, setLoading]   = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch]     = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [from, setFrom]         = useState("");
@@ -32,6 +34,7 @@ export default function HistoryPage() {
 
   const load = useCallback(async (p: number, q: string, f: string, t2: string) => {
     setLoading(true);
+    setFetchError(null);
     try {
       const res = await clinicApi.appointments.history({
         page: p, limit: LIMIT,
@@ -42,11 +45,13 @@ export default function HistoryPage() {
       setData(res.data);
       setTotal(res.total);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Xatolik");
+      const msg = e instanceof Error ? e.message : "Noma'lum xatolik";
+      setFetchError(msg);
+      reportClientError(`[history] ${msg}`, e instanceof Error ? e.stack : undefined);
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => { load(page, search, from, to); }, [page, search, from, to, load]);
 
@@ -100,6 +105,22 @@ export default function HistoryPage() {
         </div>
         {loading ? (
           <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-teal-500" /></div>
+        ) : fetchError ? (
+          <div className="flex flex-col items-center gap-4 py-16 px-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+              <WifiOff size={24} className="text-slate-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Texnik ishlar olib borilmoqda</p>
+              <p className="mt-1 text-xs text-slate-400">Ma'lumotlar hozircha yuklanmadi. Bir ozdan keyin urinib ko'ring.</p>
+            </div>
+            <button
+              onClick={() => load(page, search, from, to)}
+              className="flex items-center gap-2 rounded-xl bg-teal-500 px-4 py-2 text-sm font-bold text-white hover:bg-teal-600 transition-colors"
+            >
+              <RefreshCw size={14} /> Qayta urinish
+            </button>
+          </div>
         ) : data.length === 0 ? (
           <p className="py-12 text-center text-sm text-slate-400">Qabullar topilmadi</p>
         ) : (

@@ -364,7 +364,7 @@ export default function PatientsPage() {
                 <PatientCard
                   key={p.id || p.phone}
                   patient={p}
-                  active={selected?.id === p.id}
+                  active={!!selected && selected.phone === p.phone}
                   locale={locale}
                   onClick={() => setSelected(p)}
                 />

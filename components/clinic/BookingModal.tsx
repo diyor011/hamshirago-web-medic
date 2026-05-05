@@ -52,6 +52,7 @@ function PatientDropdown({
   onNewPatient: () => void;
 }) {
   const { t } = useTranslation();
+  const digitsOnly = query.replace(/\D/g, "");
   if (!query || query.length < 2) return null;
 
   return (
@@ -59,6 +60,11 @@ function PatientDropdown({
       {loading ? (
         <div className="flex items-center gap-2 px-4 py-3.5 text-sm text-slate-400">
           <Loader2 size={14} className="animate-spin text-teal-500" /> {t("clinic.booking.searching")}
+        </div>
+      ) : results.length === 0 && digitsOnly.length < 7 ? (
+        <div className="flex items-center gap-2 px-4 py-3 text-sm text-slate-400">
+          <Loader2 size={14} className="text-slate-300" />
+          Telefon raqamni to'liq kiriting (+998 XX XXX-XX-XX)
         </div>
       ) : results.length === 0 ? (
         <div className="px-4 py-3.5">

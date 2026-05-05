@@ -934,9 +934,9 @@ export default function ReceptionPage() {
                                   });
                                   setShowBooking(true);
                                 }}
-                                className="group flex min-h-[26px] w-full items-center justify-center rounded transition hover:bg-teal-50"
+                                className="group flex min-h-[26px] w-full items-center justify-center rounded-lg border border-dashed border-slate-200 hover:border-teal-300 hover:bg-teal-50 transition-all"
                               >
-                                <Plus size={13} className="text-slate-200 group-hover:text-teal-400 transition-colors" />
+                                <Plus size={13} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
                               </button>
                             );
                           })()}

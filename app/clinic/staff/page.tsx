@@ -362,8 +362,32 @@ export default function StaffPage() {
           <p className="text-sm text-slate-400">{t("clinic.staff.empty")}</p>
         </div>
       ) : (
+        <>
+        {/* CEO section — separate from regular staff */}
+        {staff.some((m) => m.role === "CEO") && (
+          <div className="rounded-2xl border border-purple-100 bg-purple-50/50 p-4">
+            <p className="mb-3 text-[11px] font-extrabold uppercase tracking-widest text-purple-400">{t("clinic.staff.role.ceo")}</p>
+            <div className="flex flex-col gap-2">
+              {staff.filter((m) => m.role === "CEO").map((member) => (
+                <div key={member.id} className="flex items-center gap-3 rounded-xl border border-purple-100 bg-white px-4 py-3 shadow-sm">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-100 text-sm font-extrabold text-purple-600">
+                    {member.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{member.name}</p>
+                    <p className="text-xs text-slate-400">{member.phone}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-600">
+                    {t("clinic.staff.role.ceo")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {staff.map((member, idx) => (
+          {staff.filter((m) => m.role !== "CEO").map((member, idx) => (
             <div key={member.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               {/* ── Top: avatar + info ────────────────────────── */}
               <div className="flex items-start gap-3">
@@ -459,6 +483,7 @@ export default function StaffPage() {
             </div>
           ))}
         </div>
+        </>
       )}
     </div>
   );
