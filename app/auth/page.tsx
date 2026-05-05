@@ -45,8 +45,7 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
-  const [isClinic, setIsClinic] = useState(false);
-  const [clinicRole, setClinicRole] = useState<ClinicRole>("DOCTOR");
+  const [clinicRole, setClinicRole] = useState<ClinicRole | "">("");
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -70,10 +69,31 @@ export default function AuthPage() {
     const rawPhone = "+" + phone.replace(/\D/g, "");
     try {
       if (role === "clinic") {
+        if (!clinicRole) {
+          setError("Iltimos, rolingizni tanlang (CEO / Resepshn / Shifokor)");
+          setLoading(false);
+          return;
+        }
         const res = await clinicApi.auth.login(rawPhone, password);
         localStorage.setItem("clinic_token", res.token ?? res.access_token ?? "");
         localStorage.setItem("clinic_user", JSON.stringify(res.user));
         const jwtRole = getClinicRole();
+
+        // Validate that selected role matches the actual account role from JWT
+        if (jwtRole && jwtRole !== clinicRole) {
+          localStorage.removeItem("clinic_token");
+          localStorage.removeItem("clinic_user");
+          const roleNames: Record<string, string> = {
+            CEO: "Direktor (CEO)", RECEPTION: "Resepshn", DOCTOR: "Shifokor",
+          };
+          setError(
+            `Bu raqam "${roleNames[jwtRole] ?? jwtRole}" sifatida ro'yxatdan o'tgan. ` +
+            `Siz "${roleNames[clinicRole] ?? clinicRole}" tanladingiz — mos emas.`
+          );
+          setLoading(false);
+          return;
+        }
+
         if (jwtRole === "DOCTOR" || jwtRole === "RECEPTION") {
           router.replace("/clinic/reception");
         } else {
@@ -180,7 +200,7 @@ export default function AuthPage() {
               { key: "doctor", label: "🩺 Врач" },
               { key: "clinic", label: "🏥 Клиника" },
             ] as { key: Role; label: string }[]).map(({ key, label }) => (
-              <button key={key} onClick={() => { setRole(key); setMode("login"); setIsClinic(false); setClinicRole("DOCTOR"); setError(""); }} style={{
+              <button key={key} onClick={() => { setRole(key); setMode("login"); setClinicRole(""); setError(""); }} style={{
                 flex: 1, padding: "9px 4px", borderRadius: 8, border: "none", cursor: "pointer",
                 fontSize: 13, fontWeight: 600, transition: "all 0.15s",
                 background: role === key ? "#fff" : "transparent",
@@ -221,33 +241,41 @@ export default function AuthPage() {
           )}
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Clinic role selector — только для таба Клиника */}
+            {/* Clinic role selector — mandatory, always visible */}
             {role === "clinic" && (
-              <div style={{ background: "#f0fdfa", borderRadius: 10, padding: "14px 16px", border: "1.5px solid #99f6e4" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: isClinic ? 12 : 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={isClinic}
-                    onChange={(e) => setIsClinic(e.target.checked)}
-                    style={{ width: 16, height: 16, accentColor: "#0d9488", cursor: "pointer" }}
-                  />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Выбрать роль в клинике</span>
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: "#374151", display: "block", marginBottom: 8 }}>
+                  Siz kim sifatida kirasiz? <span style={{ color: "#ef4444" }}>*</span>
                 </label>
-                {isClinic && (
-                  <select
-                    value={clinicRole}
-                    onChange={(e) => setClinicRole(e.target.value as ClinicRole)}
-                    style={{
-                      width: "100%", height: 44, borderRadius: 8,
-                      border: "1.5px solid #0d9488", padding: "0 12px",
-                      fontSize: 14, fontWeight: 600, color: "#0f172a",
-                      background: "#fff", outline: "none", cursor: "pointer",
-                    }}
-                  >
-                    <option value="CEO">CEO — Руководитель клиники</option>
-                    <option value="RECEPTION">Ресепшн — Регистратура</option>
-                    <option value="DOCTOR">Врач — Сотрудник клиники</option>
-                  </select>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {([
+                    { key: "CEO",       emoji: "👔", label: "CEO",      desc: "Direktor" },
+                    { key: "RECEPTION", emoji: "🗂️", label: "Resepshn", desc: "Registratura" },
+                    { key: "DOCTOR",    emoji: "🩺", label: "Shifokor", desc: "Vrach" },
+                  ] as { key: ClinicRole; emoji: string; label: string; desc: string }[]).map(({ key, emoji, label, desc }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setClinicRole(key)}
+                      style={{
+                        flex: 1, padding: "10px 6px", borderRadius: 10, cursor: "pointer",
+                        border: `2px solid ${clinicRole === key ? "#0d9488" : "#e2e8f0"}`,
+                        background: clinicRole === key ? "#f0fdfa" : "#fff",
+                        color: clinicRole === key ? "#0d9488" : "#94a3b8",
+                        textAlign: "center", transition: "all 0.15s",
+                        boxShadow: clinicRole === key ? "0 0 0 3px rgba(13,148,136,0.12)" : "none",
+                      }}
+                    >
+                      <div style={{ fontSize: 18 }}>{emoji}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>{label}</div>
+                      <div style={{ fontSize: 10, fontWeight: 500, marginTop: 1, opacity: 0.7 }}>{desc}</div>
+                    </button>
+                  ))}
+                </div>
+                {!clinicRole && (
+                  <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+                    Kirishdan avval rolingizni tanlang
+                  </p>
                 )}
               </div>
             )}
