@@ -596,6 +596,38 @@ function normalizeDoctorStats(
 
 // ── Cloudinary upload via clinic token ───────────────────────────────────────
 
+export interface ExpenseItem {
+  id: string;
+  name: string;
+  unit: string;
+  category: string;
+  currentPrice: number;
+  isActive: boolean;
+}
+
+export interface ExpenseRecord {
+  id: string;
+  itemId: string | null;
+  itemName: string;
+  category: string;
+  unit: string;
+  priceAtTime: number;
+  quantity: string;
+  total: number;
+  note: string | null;
+  date: string;
+  createdAt: string;
+}
+
+export interface ExpenseSummary {
+  period: string;
+  from: string;
+  to: string;
+  total: number;
+  byCategory: { category: string; total: number }[];
+  byItem: { itemName: string; qty: string; total: number }[];
+}
+
 interface SignedUploadParams {
   apiKey: string;
   timestamp: number;
@@ -970,6 +1002,43 @@ export const clinicApi = {
       request<WaitlistEntry>("/clinic/waitlist", { method: "POST", body: JSON.stringify(dto) }),
     remove: (id: string) =>
       request<void>(`/clinic/waitlist/${id}`, { method: "DELETE" }),
+  },
+
+  expenses: {
+    // Catalog
+    listItems: () =>
+      request<ExpenseItem[]>("/clinic/expenses/items"),
+    createItem: (dto: { name: string; unit: string; category: string; currentPrice: number }) =>
+      request<ExpenseItem>("/clinic/expenses/items", { method: "POST", body: JSON.stringify(dto) }),
+    updateItem: (id: string, dto: Partial<{ name: string; unit: string; category: string; currentPrice: number }>) =>
+      request<ExpenseItem>(`/clinic/expenses/items/${id}`, { method: "PATCH", body: JSON.stringify(dto) }),
+    deleteItem: (id: string) =>
+      request<{ ok: boolean }>(`/clinic/expenses/items/${id}`, { method: "DELETE" }),
+    // Ledger
+    listRecords: (params?: { from?: string; to?: string; category?: string; page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.from) q.set("from", params.from);
+      if (params?.to) q.set("to", params.to);
+      if (params?.category) q.set("category", params.category);
+      if (params?.page) q.set("page", String(params.page));
+      if (params?.limit) q.set("limit", String(params.limit));
+      return request<{ data: ExpenseRecord[]; total: number; page: number; limit: number }>(
+        `/clinic/expenses/records?${q}`
+      );
+    },
+    createRecord: (dto: {
+      itemId?: string; itemName?: string; category?: string; unit?: string;
+      priceAtTime?: number; quantity: string; note?: string; date: string;
+    }) =>
+      request<ExpenseRecord>("/clinic/expenses/records", { method: "POST", body: JSON.stringify(dto) }),
+    deleteRecord: (id: string) =>
+      request<{ ok: boolean }>(`/clinic/expenses/records/${id}`, { method: "DELETE" }),
+    // Summary
+    getSummary: (period: "month" | "quarter" | "year", date?: string) => {
+      const q = new URLSearchParams({ period });
+      if (date) q.set("date", date);
+      return request<ExpenseSummary>(`/clinic/expenses/summary?${q}`);
+    },
   },
 
   patients: {
