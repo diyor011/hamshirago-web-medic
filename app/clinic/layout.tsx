@@ -22,6 +22,7 @@ import {
   Award,
   Sparkles,
   History,
+  UserCircle,
 } from "lucide-react";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
@@ -53,6 +54,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clinic/subscription",  labelKey: "clinic.nav.subscription",  icon: CreditCard, roles: ["CEO"] },
   { href: "/clinic/ratings",       labelKey: "clinic.nav.ratings",       icon: Award,      roles: ["CEO"] },
   { href: "/clinic/ai-insights",   labelKey: "clinic.nav.aiInsights",    icon: Sparkles,   roles: ["CEO"] },
+  { href: "/clinic/profile",       labelKey: "clinic.nav.profile",        icon: UserCircle, roles: ["CEO", "RECEPTION", "DOCTOR"] },
 ];
 
 function SidebarContent({

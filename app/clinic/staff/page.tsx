@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Plus, RefreshCw, UserX, UserCheck, Users, Pencil, Check, X, CalendarDays } from "lucide-react";
 import { clinicApi, ClinicStaff, ClinicRole } from "@/lib/clinicApi";
 import { useToast, ToastContainer, ConfirmDialog } from "@/components/clinic/Toast";
+import CloudinaryUpload from "@/components/clinic/CloudinaryUpload";
 import PageHero, { HeroButton } from "@/components/clinic/PageHero";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
@@ -331,7 +332,11 @@ export default function StaffPage() {
             </div>
             <div className="col-span-2">
               <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("clinic.staff.editPhotoUrl")}</label>
-              <input className={inputCls} value={form.photoUrl} onChange={(e) => setForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://res.cloudinary.com/..." />
+              <CloudinaryUpload
+                currentUrl={form.photoUrl || null}
+                onUploaded={(url) => setForm((f) => ({ ...f, photoUrl: url }))}
+                size="sm"
+              />
             </div>
           </div>
           {createError && <p className="text-xs text-red-500">{createError}</p>}
@@ -427,7 +432,11 @@ export default function StaffPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-[11px] font-semibold text-slate-500">{t("clinic.staff.editPhotoUrl")}</label>
-                    <input className={inputCls} value={editForm.photoUrl} onChange={(e) => setEditForm((f) => ({ ...f, photoUrl: e.target.value }))} placeholder="https://..." />
+                    <CloudinaryUpload
+                      currentUrl={editForm.photoUrl || null}
+                      onUploaded={(url) => setEditForm((f) => ({ ...f, photoUrl: url }))}
+                      size="sm"
+                    />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={handleUpdate} disabled={updating} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-teal-600 py-2 text-xs font-bold text-white transition hover:bg-teal-700 disabled:opacity-70">

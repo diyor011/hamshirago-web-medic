@@ -594,6 +594,46 @@ function normalizeDoctorStats(
   });
 }
 
+// ── Cloudinary upload via clinic token ───────────────────────────────────────
+
+interface SignedUploadParams {
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+  cloudName: string;
+  publicId?: string;
+}
+
+export async function uploadClinicPhoto(file: File): Promise<string> {
+  const params = await request<SignedUploadParams>("/uploads/signed-params", {
+    method: "POST",
+    body: JSON.stringify({ folder: "doctor-photos" }),
+  });
+
+  const form = new FormData();
+  form.append("file", file);
+  form.append("api_key", params.apiKey);
+  form.append("timestamp", String(params.timestamp));
+  form.append("signature", params.signature);
+  form.append("folder", params.folder);
+  form.append("quality", "auto");
+  form.append("fetch_format", "auto");
+  if (params.publicId) form.append("public_id", params.publicId);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${params.cloudName}/image/upload`,
+    { method: "POST", body: form }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: { message: "Upload xatosi" } }));
+    throw new Error(err?.error?.message ?? "Cloudinaryga yuklashda xato");
+  }
+  const data = (await res.json()) as { secure_url?: string };
+  if (!data.secure_url) throw new Error("URL qaytarilmadi");
+  return data.secure_url;
+}
+
 export const clinicApi = {
   auth: {
     login: (phone: string, password: string) =>
