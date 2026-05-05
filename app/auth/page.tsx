@@ -241,42 +241,38 @@ export default function AuthPage() {
           )}
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Clinic role selector — mandatory, always visible */}
+            {/* Clinic role selector — mandatory dropdown */}
             {role === "clinic" && (
               <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "#374151", display: "block", marginBottom: 8 }}>
-                  Siz kim sifatida kirasiz? <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {([
-                    { key: "CEO",       emoji: "👔", label: "CEO",      desc: "Direktor" },
-                    { key: "RECEPTION", emoji: "🗂️", label: "Resepshn", desc: "Registratura" },
-                    { key: "DOCTOR",    emoji: "🩺", label: "Shifokor", desc: "Vrach" },
-                  ] as { key: ClinicRole; emoji: string; label: string; desc: string }[]).map(({ key, emoji, label, desc }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setClinicRole(key)}
-                      style={{
-                        flex: 1, padding: "10px 6px", borderRadius: 10, cursor: "pointer",
-                        border: `2px solid ${clinicRole === key ? "#0d9488" : "#e2e8f0"}`,
-                        background: clinicRole === key ? "#f0fdfa" : "#fff",
-                        color: clinicRole === key ? "#0d9488" : "#94a3b8",
-                        textAlign: "center", transition: "all 0.15s",
-                        boxShadow: clinicRole === key ? "0 0 0 3px rgba(13,148,136,0.12)" : "none",
-                      }}
-                    >
-                      <div style={{ fontSize: 18 }}>{emoji}</div>
-                      <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>{label}</div>
-                      <div style={{ fontSize: 10, fontWeight: 500, marginTop: 1, opacity: 0.7 }}>{desc}</div>
-                    </button>
-                  ))}
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={clinicRole}
+                    onChange={(e) => setClinicRole(e.target.value as ClinicRole | "")}
+                    required
+                    style={{
+                      width: "100%", height: 48, borderRadius: 10,
+                      border: `1.5px solid ${clinicRole ? (focused === "clinicRole" ? "#0d9488" : "#e2e8f0") : "#e2e8f0"}`,
+                      padding: "0 40px 0 14px",
+                      fontSize: 14, fontWeight: clinicRole ? 600 : 400,
+                      color: clinicRole ? "#0f172a" : "#94a3b8",
+                      background: clinicRole ? "#f8fafc" : "#f8fafc",
+                      outline: "none", cursor: "pointer",
+                      boxSizing: "border-box", appearance: "none",
+                      boxShadow: focused === "clinicRole" ? "0 0 0 3px rgba(13,148,136,0.12)" : "none",
+                      transition: "all 0.15s",
+                    }}
+                    onFocus={() => setFocused("clinicRole")}
+                    onBlur={() => setFocused(null)}
+                  >
+                    <option value="" disabled>Rolni tanlang...</option>
+                    <option value="CEO">CEO — Руководитель клиники</option>
+                    <option value="RECEPTION">Ресепшн — Регистратура</option>
+                    <option value="DOCTOR">Врач — Сотрудник клиники</option>
+                  </select>
+                  <svg style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#94a3b8" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
                 </div>
-                {!clinicRole && (
-                  <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
-                    Kirishdan avval rolingizni tanlang
-                  </p>
-                )}
               </div>
             )}
 
