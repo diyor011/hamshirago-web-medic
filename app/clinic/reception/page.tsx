@@ -377,6 +377,29 @@ export default function ReceptionPage() {
     }
   }
 
+  async function handleDebtPayment() {
+    if (!paymentTypeModal) return;
+    const id = paymentTypeModal;
+    const amount = Number(paymentAmount) || 0;
+    if (amount <= 0) { toast.error("Qarz summasini kiriting"); return; }
+
+    setPaymentTypeModal(null);
+    setUpdatingStatus(id);
+    optimisticUpdate(id, "DONE");
+    try {
+      await clinicApi.appointments.updateStatus(id, "DONE");
+      await clinicApi.appointments.addDebt(id, { amount, comment: "Keyinroq to'lanadi" });
+      toast.success(`Qarz yozildi: ${amount.toLocaleString()} so'm`);
+      const appt = appointments.find((a) => a.id === id);
+      if (appt) setFollowUpAppt({ ...appt, status: "DONE" });
+    } catch (e) {
+      optimisticUpdate(id, "IN_PROGRESS");
+      toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
+    } finally {
+      setUpdatingStatus(null);
+    }
+  }
+
   const waiting    = appointments.filter((a) => ["SCHEDULED", "CHECKED_IN"].includes(a.status)).length;
   const inProgress = appointments.filter((a) => a.status === "IN_PROGRESS").length;
   const done       = appointments.filter((a) => a.status === "DONE").length;
@@ -801,6 +824,21 @@ export default function ReceptionPage() {
               >
                 ✓ Yakunlash
               </button>
+
+              {/* Debt option */}
+              <button
+                onClick={handleDebtPayment}
+                className="w-full rounded-xl border-2 border-rose-200 bg-rose-50 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-100 flex items-center justify-center gap-2"
+              >
+                <span>📋</span>
+                <span>Qarzga yozish</span>
+                {paymentAmount && Number(paymentAmount) > 0 && (
+                  <span className="text-rose-400 font-normal text-xs">
+                    ({Number(paymentAmount).toLocaleString()} so'm)
+                  </span>
+                )}
+              </button>
+
               <button onClick={() => setPaymentTypeModal(null)} className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-50">
                 {t("clinic.common.cancel")}
               </button>
