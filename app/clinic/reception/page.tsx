@@ -121,6 +121,13 @@ export default function ReceptionPage() {
   const [manageSaving, setManageSaving] = useState(false);
 
   const [paymentTypeModal, setPaymentTypeModal] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentSelectedType, setPaymentSelectedType] = useState("CASH");
+  const [paymentSplit, setPaymentSplit] = useState(false);
+  const [paymentItems, setPaymentItems] = useState<{ type: string; amount: string }[]>([
+    { type: "CASH", amount: "" },
+    { type: "TERMINAL", amount: "" },
+  ]);
   const [debtModal, setDebtModal] = useState<{ id: string; name: string } | null>(null);
   const [debtAmount, setDebtAmount] = useState("");
   const [debtComment, setDebtComment] = useState("");
@@ -290,7 +297,7 @@ export default function ReceptionPage() {
   }
 
   async function handleUpdateStatus(id: string, status: AppointmentStatus) {
-    if (status === "DONE") { setPaymentTypeModal(id); return; }
+    if (status === "DONE") { openPaymentModal(id); return; }
     setUpdatingStatus(id);
     try {
       await clinicApi.appointments.updateStatus(id, status);
@@ -314,11 +321,42 @@ export default function ReceptionPage() {
     }
   }
 
-  async function handleCompleteWithPayment(id: string, paymentType: string) {
+  function openPaymentModal(id: string) {
+    const appt = appointments.find((a) => a.id === id);
+    const hint = appt?.priceMin ?? appt?.finalPrice ?? null;
+    setPaymentAmount(hint ? String(hint) : "");
+    setPaymentSelectedType("CASH");
+    setPaymentSplit(false);
+    setPaymentItems([{ type: "CASH", amount: hint ? String(hint) : "" }, { type: "TERMINAL", amount: "" }]);
+    setPaymentTypeModal(id);
+  }
+
+  async function handleCompleteWithPayment() {
+    if (!paymentTypeModal) return;
+    const id = paymentTypeModal;
+
+    let finalType = "CASH";
+    let finalPrice: number | null = null;
+
+    if (paymentSplit) {
+      const filled = paymentItems.filter((i) => Number(i.amount) > 0);
+      if (filled.length === 0) { toast.error("Kamida bitta summa kiriting"); return; }
+      const total = filled.reduce((s, i) => s + Number(i.amount), 0);
+      finalPrice = total;
+      // dominant = largest amount
+      const dominant = filled.reduce((a, b) => Number(a.amount) >= Number(b.amount) ? a : b);
+      finalType = dominant.type;
+    } else {
+      if (!paymentAmount || !paymentSelectedType) { toast.error("To'lov turini va summani tanlang"); return; }
+      finalType = paymentSelectedType;
+      finalPrice = Number(paymentAmount) > 0 ? Number(paymentAmount) : null;
+    }
+
     setPaymentTypeModal(null);
     setUpdatingStatus(id);
     try {
-      await clinicApi.appointments.setPaymentType(id, paymentType);
+      await clinicApi.appointments.setPaymentType(id, finalType as "CASH" | "TERMINAL" | "ONLINE");
+      if (finalPrice) await clinicApi.appointments.setFinalPrice(id, finalPrice);
       await clinicApi.appointments.updateStatus(id, "DONE");
       await loadApps(doctorIdFilter ?? null);
       const appt = appointments.find((a) => a.id === id);
@@ -651,40 +689,116 @@ export default function ReceptionPage() {
       )}
 
       {/* Payment type modal */}
-      {paymentTypeModal && (
-        <Modal onClose={() => setPaymentTypeModal(null)}>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50">
-                <CheckSquare size={22} className="text-emerald-600" />
+      {paymentTypeModal && (() => {
+        const appt = appointments.find((a) => a.id === paymentTypeModal);
+        const PT = [
+          { type: "CASH",     icon: "💵", label: t("clinic.reception.paymentLabels.CASH") },
+          { type: "TERMINAL", icon: "💳", label: t("clinic.reception.paymentLabels.TERMINAL") },
+          { type: "ONLINE",   icon: "📱", label: t("clinic.reception.paymentLabels.ONLINE") },
+        ];
+        const splitTotal = paymentItems.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+        return (
+          <Modal onClose={() => setPaymentTypeModal(null)}>
+            <div className="flex flex-col gap-4">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                  <CheckSquare size={22} className="text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-extrabold text-slate-950">{t("clinic.reception.completeTitle")}</h3>
+                  {appt && <p className="text-[12px] text-slate-400">{appt.patientName ?? appt.patientPhone}</p>}
+                </div>
               </div>
-              <div>
-                <h3 className="text-[15px] font-extrabold text-slate-950">{t("clinic.reception.completeTitle") || "Qabulni yakunlash"}</h3>
-                <p className="text-[12px] text-slate-400">{t("clinic.reception.selectPayment") || "To'lov turini tanlang"}</p>
-              </div>
+
+              {!paymentSplit ? (
+                <>
+                  {/* Single payment */}
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">To'lov turi</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {PT.map(({ type, icon, label }) => (
+                        <button key={type} type="button"
+                          onClick={() => setPaymentSelectedType(type)}
+                          className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-xs font-bold transition ${
+                            paymentSelectedType === type
+                              ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                              : "border-slate-100 bg-white text-slate-600 hover:border-emerald-200"
+                          }`}
+                        >
+                          <span className="text-xl">{icon}</span>{label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">
+                      Summa (so'm) {appt?.priceMin ? <span className="text-slate-400 font-normal">· xizmat: {appt.priceMin.toLocaleString()}</span> : null}
+                    </label>
+                    <input
+                      type="number" min="0" value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      placeholder="200000"
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Split payment */}
+                  <div className="flex flex-col gap-2">
+                    {paymentItems.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <select
+                          value={item.type}
+                          onChange={(e) => setPaymentItems((prev) => prev.map((p, i) => i === idx ? { ...p, type: e.target.value } : p))}
+                          className="h-10 w-32 shrink-0 rounded-xl border border-slate-200 px-2 text-sm font-semibold outline-none focus:border-emerald-400"
+                        >
+                          {PT.map(({ type, icon, label }) => (
+                            <option key={type} value={type}>{icon} {label}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number" min="0" value={item.amount}
+                          onChange={(e) => setPaymentItems((prev) => prev.map((p, i) => i === idx ? { ...p, amount: e.target.value } : p))}
+                          placeholder="200000"
+                          className="flex-1 h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-400"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {splitTotal > 0 && (
+                    <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2.5">
+                      <span className="text-[12px] text-slate-500">Jami:</span>
+                      <span className="text-[14px] font-extrabold text-emerald-600">{splitTotal.toLocaleString()} so'm</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Split toggle */}
+              <button
+                type="button"
+                onClick={() => setPaymentSplit((v) => !v)}
+                className="text-[12px] font-semibold text-teal-600 hover:underline text-left"
+              >
+                {paymentSplit ? "← Oddiy to'lov" : "＋ Split to'lov (ikki tur)"}
+              </button>
+
+              {/* Submit */}
+              <button
+                onClick={handleCompleteWithPayment}
+                className="w-full rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white transition hover:bg-emerald-600"
+              >
+                ✓ Yakunlash
+              </button>
+              <button onClick={() => setPaymentTypeModal(null)} className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-50">
+                {t("clinic.common.cancel")}
+              </button>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { type: "CASH",   icon: "💵", label: t("clinic.reception.paymentLabels.CASH") || "Naqd" },
-                { type: "CARD",   icon: "💳", label: t("clinic.reception.paymentLabels.CARD") || "Karta" },
-                { type: "ONLINE", icon: "📱", label: t("clinic.reception.paymentLabels.ONLINE") || "Online" },
-              ] as { type: string; icon: string; label: string }[]).map(({ type, icon, label }) => (
-                <button
-                  key={type}
-                  onClick={() => handleCompleteWithPayment(paymentTypeModal, type)}
-                  className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-100 bg-white p-3 text-sm font-bold text-slate-700 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700"
-                >
-                  <span className="text-2xl">{icon}</span>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setPaymentTypeModal(null)} className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-50">
-              {t("clinic.common.cancel") || "Bekor qilish"}
-            </button>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
 
       {/* Page header */}
       <section className="relative overflow-hidden rounded-[32px] border border-slate-900 bg-slate-950 px-5 py-6 text-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] sm:px-6">
@@ -895,7 +1009,6 @@ export default function ReceptionPage() {
                                   onClick={() => openManage(a, "notes")}
                                   className="w-full rounded-md p-1 text-left text-[11px] font-semibold leading-tight"
                                   style={{ background: col.bg, border: `1px solid ${col.bd}`, color: col.fg }}
-                                  title={`${a.time} · ${a.patientName ?? a.patientPhone} · ${t(`clinic.reception.statusLabels.${a.status as AppointmentStatus}`)}`}
                                 >
                                   <div className="font-extrabold">{a.time}</div>
                                   {a.patientName && <div className="truncate">{a.patientName}</div>}
@@ -905,8 +1018,7 @@ export default function ReceptionPage() {
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleCheckin(a.id); }}
                                     disabled={checkingIn === a.id}
-                                    className="absolute top-0.5 right-0.5 hidden group-hover/card:flex h-[18px] w-[18px] items-center justify-center rounded bg-teal-500 text-white transition hover:bg-teal-600"
-                                    title={t("clinic.reception.checkin")}
+                                    className="absolute top-0.5 right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded bg-teal-500 text-white transition hover:bg-teal-600"
                                   >
                                     <CheckSquare size={11} />
                                   </button>
