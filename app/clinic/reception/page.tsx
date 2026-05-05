@@ -278,12 +278,19 @@ export default function ReceptionPage() {
     }
   }
 
+  function optimisticUpdate(id: string, status: AppointmentStatus) {
+    const patch = (a: Appointment) => a.id === id ? { ...a, status } : a;
+    setAppointments((prev) => prev.map(patch));
+    setCalendarAppts((prev) => prev.map(patch));
+  }
+
   async function handleCheckin(id: string) {
     setCheckingIn(id);
+    optimisticUpdate(id, "CHECKED_IN");
     try {
       await clinicApi.appointments.checkin(id);
-      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
+      optimisticUpdate(id, "SCHEDULED");
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
       setCheckingIn(null);
@@ -296,13 +303,15 @@ export default function ReceptionPage() {
     return d.toISOString().slice(0, 10);
   }
 
-  async function handleUpdateStatus(id: string, status: AppointmentStatus) {
+  async function handleUpdateStatus(id: string, status: AppointmentStatus, prevStatus?: AppointmentStatus) {
     if (status === "DONE") { openPaymentModal(id); return; }
     setUpdatingStatus(id);
+    optimisticUpdate(id, status);
     try {
       await clinicApi.appointments.updateStatus(id, status);
-      await loadApps(doctorIdFilter ?? null);
     } catch (e) {
+      if (prevStatus) optimisticUpdate(id, prevStatus);
+      else await loadApps(doctorIdFilter ?? null);
       toast.error(e instanceof Error ? e.message : t("clinic.reception.errorLoad"));
     } finally {
       setUpdatingStatus(null);
@@ -354,11 +363,11 @@ export default function ReceptionPage() {
 
     setPaymentTypeModal(null);
     setUpdatingStatus(id);
+    optimisticUpdate(id, "DONE");
     try {
       await clinicApi.appointments.setPaymentType(id, finalType as "CASH" | "TERMINAL" | "ONLINE");
       if (finalPrice) await clinicApi.appointments.setFinalPrice(id, finalPrice);
       await clinicApi.appointments.updateStatus(id, "DONE");
-      await loadApps(doctorIdFilter ?? null);
       const appt = appointments.find((a) => a.id === id);
       if (appt) setFollowUpAppt({ ...appt, status: "DONE" });
     } catch (e) {
@@ -782,7 +791,7 @@ export default function ReceptionPage() {
                 onClick={() => setPaymentSplit((v) => !v)}
                 className="text-[12px] font-semibold text-teal-600 hover:underline text-left"
               >
-                {paymentSplit ? "← Oddiy to'lov" : "＋ Split to'lov (ikki tur)"}
+                {paymentSplit ? "← Oddiy to'lov" : "＋ Aralash to'lov (ikki tur)"}
               </button>
 
               {/* Submit */}
@@ -1018,9 +1027,30 @@ export default function ReceptionPage() {
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleCheckin(a.id); }}
                                     disabled={checkingIn === a.id}
-                                    className="absolute top-0.5 right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded bg-teal-500 text-white transition hover:bg-teal-600"
+                                    title="Keldi (Check-in)"
+                                    className="absolute top-0.5 right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded bg-teal-500 text-white transition hover:bg-teal-600 disabled:opacity-50"
                                   >
                                     <CheckSquare size={11} />
+                                  </button>
+                                )}
+                                {a.status === "CHECKED_IN" && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleUpdateStatus(a.id, "IN_PROGRESS", "CHECKED_IN"); }}
+                                    disabled={updatingStatus === a.id}
+                                    title="Qabulni boshlash"
+                                    className="absolute top-0.5 right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded bg-blue-500 text-white transition hover:bg-blue-600 disabled:opacity-50"
+                                  >
+                                    <PlayCircle size={11} />
+                                  </button>
+                                )}
+                                {a.status === "IN_PROGRESS" && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); openPaymentModal(a.id); }}
+                                    disabled={updatingStatus === a.id}
+                                    title="Yakunlash va to'lov"
+                                    className="absolute top-0.5 right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded bg-emerald-500 text-white transition hover:bg-emerald-600 disabled:opacity-50"
+                                  >
+                                    <CheckCircle size={11} />
                                   </button>
                                 )}
                               </div>
