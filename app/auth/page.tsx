@@ -8,6 +8,7 @@ import { clinicApi, getClinicRole } from "@/lib/clinicApi";
 import { subscribeWebPush } from "@/lib/webPush";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/context/LanguageContext";
+import "@/i18n";
 
 type Mode = "login" | "register";
 type Role = "medic" | "doctor" | "clinic";
