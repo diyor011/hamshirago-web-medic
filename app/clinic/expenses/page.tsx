@@ -104,9 +104,19 @@ export default function ExpensesPage() {
     finally { setItemsLoading(false); }
   }, [toast]);
 
-  useEffect(() => { loadSummary(); }, [loadSummary]);
-  useEffect(() => { loadRecords(); }, [loadRecords]);
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => {
+    const init = async () => {
+      await loadSummary();
+      await loadRecords();
+      await loadItems();
+    };
+    init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
 
   // When selecting catalog item — autofill form
   function handleSelectItem(id: string) {
