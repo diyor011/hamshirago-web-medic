@@ -50,9 +50,6 @@ async function uploadDirectToCloudinary(file: File, folder: CloudinaryFolder): P
   form.append("timestamp", String(params.timestamp));
   form.append("signature", params.signature);
   form.append("folder", params.folder);
-  // Backend signs these — must be in the upload too or Cloudinary rejects the signature
-  form.append("quality", "auto");
-  form.append("fetch_format", "auto");
   if (params.publicId) form.append("public_id", params.publicId);
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${params.cloudName}/image/upload`, {
