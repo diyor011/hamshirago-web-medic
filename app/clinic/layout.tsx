@@ -240,6 +240,7 @@ export default function ClinicLayout({ children }: { children: React.ReactNode }
       "/clinic/services",
       "/clinic/staff",
       "/clinic/finance",
+      "/clinic/expenses",
       "/clinic/settings",
       "/clinic/subscription",
       "/clinic/ratings",

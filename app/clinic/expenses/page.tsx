@@ -36,6 +36,7 @@ export default function ExpensesPage() {
   const [dateParam, setDateParam] = useState(thisMonth());
   const [summary, setSummary]   = useState<ExpenseSummary | null>(null);
   const [sumLoading, setSumLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   // ── Records state
   const [records, setRecords]   = useState<ExpenseRecord[]>([]);
@@ -70,7 +71,16 @@ export default function ExpensesPage() {
     try {
       const data = await clinicApi.expenses.getSummary(period, dateParam || undefined);
       setSummary(data);
-    } catch { /* ignore */ }
+      setPageError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Xatolik";
+      setSummary(null);
+      if (msg.includes("relation") || msg.includes("does not exist") || msg.includes("500")) {
+        setPageError("⚠️ Migration 029 Railway da apply qilinmagan. Abubakar bajarishi kerak.");
+      } else {
+        setPageError(msg);
+      }
+    }
     finally { setSumLoading(false); }
   }, [period, dateParam]);
 
@@ -81,16 +91,18 @@ export default function ExpensesPage() {
       setRecords(data.data);
       setRecTotal(data.total);
       setRecPage(p);
-    } catch { /* ignore */ }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Yozuvlar yuklanmadi");
+    }
     finally { setRecLoading(false); }
-  }, []);
+  }, [toast]);
 
   const loadItems = useCallback(async () => {
     setItemsLoading(true);
     try { setItems(await clinicApi.expenses.listItems()); }
-    catch { /* ignore */ }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Katalog yuklanmadi"); }
     finally { setItemsLoading(false); }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadSummary(); }, [loadSummary]);
   useEffect(() => { loadRecords(); }, [loadRecords]);
@@ -188,6 +200,13 @@ export default function ExpensesPage() {
         badge={<><TrendingDown size={12} /> Moliya</>}
         accent="teal"
       />
+
+      {/* Error banner */}
+      {pageError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 font-semibold">
+          {pageError}
+        </div>
+      )}
 
       {/* Period selector + Summary */}
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm p-5 space-y-4">
