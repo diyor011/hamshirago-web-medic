@@ -51,9 +51,9 @@ export default function ProfilePage() {
     if (!name.trim()) { toast.error("Ism bo'sh bo'lmasin"); return; }
     setSaving(true);
     try {
+      // photoUrl excluded until DEMO-BE-7 is done (UpdateStaffDto lacks the field)
       const updated = await clinicApi.staff.update(userId, {
         name: name.trim(),
-        ...(photoUrl ? { photoUrl } : {}),
       });
       const raw = localStorage.getItem("clinic_user");
       if (raw) {
