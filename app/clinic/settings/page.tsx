@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import {
   Plus, Pencil, Trash2, RefreshCw, Check, X, Settings,
-  Video, Home, CreditCard, Clock,
+  Clock, ExternalLink,
 } from "lucide-react";
 import { clinicApi, ClinicCompany, ClinicService } from "@/lib/clinicApi";
 import { useClinic } from "@/context/ClinicContext";
@@ -13,7 +14,7 @@ import "@/i18n";
 
 interface DaySchedule { open: boolean; from: string; to: string; }
 interface WorkingHours { [day: number]: DaySchedule; }
-interface ClinicFeatures { onlineConsultation: boolean; houseCall: boolean; onlinePayment: boolean; slotDuration: number; }
+interface ClinicFeatures { slotDuration: number; }
 
 const DAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const DAY_FULL  = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
@@ -30,7 +31,7 @@ const DEFAULT_HOURS: WorkingHours = {
 };
 
 const DEFAULT_FEATURES: ClinicFeatures = {
-  onlineConsultation: false, houseCall: false, onlinePayment: false, slotDuration: 30,
+  slotDuration: 30,
 };
 
 const LS_HOURS_KEY    = "clinic_working_hours";
@@ -135,6 +136,11 @@ export default function SettingsPage() {
       const c = await clinicApi.company.get();
       setCompany(c);
       setCompanyForm({ name: c.name ?? "", address: c.address ?? "", logoUrl: c.logoUrl ?? "" });
+      if (c.workingHours && typeof c.workingHours === "object") {
+        const serverHours = c.workingHours as unknown as WorkingHours;
+        setHours(serverHours);
+        localStorage.setItem(LS_HOURS_KEY, JSON.stringify(serverHours));
+      }
     } catch (e) {
       setErrCompany(e instanceof Error ? e.message : "Ошибка загрузки");
     } finally { setLoadingCompany(false); }
@@ -259,12 +265,6 @@ export default function SettingsPage() {
     catch (e) { toast.error(e instanceof Error ? e.message : "Ошибка"); }
     finally { setDeactivatingSvc(null); }
   }
-
-  const FEATURE_ITEMS = [
-    { key: "onlineConsultation" as const, icon: <Video size={20} className="text-indigo-500" />, iconBg: "bg-indigo-50", label: "Онлайн-консультация", desc: "Видеозвонки через платформу HamshiraGo" },
-    { key: "houseCall" as const,          icon: <Home size={20} className="text-orange-500" />,  iconBg: "bg-orange-50",  label: "Выезд на дом",         desc: "Врачи принимают пациентов на дому" },
-    { key: "onlinePayment" as const,      icon: <CreditCard size={20} className="text-teal-600" />, iconBg: "bg-teal-50",  label: "Онлайн-оплата",       desc: "Принимать оплату через приложение" },
-  ];
 
   return (
     <div className="min-h-full space-y-5">
@@ -404,39 +404,18 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* 3. Feature toggles */}
+      {/* 3. Feature toggles → redirect to subscription */}
       <div className={cardCls}>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[15px] font-bold text-slate-950">Возможности клиники</h2>
-          {featuresSaved && <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><Check size={13} /> Автосохранено</span>}
-        </div>
-
-        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          {FEATURE_ITEMS.map(({ key, icon, iconBg, label, desc }) => {
-            const active = features[key];
-            return (
-              <div
-                key={key}
-                onClick={() => updateFeature(key, !active)}
-                className={[
-                  "flex cursor-pointer items-start gap-3.5 rounded-2xl border-[1.5px] p-4 transition-all duration-200",
-                  active ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-white hover:border-slate-300",
-                ].join(" ")}
-              >
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
-                  {icon}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-950">{label}</span>
-                    <ToggleSwitch checked={active} onChange={(v) => updateFeature(key, v)} id={`feature-${key}`} />
-                  </div>
-                  <p className="text-xs leading-relaxed text-slate-500">{desc}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <h2 className="mb-3 text-[15px] font-bold text-slate-950">Возможности клиники</h2>
+        <p className="mb-4 text-sm text-slate-500">
+          Онлайн-оплата, выезд на дом, онлайн-консультации — управляются через настройки тарифа.
+        </p>
+        <Link
+          href="/clinic/subscription"
+          className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-700"
+        >
+          <ExternalLink size={14} /> Перейти к тарифу
+        </Link>
       </div>
 
       {/* 4. Slot duration */}
