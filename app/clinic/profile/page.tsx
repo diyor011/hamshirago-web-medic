@@ -20,7 +20,6 @@ function getInitials(name: string) {
 export default function ProfilePage() {
   const { toasts, toast, closeToast } = useToast();
 
-  const [userId, setUserId]   = useState<string | null>(null);
   const [name, setName]       = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [phone, setPhone]     = useState("");
@@ -36,7 +35,6 @@ export default function ProfilePage() {
       const raw = localStorage.getItem("clinic_user");
       if (raw) {
         const u = JSON.parse(raw);
-        setUserId(u.id ?? u.staffId ?? null);
         setName(u.name ?? "");
         setOrigName(u.name ?? "");
         setPhotoUrl(u.profilePhotoUrl ?? u.photoUrl ?? "");
@@ -47,13 +45,12 @@ export default function ProfilePage() {
   }, []);
 
   async function handleSave() {
-    if (!userId) { toast.error("Foydalanuvchi ID topilmadi"); return; }
     if (!name.trim()) { toast.error("Ism bo'sh bo'lmasin"); return; }
     setSaving(true);
     try {
-      // photoUrl excluded until DEMO-BE-7 is done (UpdateStaffDto lacks the field)
-      const updated = await clinicApi.staff.update(userId, {
+      const updated = await clinicApi.staff.updateOwnProfile({
         name: name.trim(),
+        ...(photoUrl ? { photoUrl } : {}),
       });
       const raw = localStorage.getItem("clinic_user");
       if (raw) {
@@ -69,12 +66,7 @@ export default function ProfilePage() {
       setChanged(false);
       toast.success("Profil saqlandi ✓");
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Xatolik";
-      if (msg.includes("403") || msg.includes("Forbidden") || msg.includes("INSUFFICIENT")) {
-        toast.error("CEO ruxsat berishi kerak — DEMO-BE-10 task");
-      } else {
-        toast.error(msg);
-      }
+      toast.error(e instanceof Error ? e.message : "Xatolik");
     } finally {
       setSaving(false);
     }

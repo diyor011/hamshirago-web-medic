@@ -118,6 +118,7 @@ export interface ClinicCompany {
   inn?: string | null;
   bankAccount?: string | null;
   bankName?: string | null;
+  workingHours?: Record<string, unknown>;
 }
 
 export interface ClinicStaff {
@@ -706,6 +707,11 @@ export const clinicApi = {
       }),
     update: (id: string, dto: Partial<Omit<ClinicStaff, "id" | "isActive">>) =>
       request<ClinicStaff>(`/clinic/staff/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(dto),
+      }),
+    updateOwnProfile: (dto: { name?: string; photoUrl?: string }) =>
+      request<ClinicStaff>("/clinic/me/profile", {
         method: "PATCH",
         body: JSON.stringify(dto),
       }),

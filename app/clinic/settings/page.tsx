@@ -190,8 +190,7 @@ export default function SettingsPage() {
   async function saveHours() {
     localStorage.setItem(LS_HOURS_KEY, JSON.stringify(hours));
     try {
-      // TODO DEMO-BE-5: backend UpdateCompanyDto lacks workingHours field
-      // await clinicApi.company.update({ workingHours: hours });
+      await clinicApi.company.update({ workingHours: hours as Record<string, unknown> });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка синхронизации расписания");
       return;
