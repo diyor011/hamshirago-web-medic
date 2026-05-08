@@ -111,6 +111,7 @@ function SidebarContent({
               src={clinic.logoUrl}
               alt={clinic.name}
               className="h-11 w-11 shrink-0 rounded-2xl border-2 border-slate-100 object-cover"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
             />
           ) : (
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 shadow-sm">

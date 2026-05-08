@@ -51,12 +51,21 @@ export default function AuthPage() {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    // Check if already logged in — redirect to correct dashboard based on role
+    // Check if already logged in AND token exists — redirect to correct dashboard
     const savedRole = localStorage.getItem("user_role");
-    if (savedRole) {
-      if (savedRole === "doctor") router.replace("/doctor/consultations");
-      else if (savedRole === "clinic") router.replace("/clinic/dashboard");
-      else router.replace("/");
+    const medicToken = localStorage.getItem("medic_token");
+    const clinicToken = localStorage.getItem("clinic_token");
+    const doctorData = localStorage.getItem("doctor");
+    if (savedRole === "doctor" && doctorData) {
+      router.replace("/doctor/consultations");
+      return;
+    }
+    if (savedRole === "clinic" && clinicToken) {
+      router.replace("/clinic/dashboard");
+      return;
+    }
+    if (savedRole === "medic" && medicToken) {
+      router.replace("/");
       return;
     }
     // Mark onboarding as completed since user reached auth page directly
