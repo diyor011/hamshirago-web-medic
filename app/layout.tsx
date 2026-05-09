@@ -6,6 +6,7 @@ import DoctorPushPermissionPrompt from "@/components/DoctorPushPermissionPrompt"
 import OfflineBanner from "@/components/OfflineBanner";
 import InstallPrompt from "@/components/InstallPrompt";
 import { LanguageProvider } from "@/context/LanguageContext";
+import SplashScreen from "@/components/SplashScreen";
 
 const API_HOST = (process.env.NEXT_PUBLIC_API_URL ?? "https://hamshirago-production-0a65.up.railway.app").replace(/\/$/, "");
 
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <LanguageProvider>
+          <SplashScreen />
           <OfflineBanner />
           <InstallPrompt />
           <WebPushInit />

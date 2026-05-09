@@ -101,6 +101,7 @@ export default function DashboardPage() {
   const [inactiveWarning, setInactiveWarning] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const isOnlineRef = useRef(false);
+  const initializedRef = useRef(false);
   const titleBlinkRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const titleBlinkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [invite, setInvite] = useState<DispatchInvitePayload | null>(null);
@@ -138,6 +139,9 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     const token = localStorage.getItem("medic_token");
     if (!token) { router.push("/auth"); return; }
     // Redirect doctors away from the medic dashboard
