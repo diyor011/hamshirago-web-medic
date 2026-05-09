@@ -177,7 +177,7 @@ export default function SplashScreen() {
           fontSize:15, color:"rgba(255,255,255,0.82)",
           fontWeight:500, margin:"0 0 8px", letterSpacing:"0.02em",
         }}>
-          Панель медика
+          Медицинская платформа
         </p>
 
         {/* tezcode badge */}
