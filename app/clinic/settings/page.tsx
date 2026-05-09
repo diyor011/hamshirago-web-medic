@@ -58,7 +58,7 @@ function ToggleSwitch({ checked, onChange, id }: { checked: boolean; onChange: (
       id={id}
       role="switch"
       aria-checked={checked}
-      onClick={() => onChange(!checked)}
+      onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
       className={`relative h-6 w-11 shrink-0 rounded-full border-none p-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 transition-colors duration-200 ${checked ? "bg-teal-500" : "bg-slate-200"}`}
     >
       <span
@@ -361,7 +361,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-slate-100">
-          <div className="grid border-b border-slate-200 bg-slate-50 px-4 py-2.5" style={{ gridTemplateColumns: "140px 56px 1fr 1fr" }}>
+          <div className="grid border-b border-slate-200 bg-slate-50 px-4 py-2.5" style={{ gridTemplateColumns: "140px 64px minmax(100px,1fr) minmax(100px,1fr)" }}>
             {["День", "Откр.", "Начало", "Конец"].map((h) => (
               <span key={h} className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{h}</span>
             ))}
@@ -373,26 +373,28 @@ export default function SettingsPage() {
               <div
                 key={idx}
                 className="grid items-center border-b border-slate-50 px-4 py-3 last:border-0 hover:bg-slate-50/60"
-                style={{ gridTemplateColumns: "140px 56px 1fr 1fr" }}
+                style={{ gridTemplateColumns: "140px 64px minmax(100px,1fr) minmax(100px,1fr)" }}
               >
-                <div>
+                <div className="min-w-0">
                   <span className={`text-sm font-semibold ${day.open ? "text-slate-950" : "text-slate-400"}`}>{DAY_FULL[idx]}</span>
-                  {!day.open && <span className="ml-1.5 text-[11px] font-bold text-red-500">Закрыто</span>}
+                  {!day.open && <span className="ml-1.5 text-[11px] font-bold text-red-500">Закрыт</span>}
                 </div>
-                <ToggleSwitch checked={day.open} onChange={(v) => updateDay(idx, { open: v })} id={`day-${idx}`} />
+                <div className="flex items-center">
+                  <ToggleSwitch checked={day.open} onChange={(v) => updateDay(idx, { open: v })} id={`day-${idx}`} />
+                </div>
                 <input
                   type="time"
                   value={day.from}
                   disabled={!day.open}
                   onChange={(e) => updateDay(idx, { from: e.target.value })}
-                  className="rounded-lg border-[1.5px] border-slate-200 px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="min-w-0 rounded-lg border-[1.5px] border-slate-200 px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
                 />
                 <input
                   type="time"
                   value={day.to}
                   disabled={!day.open}
                   onChange={(e) => updateDay(idx, { to: e.target.value })}
-                  className="rounded-lg border-[1.5px] border-slate-200 px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="min-w-0 rounded-lg border-[1.5px] border-slate-200 px-2.5 py-1.5 text-sm text-slate-900 outline-none focus:border-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
                 />
               </div>
             );

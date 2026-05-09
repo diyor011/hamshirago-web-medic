@@ -245,7 +245,8 @@
       "settings": "Settings",
       "subscription": "Plan",
       "homeOrders": "Home Orders",
-      "logout": "Log out"
+      "logout": "Log out",
+      "support": "Support"
     },
     "common": {
       "loading": "Loading...",

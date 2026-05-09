@@ -24,7 +24,9 @@ import {
   Sparkles,
   History,
   UserCircle,
+  MessageCircle,
 } from "lucide-react";
+import { TELEGRAM_SUPPORT } from "@/lib/telegram-config";
 import { getClinicToken, getClinicRole, clearClinicSession } from "@/lib/clinicApi";
 import type { ClinicRole } from "@/lib/clinicApi";
 import { ClinicProvider, useClinic } from "@/context/ClinicContext";
@@ -191,6 +193,16 @@ function SidebarContent({
             </button>
           ))}
         </div>
+
+        <a
+          href={TELEGRAM_SUPPORT}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-medium text-sky-500 no-underline transition-all duration-150 hover:bg-sky-50 hover:text-sky-700"
+        >
+          <MessageCircle size={16} className="shrink-0" />
+          {t("clinic.nav.support")}
+        </a>
 
         <button
           onClick={onLogout}

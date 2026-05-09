@@ -257,7 +257,8 @@
       "homeOrders": "Заказы на дом",
       "ratings": "Рейтинг",
       "aiInsights": "AI Инсайты",
-      "logout": "Выйти"
+      "logout": "Выйти",
+      "support": "Поддержка"
     },
     "common": {
       "loading": "Загрузка...",
